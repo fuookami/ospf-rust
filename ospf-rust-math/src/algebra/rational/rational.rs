@@ -260,14 +260,14 @@ pub type Rtn16 = Rational<i16>;
 pub type Rtn32 = Rational<i32>;
 pub type Rtn64 = Rational<i64>;
 pub type Rtn128 = Rational<i128>;
-pub type RtnX = Rational<IntX>;
+pub type RtnX = Rational<ix>;
 
 pub type URtn8 = Rational<u8>;
 pub type URtn16 = Rational<u16>;
 pub type URtn32 = Rational<u32>;
 pub type URtn64 = Rational<u64>;
 pub type URtn128 = Rational<u128>;
-pub type URtnX = Rational<UIntX>;
+pub type URtnX = Rational<uix>;
 
 impl PartialOrd for Rtn8 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -327,8 +327,8 @@ impl From<&Rtn64> for f64 {
 
 impl PartialOrd for Rtn128 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let lhs = IntX::from(self.num) * IntX::from(other.den);
-        let rhs = IntX::from(other.num) * IntX::from(self.den);
+        let lhs = ix::from(self.num) * ix::from(other.den);
+        let rhs = ix::from(other.num) * ix::from(self.den);
         Some(lhs.cmp(&rhs))
     }
 }
@@ -347,7 +347,7 @@ impl PartialOrd for RtnX {
     }
 }
 
-impl From<&RtnX> for Decimal {
+impl From<&RtnX> for dec {
     fn from(value: &RtnX) -> Self {
         (value.num.into()) / (value.den.into())
     }
@@ -411,8 +411,8 @@ impl From<&URtn64> for f64 {
 
 impl PartialOrd for URtn128 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let lhs = UIntX::from(self.num) * UIntX::from(other.den);
-        let rhs = UIntX::from(other.num) * UIntX::from(self.den);
+        let lhs = uix::from(self.num) * uix::from(other.den);
+        let rhs = uix::from(other.num) * uix::from(self.den);
         Some(lhs.cmp(&rhs))
     }
 }
@@ -431,7 +431,7 @@ impl PartialOrd for URtnX {
     }
 }
 
-impl From<&URtnX> for Decimal {
+impl From<&URtnX> for dec {
     fn from(value: &URtnX) -> Self {
         (value.num.into()) / (value.den.into())
     }

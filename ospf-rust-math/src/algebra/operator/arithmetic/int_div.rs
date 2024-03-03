@@ -21,7 +21,7 @@ macro_rules! int_int_div_template {
         }
     )*)
 }
-int_int_div_template! { i8 i16 i32 i64 i128 IntX u8 u16 u32 u64 u128 UIntX }
+int_int_div_template! { i8 i16 i32 i64 i128 ix u8 u16 u32 u64 u128 uix }
 
 macro_rules! floating_int_div_template {
     ($($type:ty)*) => ($(
@@ -34,4 +34,4 @@ macro_rules! floating_int_div_template {
         }
     )*)
 }
-floating_int_div_template! { f32 f64 Decimal }
+floating_int_div_template! { f32 f64 dec }

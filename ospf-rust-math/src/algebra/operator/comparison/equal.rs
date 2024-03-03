@@ -12,7 +12,7 @@ impl<T: Arithmetic + Abs<Output = T>> Equal<T> {
     where
         T: Precision,
     {
-        Self::new_with(<Self as Precision>::DECIMAL_PRECISION)
+        Self::new_with(<T as Precision>::DECIMAL_PRECISION)
     }
 
     pub fn new_with(precision: T) -> Self {

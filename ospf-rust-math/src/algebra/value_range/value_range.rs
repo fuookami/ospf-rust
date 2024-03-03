@@ -50,7 +50,7 @@ impl<T: Arithmetic> ValueRange<T> {
 
     fn fixed(&self) -> bool
     where
-        T: Precision,
+        T: Precision + Abs<Output = T>,
     {
         if let (Some(lower_bound), Some(upper_bound)) = (&self.lb, &self.ub) {
             lower_bound.interval == Interval::Closed
@@ -58,7 +58,7 @@ impl<T: Arithmetic> ValueRange<T> {
                 && if let (ValueWrapper::Value(lower_value), ValueWrapper::Value(upper_value)) =
                     (&lower_bound.value, &upper_bound.value)
                 {
-                    let eq_op = Equal::new();
+                    let eq_op = Equal::<T>::new();
                     eq_op(lower_value, upper_value)
                 } else {
                     false

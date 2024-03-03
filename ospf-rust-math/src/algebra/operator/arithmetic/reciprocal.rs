@@ -16,12 +16,12 @@ macro_rules! int_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(&self) -> Self::Output {
-                0
+                Self::ZERO
             }
         }
     )*)
 }
-int_reciprocal_template! { i8 i16 i32 i64 i128 IntX u8 u16 u32 u64 u128 UIntX }
+int_reciprocal_template! { i8 i16 i32 i64 i128 ix u8 u16 u32 u64 u128 uix }
 
 macro_rules! floating_reciprocal_template {
     ($($type:ty)*) => ($(
@@ -36,10 +36,10 @@ macro_rules! floating_reciprocal_template {
 }
 floating_reciprocal_template! { f32 f64 }
 
-impl Reciprocal for Decimal {
+impl Reciprocal for dec {
     type Output = Self;
 
     fn reciprocal(&self) -> Self::Output {
-        Decimal::ONE / self
+        dec::ONE / self
     }
 }

@@ -1,9 +1,10 @@
+use crate::algebra::concept::*;
+use crate::algebra::operator::*;
 use crate::functional::predicate::*;
-use crate::operator::comparison::*;
 
-pub trait IntervalStc: Clone + Copy + PartialEq + Eq {
-    fn to_lb_sign() -> str;
-    fn to_ub_sign() -> str;
+pub trait IntervalType: Clone + Copy + PartialEq + Eq {
+    fn to_lb_sign() -> &'static str;
+    fn to_ub_sign() -> &'static str;
 
     fn lb_op<T>() -> Box<Comparator<T>>;
     fn lb_op_with<T>(precision: T) -> Box<Comparator<T>>;
@@ -11,71 +12,71 @@ pub trait IntervalStc: Clone + Copy + PartialEq + Eq {
     fn ub_op_with<T>(precision: T) -> Box<Comparator<T>>;
 }
 
-pub trait Union<Rhs: IntervalStc>: IntervalStc {
-    type Result: IntervalStc;
+pub trait Union<Rhs: IntervalType>: IntervalType {
+    type Result: IntervalType;
 
-    fn to_lb_sign() -> str {
-        <Result as IntervalStc>::to_lb_sign()
+    fn to_lb_sign() -> &'static str{
+        Self::Result::to_lb_sign()
     }
 
-    fn to_ub_sign() -> str {
-        <Result as IntervalStc>::to_ub_sign()
+    fn to_ub_sign() -> &'static str{
+        Self::Result::to_ub_sign()
     }
 
     fn lb_op<T>() -> Box<Comparator<T>> {
-        <Result as IntervalStc>::lb_op::<T>()
+        Self::Result::lb_op::<T>()
     }
 
     fn lb_op_with<T>(precision: T) -> Box<Comparator<T>> {
-        <Result as IntervalStc>::lb_op_with::<T>(precision)
+        Self::Result::lb_op_with::<T>(precision)
     }
 
     fn ub_op<T>() -> Box<Comparator<T>> {
-        <Result as IntervalStc>::ub_op::<T>()
+        Self::Result::ub_op::<T>()
     }
 
     fn ub_op_with<T>(precision: T) -> Box<Comparator<T>> {
-        <Result as IntervalStc>::ub_op_with::<T>(precision)
+        Self::Result::ub_op_with::<T>(precision)
     }
 }
 
-pub trait Intersect<Rhs: IntervalStc>: IntervalStc {
-    type Result: IntervalStc;
+pub trait Intersect<Rhs: IntervalType>: IntervalType {
+    type Result: IntervalType;
 
-    fn to_lb_sign() -> str {
-        <Result as IntervalStc>::to_lb_sign()
+    fn to_lb_sign() ->&'static str{
+        Self::Result::to_lb_sign()
     }
 
-    fn to_ub_sign() -> str {
-        <Result as IntervalStc>::to_ub_sign()
+    fn to_ub_sign() ->&'static str{
+        Self::Result::to_ub_sign()
     }
 
     fn lb_op<T>() -> Box<Comparator<T>> {
-        <Result as IntervalStc>::lb_op::<T>()
+        Self::Result::lb_op::<T>()
     }
 
     fn lb_op_with<T>(precision: T) -> Box<Comparator<T>> {
-        <Result as IntervalStc>::lb_op_with::<T>(precision)
+        Self::Result::lb_op_with::<T>(precision)
     }
 
     fn ub_op<T>() -> Box<Comparator<T>> {
-        <Result as IntervalStc>::ub_op::<T>()
+        Self::Result::ub_op::<T>()
     }
 
     fn ub_op_with<T>(precision: T) -> Box<Comparator<T>> {
-        <Result as IntervalStc>::ub_op_with::<T>(precision)
+        Self::Result::ub_op_with::<T>(precision)
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Open {}
 
-impl IntervalStc for Open {
-    fn to_lb_sign() -> str {
+impl IntervalType for Open {
+    fn to_lb_sign() -> &'static str {
         "("
     }
 
-    fn to_ub_sign() -> str {
+    fn to_ub_sign() -> &'static str{
         ")"
     }
 
@@ -83,7 +84,7 @@ impl IntervalStc for Open {
         Box::new(Less::new())
     }
 
-    fn lb_op_with<T>(precision: T) -> Box<Comparator<T>> {
+    fn lb_op_with<T: Arithmetic + Abs<Output = T> + Neg<Output = T>>(precision: T) -> Box<Comparator<T>> {
         Box::new(Less::new_with(precision))
     }
 
@@ -104,19 +105,19 @@ impl Union<Closed> for Open {
     type Result = Closed;
 }
 
-impl<T: IntervalStc> Intersect<T> for Open {
+impl<T: IntervalType> Intersect<T> for Open {
     type Result = Open;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Closed {}
 
-impl IntervalStc for Closed {
-    fn to_lb_sign() -> str {
+impl IntervalType for Closed {
+    fn to_lb_sign() ->&'static str {
         "["
     }
 
-    fn to_ub_sign() -> str {
+    fn to_ub_sign() ->&'static str {
         "]"
     }
 
@@ -137,7 +138,7 @@ impl IntervalStc for Closed {
     }
 }
 
-impl<T: IntervalStc> Union<T> for Closed {
+impl<T: IntervalType> Union<T> for Closed {
     type Result = Closed;
 }
 
@@ -156,14 +157,14 @@ pub enum Interval {
 }
 
 impl Interval {
-    pub fn to_lb_sign(&self) -> str {
+    pub fn to_lb_sign(&self) -> &str {
         match self {
             Self::Open => Open::to_lb_sign(),
             Self::Closed => Closed::to_lb_sign(),
         }
     }
 
-    pub fn to_ub_sign(&self) -> str {
+    pub fn to_ub_sign(&self) -> &str {
         match self {
             Self::Open => Open::to_ub_sign(),
             Self::Closed => Closed::to_ub_sign(),

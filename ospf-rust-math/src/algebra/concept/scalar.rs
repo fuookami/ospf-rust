@@ -1,7 +1,8 @@
-use super::*;
-use crate::algebra::operator::{Abs, Cross, Exp, IntDiv, Log, Pow, PowF, RangeTo, Reciprocal};
-use crate::algebra::{IntX, UIntX};
-use std::ops::{Div, Mul, Neg, Rem};
+use std::cmp::Ordering;
+use num::FromPrimitive;
+
+use crate::algebra::*;
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem};
 
 pub trait Scalar: Arithmetic + PlusSemiGroup + TimesSemiGroup + Bounded + Cross + Abs {}
 
@@ -15,15 +16,15 @@ pub trait RealNumber: Scalar + Precision + Invariant {
     const NEG_INF: Option<Self> = None;
 
     fn is_nan(&self) -> bool {
-        Self::NAN.is_some_and(|nan_value| self == nan_value)
+        Self::NAN.is_some_and(|nan_value| *self == nan_value)
     }
 
     fn is_inf(&self) -> bool {
-        Self::INF.is_some_and(|inf_value| self == inf_value)
+        Self::INF.is_some_and(|inf_value| *self == inf_value)
     }
 
     fn is_neg_inf(&self) -> bool {
-        Self::NEG_INF.is_some_and(|inf_value| self == inf_value)
+        Self::NEG_INF.is_some_and(|inf_value| *self == inf_value)
     }
 }
 
@@ -102,21 +103,69 @@ macro_rules! int_real_number_template {
 }
 int_real_number_template! { i8 i16 i32 i64 i128 }
 
-// impl Arithmetic for IntX {
-//     const ZERO: Self = IntX::from(0);
-//     const ONE: Self = IntX::from(1);
-// }
+impl Arithmetic for ix {
+    const ZERO: Self = ix::from(0);
+    const ONE: Self = ix::from(1);
+}
 
-// impl Scalar for IntX {}
+impl Scalar for ix {}
 
-// impl RealNumber for IntX {
-//     const TWO: Self = IntX::from(2);
-//     const THREE: Self = IntX::from(3);
-//     const TEN: Self = IntX::from(10);
-// }
+impl PartialEq for ix {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
 
-// impl Integer for IntX {}
-// impl IntegerNumber for IntX {}
+impl PartialOrd for ix {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        todo!()
+    }
+}
+
+impl Add<Output=Self> for ix {
+    type Output = ();
+
+    fn add(self, rhs: Self) -> Self::Output {
+        todo!()
+    }
+}
+
+impl AddAssign for ix {
+    fn add_assign(&mut self, rhs: Self) {
+        todo!()
+    }
+}
+
+impl Mul<Output=Self> for ix {
+    type Output = ();
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        todo!()
+    }
+}
+
+impl MulAssign for ix {
+    fn mul_assign(&mut self, rhs: Self) {
+        todo!()
+    }
+}
+
+impl Cross for ix {
+    type Output = ();
+
+    fn cross(self, rhs: Self) -> Self::Output {
+        todo!()
+    }
+}
+
+impl RealNumber for ix {
+    const TWO: Self = ix::from(2);
+    const THREE: Self = ix::from(3);
+    const TEN: Self = ix::from(10);
+}
+
+impl Integer for ix {}
+impl IntegerNumber for ix {}
 
 macro_rules! uint_real_number_template {
     ($($type:ty)*) => ($(
@@ -139,21 +188,21 @@ macro_rules! uint_real_number_template {
 }
 uint_real_number_template! { u8 u16 u32 u64 u128 }
 
-// impl Arithmetic for UIntX {
-//     const ZERO: Self = UIntX::from(0);
-//     const ONE: Self = UIntX::from(1);
-// }
+impl Arithmetic for uix {
+    const ZERO: Self = uix::from(0);
+    const ONE: Self = uix::from(1);
+}
 
-// impl Scalar for UIntX {}
+impl Scalar for uix {}
 
-// impl RealNumber for UIntX {
-//     const TWO: Self = IntX::from(2);
-//     const THREE: Self = IntX::from(3);
-//     const TEN: Self = IntX::from(10);
-// }
+impl RealNumber for uix {
+    const TWO: Self = ix::from(2);
+    const THREE: Self = ix::from(3);
+    const TEN: Self = ix::from(10);
+}
 
-// impl Integer for UIntX {}
-// impl IntegerNumber for UIntX {}
+impl Integer for uix {}
+impl IntegerNumber for uix {}
 
 macro_rules! floating_real_number_template {
     ($($type:ty)*) => ($(
@@ -227,44 +276,44 @@ impl FloatingNumber for f64 {
     }
 }
 
-// impl Arithmetic for Decimal {
-//     const ZERO: Self = Decimal::ZERO;
-//     const ONE: Self = Decimal::ONE;
-// }
+impl Arithmetic for dec {
+    const ZERO: Self = dec::ZERO;
+    const ONE: Self = dec::ONE;
+}
 
-// impl Scalar for Decimal {}
+impl Scalar for dec {}
 
-// impl RealNumber for Decimal {
-//     const TWO: Self = Decimal::TWO;
-//     const THREE: Self = Decimal::from_i128(3).unwrap();
-//     const TEN: Self = Decimal::TEN;
+impl RealNumber for dec {
+    const TWO: Self = dec::TWO;
+    const THREE: Self = dec::from_u128(3).unwrap();
+    const TEN: Self = dec::TEN;
 
-//     const NAN: Option<Self> = None;
-//     const INF: Option<Self> = None;
-//     const NEG_INF: Option<Self> = None;
-// }
+    const NAN: Option<Self> = None;
+    const INF: Option<Self> = None;
+    const NEG_INF: Option<Self> = None;
+}
 
-// impl FloatingNumber for Decimal {
-//     const PI: Self = Decimal::PI;
-//     const E: Self = Decimal::E;
+impl FloatingNumber for dec {
+    const PI: Self = dec::PI;
+    const E: Self = dec::E;
 
-//     fn floor(&self) -> Self {
-//         self.floor()
-//     }
+    fn floor(&self) -> Self {
+        self.floor()
+    }
 
-//     fn ceil(&self) -> Self {
-//         self.ceil()
-//     }
+    fn ceil(&self) -> Self {
+        self.ceil()
+    }
 
-//     fn round(&self) -> Self {
-//         self.round()
-//     }
+    fn round(&self) -> Self {
+        self.round()
+    }
 
-//     fn trunc(&self) -> Self {
-//         self.trunc()
-//     }
+    fn trunc(&self) -> Self {
+        self.trunc()
+    }
 
-//     fn fract(&self) -> Self {
-//         self.fract()
-//     }
-// }
+    fn fract(&self) -> Self {
+        self.fract()
+    }
+}

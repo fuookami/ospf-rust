@@ -16,7 +16,7 @@ macro_rules! int_abs_template {
             type Output = $type;
 
             fn abs(&self) -> Self::Output {
-                if *self < 0 { -self } else { self.clone }
+                if *self < 0 { -self } else { self.clone() }
             }
         }
     )*)
@@ -29,7 +29,7 @@ macro_rules! uint_abs_template {
             type Output = $type;
 
             fn abs(&self) -> Self::Output {
-                self.clone
+                self.clone()
             }
         }
     )*)
@@ -49,11 +49,11 @@ macro_rules! floating_abs_template {
 }
 floating_abs_template! { f32 f64 }
 
-impl Abs for IntX {
+impl Abs for ix {
     type Output = Self;
 
     fn abs(&self) -> Self::Output {
-        if self < &IntX::from(0) {
+        if self < &ix::from(0) {
             -self
         } else {
             self.clone()
@@ -61,15 +61,15 @@ impl Abs for IntX {
     }
 }
 
-impl Abs for UIntX {
+impl Abs for uix {
     type Output = Self;
 
     fn abs(&self) -> Self::Output {
-        self.clone
+        self.clone()
     }
 }
 
-impl Abs for Decimal {
+impl Abs for dec {
     type Output = Self;
 
     fn abs(&self) -> Self::Output {

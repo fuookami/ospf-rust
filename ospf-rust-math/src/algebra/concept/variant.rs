@@ -1,4 +1,3 @@
-use super::*;
 use crate::algebra::*;
 
 pub trait Variant: Arithmetic {
@@ -32,4 +31,4 @@ macro_rules! invariant_template {
         }
     )*)
 }
-invariant_template! { i8 i16 i32 i64 i128 IntX u8 u16 u32 u64 u128 UIntX f32 f64 Decimal }
+invariant_template! { i8 i16 i32 i64 i128 ix u8 u16 u32 u64 u128 uix f32 f64 dec }

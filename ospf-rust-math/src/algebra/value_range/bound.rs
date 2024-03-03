@@ -7,13 +7,13 @@ pub enum BoundSide {
     Upper
 }
 
-pub struct BoundStc<T: Arithmetic, I: IntervalStc = Closed> {
+pub struct BoundStc<T: Arithmetic, I: IntervalType = Closed> {
     value: ValueWrapper<T>,
     side: BoundSide,
     _marker: std::marker::PhantomData<I>,
 }
 
-impl<T: Arithmetic, I: IntervalStc> Clone for BoundStc<T, I>
+impl<T: Arithmetic, I: IntervalType> Clone for BoundStc<T, I>
 where
     ValueWrapper<T>: Clone,
 {
@@ -26,9 +26,9 @@ where
     }
 }
 
-impl<T: Arithmetic, I: IntervalStc> Copy for BoundStc<T, I> where ValueWrapper<T>: Copy {}
+impl<T: Arithmetic, I: IntervalType> Copy for BoundStc<T, I> where ValueWrapper<T>: Copy {}
 
-impl<T: Arithmetic, I: IntervalStc> std::fmt::Display for BoundStc<T, I> where ValueWrapper<T>: std::fmt::Display {
+impl<T: Arithmetic, I: IntervalType> std::fmt::Display for BoundStc<T, I> where ValueWrapper<T>: std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.side {
             Lower => write!(f, "{}{}", I::to_lb_sign(), self.value),
@@ -37,7 +37,7 @@ impl<T: Arithmetic, I: IntervalStc> std::fmt::Display for BoundStc<T, I> where V
     }
 }
 
-impl<T: Arithmetic, I: IntervalStc> std::fmt::Debug for BoundStc<T, I> where ValueWrapper<T>: std::fmt::Display {
+impl<T: Arithmetic, I: IntervalType> std::fmt::Debug for BoundStc<T, I> where ValueWrapper<T>: std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.side {
             Lower => write!(f, "{}{}", I::to_lb_sign(), self.value),

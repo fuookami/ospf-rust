@@ -1,5 +1,5 @@
 use concat_idents::concat_idents;
-use ospf_rust_meta_programming::*;
+use ospf_rust_base::*;
 
 pub trait FundamentalDimension {}
 

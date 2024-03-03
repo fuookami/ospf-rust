@@ -1,7 +1,7 @@
 use super::*;
 use crate::algebra::*;
 
-pub struct ValueRangeStc<T: Arithmetic, LI: IntervalStc = Closed, UI: IntervalStc = Closed> {
+pub struct ValueRangeStc<T: Arithmetic, LI: IntervalType = Closed, UI: IntervalType = Closed> {
     lb: Option<BoundStc<T, LI>>,
     ub: Option<BoundStc<T, UI>>,
 }

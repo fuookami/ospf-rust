@@ -1,6 +1,6 @@
 [package]
 name = "ospf-rust-math"
-version = "0.1.1"
+version = "0.1.0"
 authors = ["fuookami <fuookami@163.com>"]
 edition = "2021"
 description = "A math utils for ospf-rust."

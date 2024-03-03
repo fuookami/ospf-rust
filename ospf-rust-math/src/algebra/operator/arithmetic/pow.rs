@@ -66,6 +66,70 @@ macro_rules! int_pow_template {
 }
 int_pow_template! { u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 }
 
+impl Pow for ix {
+    type Output = Self;
+
+    fn pow(self, index: i64) -> Self::Output {
+        ordinary::pow_times_semi_group(self, index).unwrap()
+    }
+}
+
+impl PowF<f64> for ix {
+    type Output = dec;
+
+    fn powf(self, index: f64) -> Option<Self::Output> {
+        dec::from_ix(self).powf(index)
+    }
+
+    fn sqr(self) -> Option<Self::Output> {
+        dec::from_ix(self).sqr()
+    }
+
+    fn cbr(self) -> Option<Self::Output> {
+        dec::from_ix(self).cbr()
+    }
+}
+
+impl Exp for ix {
+    type Output = dec;
+
+    fn exp(self) -> Self::Output {
+        dec::from(self).exp()
+    }
+}
+
+impl Pow for uix {
+    type Output = Self;
+
+    fn pow(self, index: i64) -> Self::Output {
+        ordinary::pow_times_semi_group(self, index).unwrap()
+    }
+}
+
+impl PowF<f64> for uix {
+    type Output = dec;
+
+    fn powf(self, index: f64) -> Option<Self::Output> {
+        dec::from(self).powf(index)
+    }
+
+    fn sqr(self) -> Option<Self::Output> {
+        dec::from(self).sqr()
+    }
+
+    fn cbr(self) -> Option<Self::Output> {
+        dec::from(self).cbr()
+    }
+}
+
+impl Exp for uix {
+    type Output = dec;
+
+    fn exp(self) -> Self::Output {
+        dec::from(self).exp()
+    }
+}
+
 macro_rules! floating_pow_template {
     ($($type:ty)*) => ($(
         impl Pow for $type {
@@ -103,7 +167,7 @@ macro_rules! floating_pow_template {
 }
 floating_pow_template! { f32 f64 }
 
-impl Pow for Decimal {
+impl Pow for dec {
     type Output = Self;
 
     fn pow(self, index: i64) -> Self::Output {
@@ -111,7 +175,7 @@ impl Pow for Decimal {
     }
 }
 
-impl PowF for Decimal {
+impl PowF for dec {
     type Output = Self;
 
     fn powf(self, index: Self) -> Option<Self::Output> {
@@ -123,11 +187,11 @@ impl PowF for Decimal {
     }
 
     fn cbr(self) -> Option<Self::Output> {
-        self.powf(Self::ONE / Self::from_i128(3).unwrap())
+        self.powf(Self::ONE / Self::THREE)
     }
 }
 
-impl Exp for Decimal {
+impl Exp for dec {
     type Output = Self;
 
     fn exp(self) -> Self::Output {

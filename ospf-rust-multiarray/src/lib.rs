@@ -1,6 +1,6 @@
 #![feature(generic_const_exprs)]
 #![feature(associated_type_defaults)]
-#![feature(generators, generator_trait)]
+#![feature(coroutines, coroutine_trait)]
 #[macro_use]
 pub mod dummy_vector;
 #[macro_use]

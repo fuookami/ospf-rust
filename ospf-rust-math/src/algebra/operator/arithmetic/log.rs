@@ -2,7 +2,7 @@ use bigdecimal::num_bigint::ToBigInt;
 
 use crate::algebra::*;
 
-pub trait Log<Base: FloatingNumber = Self> {
+pub trait Log<Base: FloatingNumber = Self> : Sized {
     type Output;
 
     fn log(self, base: Base) -> Option<Self::Output>;
@@ -61,19 +61,19 @@ macro_rules! int_log_template {
 }
 int_log_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
 
-impl Log<Decimal> for IntX {
-    type Output = Decimal;
+impl Log<dec> for ix {
+    type Output = dec;
 
-    fn log(self, base: Self) -> Option<Self::Output> {
-        Decimal::new(self, 1).log(Decimal::new(base, 1))
+    fn log(self, base: dec) -> Option<Self::Output> {
+        dec::new(self, 1).log(base)
     }
 }
 
-impl Log<Decimal> for UIntX {
-    type Output = Decimal;
+impl Log<dec> for uix {
+    type Output = dec;
 
     fn log(self, base: Self) -> Option<Self::Output> {
-        Decimal::new(self.to_bigint(), 1).log(Decimal::new(base.to_bigint(), 1))
+        dec::new(self.to_bigint(), 1).log(dec::new(base.to_bigint(), 1))
     }
 }
 
@@ -90,7 +90,7 @@ macro_rules! floating_log_template {
 }
 floating_log_template! { f32 f64 }
 
-impl Log for Decimal {
+impl Log for dec {
     type Output = Self;
 
     fn log(self, base: Self) -> Option<Self::Output> {

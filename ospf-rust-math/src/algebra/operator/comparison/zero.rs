@@ -10,7 +10,7 @@ impl<T: Arithmetic + Abs<Output = T>> Zero<T> {
     where
         T: Precision,
     {
-        Self::new_with(<Self as Precision>::DECIMAL_PRECISION)
+        Self::new_with(<T as Precision>::DECIMAL_PRECISION)
     }
 
     pub fn new_with(precision: T) -> Self {
@@ -24,10 +24,10 @@ impl<T: Arithmetic + Abs<Output = T>> Zero<T> {
     }
 }
 
-impl<T: Arithmetic + Abs<Output = T>> FnOnce<T> for Zero<T> {
+impl<T: Arithmetic + Abs<Output = T>> FnOnce<(T)> for Zero<T> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: T) -> Self::Output {
+    extern "rust-call" fn call_once(self, args: (T)) -> Self::Output {
         return args.abs() <= self.precision;
     }
 }
