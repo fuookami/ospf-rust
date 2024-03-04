@@ -1,17 +1,18 @@
-use crate::algebra::{Arithmetic, Precision};
-use crate::operator::{Abs, Neg};
 use std::ops::Sub;
 
-pub struct LessEqual<T: Arithmetic + Abs<Output = T> + Neg<Output = T>> {
+use crate::algebra::{Arithmetic, Precision};
+use crate::operator::{Abs, Neg};
+
+pub struct LessEqual<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> {
     pub(self) precision: T,
 }
 
-impl<T: Arithmetic + Abs<Output = T> + Neg<Output = T>> LessEqual<T> {
+impl<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> LessEqual<T> {
     pub fn new() -> Self
-    where
-        T: Precision,
+        where
+            T: Precision,
     {
-        Self::new_with(<Self as Precision>::DECIMAL_PRECISION)
+        Self::new_with(<T as Precision>::DECIMAL_PRECISION)
     }
 
     pub fn new_with(precision: T) -> Self {
@@ -25,8 +26,8 @@ impl<T: Arithmetic + Abs<Output = T> + Neg<Output = T>> LessEqual<T> {
     }
 }
 
-impl<T: Arithmetic + Sub<Output = T> + Abs<Output = T> + Neg<Output = T>> FnOnce<(T, T)>
-    for LessEqual<T>
+impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnOnce<(T, T)>
+for LessEqual<T>
 {
     type Output = bool;
 
@@ -35,25 +36,25 @@ impl<T: Arithmetic + Sub<Output = T> + Abs<Output = T> + Neg<Output = T>> FnOnce
     }
 }
 
-impl<T: Arithmetic + Sub<Output = T> + Abs<Output = T> + Neg<Output = T>> FnMut<(T, T)>
-    for LessEqual<T>
+impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnMut<(T, T)>
+for LessEqual<T>
 {
     extern "rust-call" fn call_mut(&mut self, args: (T, T)) -> Self::Output {
         return self.call_once(args);
     }
 }
 
-impl<T: Arithmetic + Sub<Output = T> + Abs<Output = T> + Neg<Output = T>> Fn<(T, T)>
-    for LessEqual<T>
+impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> Fn<(T, T)>
+for LessEqual<T>
 {
     extern "rust-call" fn call(&mut self, args: (T, T)) -> Self::Output {
         return self.call_once(args);
     }
 }
 
-impl<'a, T: Arithmetic + Abs<Output = T> + Neg<Output = T>> FnOnce<(&'a T, &'a T)> for LessEqual<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> FnOnce<(&'a T, &'a T)> for LessEqual<T>
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = bool;
 
@@ -62,18 +63,18 @@ where
     }
 }
 
-impl<'a, T: Arithmetic + Abs<Output = T> + Neg<Output = T>> FnMut<(&'a T, &'a T)> for LessEqual<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> FnMut<(&'a T, &'a T)> for LessEqual<T>
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     extern "rust-call" fn call_mut(&mut self, args: (&'a T, &'a T)) -> Self::Output {
         return self.call_once(args);
     }
 }
 
-impl<'a, T: Arithmetic + Abs<Output = T> + Neg<Output = T>> Fn<(&'a T, &'a T)> for LessEqual<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> Fn<(&'a T, &'a T)> for LessEqual<T>
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     extern "rust-call" fn call(&mut self, args: (&'a T, &'a T)) -> Self::Output {
         return self.call_once(args);

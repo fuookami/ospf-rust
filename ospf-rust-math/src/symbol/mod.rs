@@ -1,3 +1,4 @@
+pub use symbol::*;
+
 pub mod symbol;
 
-pub use symbol::*;

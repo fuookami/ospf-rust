@@ -1,2 +1,2 @@
-pub type Predicate<T> = dyn Fn(T) -> bool;
-pub type Comparator<T> = dyn Fn(&T, &T) -> bool;
+pub type Predicate<T> = impl Fn(T) -> bool;
+pub type Comparator<T> = impl Fn(&T, &T) -> bool;

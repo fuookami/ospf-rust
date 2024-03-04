@@ -1,10 +1,12 @@
-use super::range::VariableRange;
-use super::variable_type::VariableType;
-use crate::data_structure::MultiArray;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::*;
 use std::rc::*;
+
+use crate::data_structure::MultiArray;
+
+use super::range::VariableRange;
+use super::variable_type::VariableType;
 
 fn new_identifier() -> u64 {
     static mut NEXT: u64 = 0;

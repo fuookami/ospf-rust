@@ -1,7 +1,6 @@
 extern crate libc;
 
 use sfa_opf_rust_minimum::solvers::scip::*;
-use std::env;
 
 struct Company {
     index: usize,

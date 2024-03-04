@@ -1,8 +1,6 @@
-use std::cmp::Ordering;
-use num::FromPrimitive;
+use std::ops::{Div, Mul, Neg, Rem};
 
 use crate::algebra::*;
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem};
 
 pub trait Scalar: Arithmetic + PlusSemiGroup + TimesSemiGroup + Bounded + Cross + Abs {}
 
@@ -29,11 +27,13 @@ pub trait RealNumber: Scalar + Precision + Invariant {
 }
 
 pub trait Integer: RealNumber + RangeTo + Log<f64> + PowF<f64> + Exp + Ord + Eq {}
+
 pub trait IntegerNumber: Integer + Signed + NumberField + Pow {}
+
 pub trait UIntegerNumber: Integer + Unsigned + NumberField + Pow {}
 
 pub trait RationalNumber<I: Integer + NumberField>:
-    RealNumber + NumberField + Log<f64> + PowF<f64> + Exp + Pow + Ord + Eq
+RealNumber + NumberField + Log<f64> + PowF<f64> + Exp + Pow + Ord + Eq
 {
     fn num(&self) -> &I;
     fn den(&self) -> &I;
@@ -51,36 +51,34 @@ pub trait FloatingNumber: RealNumber + Signed + NumberField + Log + PowF + Exp +
 }
 
 pub trait NumericIntegerNumber<I: IntegerNumber>:
-    Integer
-    + Signed
-    + PlusGroup
-    + TimesSemiGroup
-    + Reciprocal
-    + Div
-    + IntDiv<Output = Self>
-    + Rem<Output = Self>
-    + Pow
-    + Ord
-    + Eq
-{
-}
+Integer
++ Signed
++ PlusGroup
++ TimesSemiGroup
++ Reciprocal
++ Div
++ IntDiv<Output=Self>
++ Rem<Output=Self>
++ Pow
++ Ord
++ Eq
+{}
 
 pub trait NumericUIntegerNumber<I: UIntegerNumber>:
-    Integer
-    + Unsigned
-    + PlusSemiGroup
-    + TimesSemiGroup
-    + Neg
-    + Mul
-    + Reciprocal
-    + Div
-    + IntDiv<Output = Self>
-    + Rem<Output = Self>
-    + Pow
-    + Ord
-    + Eq
-{
-}
+Integer
++ Unsigned
++ PlusSemiGroup
++ TimesSemiGroup
++ Neg
++ Mul
++ Reciprocal
++ Div
++ IntDiv<Output=Self>
++ Rem<Output=Self>
++ Pow
++ Ord
++ Eq
+{}
 
 macro_rules! int_real_number_template {
     ($($type:ty)*) => ($(
@@ -103,70 +101,6 @@ macro_rules! int_real_number_template {
 }
 int_real_number_template! { i8 i16 i32 i64 i128 }
 
-impl Arithmetic for ix {
-    const ZERO: Self = ix::from(0);
-    const ONE: Self = ix::from(1);
-}
-
-impl Scalar for ix {}
-
-impl PartialEq for ix {
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
-    }
-}
-
-impl PartialOrd for ix {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        todo!()
-    }
-}
-
-impl Add<Output=Self> for ix {
-    type Output = ();
-
-    fn add(self, rhs: Self) -> Self::Output {
-        todo!()
-    }
-}
-
-impl AddAssign for ix {
-    fn add_assign(&mut self, rhs: Self) {
-        todo!()
-    }
-}
-
-impl Mul<Output=Self> for ix {
-    type Output = ();
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        todo!()
-    }
-}
-
-impl MulAssign for ix {
-    fn mul_assign(&mut self, rhs: Self) {
-        todo!()
-    }
-}
-
-impl Cross for ix {
-    type Output = ();
-
-    fn cross(self, rhs: Self) -> Self::Output {
-        todo!()
-    }
-}
-
-impl RealNumber for ix {
-    const TWO: Self = ix::from(2);
-    const THREE: Self = ix::from(3);
-    const TEN: Self = ix::from(10);
-}
-
-impl Integer for ix {}
-impl IntegerNumber for ix {}
-
 macro_rules! uint_real_number_template {
     ($($type:ty)*) => ($(
         impl Arithmetic for $type {
@@ -187,22 +121,6 @@ macro_rules! uint_real_number_template {
     )*)
 }
 uint_real_number_template! { u8 u16 u32 u64 u128 }
-
-impl Arithmetic for uix {
-    const ZERO: Self = uix::from(0);
-    const ONE: Self = uix::from(1);
-}
-
-impl Scalar for uix {}
-
-impl RealNumber for uix {
-    const TWO: Self = ix::from(2);
-    const THREE: Self = ix::from(3);
-    const TEN: Self = ix::from(10);
-}
-
-impl Integer for uix {}
-impl IntegerNumber for uix {}
 
 macro_rules! floating_real_number_template {
     ($($type:ty)*) => ($(
@@ -273,47 +191,5 @@ impl FloatingNumber for f64 {
 
     fn fract(&self) -> Self {
         (*self).fract()
-    }
-}
-
-impl Arithmetic for dec {
-    const ZERO: Self = dec::ZERO;
-    const ONE: Self = dec::ONE;
-}
-
-impl Scalar for dec {}
-
-impl RealNumber for dec {
-    const TWO: Self = dec::TWO;
-    const THREE: Self = dec::from_u128(3).unwrap();
-    const TEN: Self = dec::TEN;
-
-    const NAN: Option<Self> = None;
-    const INF: Option<Self> = None;
-    const NEG_INF: Option<Self> = None;
-}
-
-impl FloatingNumber for dec {
-    const PI: Self = dec::PI;
-    const E: Self = dec::E;
-
-    fn floor(&self) -> Self {
-        self.floor()
-    }
-
-    fn ceil(&self) -> Self {
-        self.ceil()
-    }
-
-    fn round(&self) -> Self {
-        self.round()
-    }
-
-    fn trunc(&self) -> Self {
-        self.trunc()
-    }
-
-    fn fract(&self) -> Self {
-        self.fract()
     }
 }

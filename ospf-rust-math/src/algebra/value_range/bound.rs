@@ -1,10 +1,11 @@
-use super::*;
 use crate::algebra::concept::*;
+
+use super::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum BoundSide {
     Lower,
-    Upper
+    Upper,
 }
 
 pub struct BoundStc<T: Arithmetic, I: IntervalType = Closed> {
@@ -14,14 +15,14 @@ pub struct BoundStc<T: Arithmetic, I: IntervalType = Closed> {
 }
 
 impl<T: Arithmetic, I: IntervalType> Clone for BoundStc<T, I>
-where
-    ValueWrapper<T>: Clone,
+    where
+        ValueWrapper<T>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             value: self.value.clone(),
             side: self.side,
-            _marker: std::marker::PhantomData::<I> {}
+            _marker: std::marker::PhantomData::<I> {},
         }
     }
 }
@@ -49,18 +50,18 @@ impl<T: Arithmetic, I: IntervalType> std::fmt::Debug for BoundStc<T, I> where Va
 pub struct Bound<T: Arithmetic> {
     pub value: ValueWrapper<T>,
     pub interval: Interval,
-    pub side: BoundSide
+    pub side: BoundSide,
 }
 
 impl<T: Arithmetic> Clone for Bound<T>
-where
-    ValueWrapper<T>: Clone,
+    where
+        ValueWrapper<T>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             value: self.value.clone(),
             interval: self.interval,
-            side: self.side
+            side: self.side,
         }
     }
 }

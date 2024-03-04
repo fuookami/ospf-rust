@@ -92,11 +92,13 @@ trait ExError<T: Sized>: Error {
 }
 
 trait LogicError: Error {}
+
 trait RuntimeError: Error {
     fn code(&self) -> ErrorCode;
 }
 
 trait ExLogicError<T: Sized>: LogicError + ExError<T> {}
+
 trait ExRuntimeError<T: Sized>: RuntimeError + ExError<T> {}
 
 macro_rules! logic_error_template {

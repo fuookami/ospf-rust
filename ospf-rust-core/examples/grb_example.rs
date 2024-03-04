@@ -1,7 +1,8 @@
 extern crate libc;
 
-use sfa_opf_rust_minimum::solvers::gurobi::*;
 use std::env;
+
+use sfa_opf_rust_minimum::solvers::gurobi::*;
 
 struct Company {
     index: usize,

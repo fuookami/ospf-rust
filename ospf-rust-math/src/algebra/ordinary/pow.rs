@@ -1,9 +1,11 @@
-use super::ln;
+use std::ops::Neg;
+
 use crate::{
     algebra::concept::{RealNumber, TimesGroup, TimesSemiGroup},
     FloatingNumber,
 };
-use std::ops::Neg;
+
+use super::ln;
 
 pub(self) fn pow_pos_impl<T: TimesSemiGroup>(value: T, base: T, index: i64) -> T {
     if index == 0 {
@@ -90,7 +92,7 @@ pub fn exp<T: FloatingNumber>(index: T) -> T {
     value
 }
 
-pub fn powf<T: FloatingNumber + Neg<Output = T>>(base: T, index: T) -> Option<T> {
+pub fn powf<T: FloatingNumber + Neg<Output=T>>(base: T, index: T) -> Option<T> {
     if let Some(ln_base) = ln(base) {
         Some(exp(index * ln_base))
     } else {

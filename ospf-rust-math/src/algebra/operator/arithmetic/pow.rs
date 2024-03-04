@@ -78,15 +78,15 @@ impl PowF<f64> for ix {
     type Output = dec;
 
     fn powf(self, index: f64) -> Option<Self::Output> {
-        dec::from_ix(self).powf(index)
+        dec::from(self).powf(index)
     }
 
     fn sqr(self) -> Option<Self::Output> {
-        dec::from_ix(self).sqr()
+        dec::from(self).sqr()
     }
 
     fn cbr(self) -> Option<Self::Output> {
-        dec::from_ix(self).cbr()
+        dec::from(self).cbr()
     }
 }
 

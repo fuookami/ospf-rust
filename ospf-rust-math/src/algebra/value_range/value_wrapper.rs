@@ -1,6 +1,8 @@
-use super::*;
-use crate::algebra::concept::*;
 use std::ops::{Add, Div, Mul, Sub};
+
+use crate::algebra::concept::*;
+
+use super::*;
 
 pub enum ValueWrapper<T: Arithmetic> {
     Value(T),
@@ -43,9 +45,9 @@ impl<T: RealNumber> From<T> for ValueWrapper<T> {
 impl<T: Arithmetic + Clone> Clone for ValueWrapper<T> {
     fn clone(&self) -> Self {
         match self {
-            Self::Value(value) => Ok(ValueWrapper::from(value.clone())),
-            Self::Inf => Ok(ValueWrapper::Inf),
-            Self::NegInf => Ok(ValueWrapper::NegInf),
+            Self::Value(value) => ValueWrapper::from(value.clone()),
+            Self::Inf => ValueWrapper::Inf,
+            Self::NegInf => ValueWrapper::NegInf,
         }
     }
 }
@@ -93,7 +95,7 @@ impl<T: Arithmetic> PartialEq for ValueWrapper<T> {
 
 impl<T: Arithmetic + Eq> Eq for ValueWrapper<T> {}
 
-impl<T: Arithmetic> PartialEq<T> for ValueWrapper<T> {
+default impl<T: Arithmetic> PartialEq<T> for ValueWrapper<T> {
     fn eq(&self, rhs: &T) -> bool {
         match self {
             ValueWrapper::Value(lhs_value) => lhs_value == rhs,
@@ -146,7 +148,7 @@ impl<T: Arithmetic + Ord> Ord for ValueWrapper<T> {
     }
 }
 
-impl<T: Arithmetic> PartialOrd<T> for ValueWrapper<T> {
+default impl<T: Arithmetic> PartialOrd<T> for ValueWrapper<T> {
     fn partial_cmp(&self, rhs: &T) -> Option<std::cmp::Ordering> {
         match self {
             ValueWrapper::Value(lhs_value) => lhs_value.partial_cmp(rhs),
@@ -183,8 +185,8 @@ impl<T: RealNumber> PartialOrd<T> for ValueWrapper<T> {
 }
 
 impl<'a, T: Arithmetic> Add<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Add<&'a T, Output = T>,
+    where
+        &'a T: Add<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -198,8 +200,8 @@ where
 }
 
 impl<'a, T: RealNumber> Add<&'a T> for ValueWrapper<T>
-where
-    &'a T: Add<&'a T, Output = T>,
+    where
+        &'a T: Add<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -235,8 +237,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Add for &'a ValueWrapper<T>
-where
-    &'a T: Add<&'a T, Output = T>,
+    where
+        &'a T: Add<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -264,8 +266,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Sub<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -279,8 +281,8 @@ where
 }
 
 impl<'a, T: RealNumber> Sub<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -316,8 +318,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Sub for &'a ValueWrapper<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -345,8 +347,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Mul<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Mul<&'a T, Output = T>,
+    where
+        &'a T: Mul<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -372,8 +374,8 @@ where
 }
 
 impl<'a, T: RealNumber> Mul<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Mul<&'a T, Output = T>,
+    where
+        &'a T: Mul<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -417,8 +419,8 @@ where
 }
 
 impl<'a, T: RealNumber> Mul for &'a ValueWrapper<T>
-where
-    &'a T: Mul<&'a T, Output = T>,
+    where
+        &'a T: Mul<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -468,8 +470,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Div<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Div<&'a T, Output = T>,
+    where
+        &'a T: Div<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -495,8 +497,8 @@ where
 }
 
 impl<'a, T: RealNumber> Div<&'a T> for &'a ValueWrapper<T>
-where
-    &'a T: Div<&'a T, Output = T>,
+    where
+        &'a T: Div<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
@@ -550,8 +552,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Div for &'a ValueWrapper<T>
-where
-    &'a T: Div<&'a T, Output = T>,
+    where
+        &'a T: Div<&'a T, Output=T>,
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 

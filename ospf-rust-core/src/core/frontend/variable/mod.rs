@@ -1,13 +1,13 @@
 extern crate concat_idents;
+
 use concat_idents::concat_idents;
+pub use item::VariableItem;
+pub use range::VariableRange;
+pub use variable_type::*;
 
 pub mod item;
 pub mod range;
 pub mod variable_type;
-
-pub use item::VariableItem;
-pub use range::VariableRange;
-pub use variable_type::*;
 
 macro_rules! variable_type_exporter_template {
     ($id:ident, $type:ty) => {

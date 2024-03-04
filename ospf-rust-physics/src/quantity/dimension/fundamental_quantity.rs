@@ -1,4 +1,5 @@
 use concat_idents::concat_idents;
+
 use ospf_rust_base::*;
 
 pub trait FundamentalDimension {}
@@ -9,34 +10,36 @@ pub trait FundamentalQuantity {
 }
 
 pub trait DimensionSame<Quantity: FundamentalQuantity> {}
+
 impl<Lhs: FundamentalQuantity, Rhs: FundamentalQuantity> DimensionSame<Rhs> for Lhs where
     IsSameType<Lhs::Dimension, Rhs::Dimension>: SameType
-{
-}
+{}
 
 struct Multiply<Lhs: FundamentalQuantity, Rhs: FundamentalQuantity>
-where
-    Lhs: DimensionSame<Rhs>,
+    where
+        Lhs: DimensionSame<Rhs>,
 {
     _marker: std::marker::PhantomData<(Lhs, Rhs)>,
 }
+
 impl<Lhs: FundamentalQuantity, Rhs: FundamentalQuantity> FundamentalQuantity for Multiply<Lhs, Rhs>
-where
-    Lhs: DimensionSame<Rhs>,
+    where
+        Lhs: DimensionSame<Rhs>,
 {
     type Dimension = Lhs::Dimension;
     const INDEX: i32 = Lhs::INDEX + Rhs::INDEX;
 }
 
 struct Divide<Lhs: FundamentalQuantity, Rhs: FundamentalQuantity>
-where
-    Lhs: DimensionSame<Rhs>,
+    where
+        Lhs: DimensionSame<Rhs>,
 {
     _marker: std::marker::PhantomData<(Lhs, Rhs)>,
 }
+
 impl<Lhs: FundamentalQuantity, Rhs: FundamentalQuantity> FundamentalQuantity for Divide<Lhs, Rhs>
-where
-    Lhs: DimensionSame<Rhs>,
+    where
+        Lhs: DimensionSame<Rhs>,
 {
     type Dimension = Lhs::Dimension;
     const INDEX: i32 = Lhs::INDEX - Rhs::INDEX;
@@ -45,6 +48,7 @@ where
 struct Neg<Quantity: FundamentalQuantity> {
     _marker: std::marker::PhantomData<Quantity>,
 }
+
 impl<Quantity: FundamentalQuantity> FundamentalQuantity for Neg<Quantity> {
     type Dimension = Quantity::Dimension;
     const INDEX: i32 = -Quantity::INDEX;
@@ -53,6 +57,7 @@ impl<Quantity: FundamentalQuantity> FundamentalQuantity for Neg<Quantity> {
 struct Pow<Quantity: FundamentalQuantity, const INDEX: i32> {
     _marker: std::marker::PhantomData<Quantity>,
 }
+
 impl<Quantity: FundamentalQuantity, const INDEX: i32> FundamentalQuantity for Pow<Quantity, INDEX> {
     type Dimension = Quantity::Dimension;
     const INDEX: i32 = Quantity::INDEX * INDEX;

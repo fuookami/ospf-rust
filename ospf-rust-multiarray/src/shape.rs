@@ -1,7 +1,8 @@
-use super::dummy_vector::DummyIndex;
 use std::fmt;
 use std::mem;
 use std::ops::IndexMut;
+
+use super::dummy_vector::DummyIndex;
 
 const DYN_DIMENSION: usize = usize::MAX;
 
@@ -79,8 +80,8 @@ impl fmt::Display for IndexCalculationError {
 
 pub trait Shape {
     const DIMENSION: usize;
-    type VectorType: IndexMut<usize, Output = usize>;
-    type DummyVectorType: IndexMut<usize, Output = DummyIndex>;
+    type VectorType: IndexMut<usize, Output=usize>;
+    type DummyVectorType: IndexMut<usize, Output=DummyIndex>;
 
     fn zero(&self) -> Self::VectorType;
 

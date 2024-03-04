@@ -1,6 +1,7 @@
-use crate::dummy_vector::*;
-use crate::*;
 use std::ops::{Index, IndexMut};
+
+use crate::*;
+use crate::dummy_vector::*;
 
 pub struct MultiArray<T: Sized, S: Shape> {
     pub(self) list: Vec<Option<T>>,
@@ -16,8 +17,8 @@ impl<T: Sized, S: Shape> MultiArray<T, S> {
     }
 
     pub fn new_with(shape: S, value: T) -> Self
-    where
-        T: Clone,
+        where
+            T: Clone,
     {
         Self {
             list: (0..shape.len())
@@ -28,8 +29,8 @@ impl<T: Sized, S: Shape> MultiArray<T, S> {
     }
 
     pub fn new_by<G>(shape: S, generator: G) -> Self
-    where
-        G: Fn(usize) -> T,
+        where
+            G: Fn(usize) -> T,
     {
         Self {
             list: (0..shape.len())

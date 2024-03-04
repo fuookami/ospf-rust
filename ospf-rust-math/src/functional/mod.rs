@@ -1,3 +1,4 @@
+pub use predicate::*;
+
 pub mod predicate;
 
-pub use predicate::*;

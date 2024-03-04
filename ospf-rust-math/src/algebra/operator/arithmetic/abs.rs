@@ -1,4 +1,4 @@
-use crate::algebra::*;
+use crate::algebra::numeric_integer::*;
 
 pub trait Abs {
     type Output;
@@ -21,7 +21,7 @@ macro_rules! int_abs_template {
         }
     )*)
 }
-int_abs_template! { i8 i16 i32 i64 i128 }
+int_abs_template! { i8 i16 i32 i64 i128 ix }
 
 macro_rules! uint_abs_template {
     ($($type:ty)*) => ($(
@@ -34,7 +34,7 @@ macro_rules! uint_abs_template {
         }
     )*)
 }
-uint_abs_template! { u8 u16 u32 u64 u128 }
+uint_abs_template! { u8 u16 u32 u64 u128 uix }
 
 macro_rules! floating_abs_template {
     ($($type:ty)*) => ($(
@@ -47,32 +47,4 @@ macro_rules! floating_abs_template {
         }
     )*)
 }
-floating_abs_template! { f32 f64 }
-
-impl Abs for ix {
-    type Output = Self;
-
-    fn abs(&self) -> Self::Output {
-        if self < &ix::from(0) {
-            -self
-        } else {
-            self.clone()
-        }
-    }
-}
-
-impl Abs for uix {
-    type Output = Self;
-
-    fn abs(&self) -> Self::Output {
-        self.clone()
-    }
-}
-
-impl Abs for dec {
-    type Output = Self;
-
-    fn abs(&self) -> Self::Output {
-        self.abs()
-    }
-}
+floating_abs_template! { f32 f64 dec }

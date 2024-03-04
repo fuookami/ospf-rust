@@ -1,7 +1,10 @@
-use super::*;
+use std::fmt::Display;
+use std::ops::{Add, Div, Mul, Sub};
+
 use crate::algebra::concept::*;
 use crate::algebra::operator::*;
-use std::ops::{Add, Div, Mul, Sub};
+
+use super::*;
 
 pub(self) fn empty<T: Arithmetic>(lb: &T, ub: &T, lb_interval: Interval, ub_interval: Interval) -> bool {
     !(lb_interval.lb_op())(lb, ub) || !(ub_interval.ub_op())(lb, ub)
@@ -49,35 +52,33 @@ impl<T: Arithmetic> ValueRange<T> {
     }
 
     fn fixed(&self) -> bool
-    where
-        T: Precision + Abs<Output = T>,
+        where
+            T: Precision + Abs<Output=T>,
     {
         if let (Some(lower_bound), Some(upper_bound)) = (&self.lb, &self.ub) {
             lower_bound.interval == Interval::Closed
                 && upper_bound.interval == Interval::Closed
                 && if let (ValueWrapper::Value(lower_value), ValueWrapper::Value(upper_value)) =
-                    (&lower_bound.value, &upper_bound.value)
-                {
-                    let eq_op = Equal::<T>::new();
-                    eq_op(lower_value, upper_value)
-                } else {
-                    false
-                }
+                (&lower_bound.value, &upper_bound.value)
+            {
+                let eq_op = Equal::<T>::new();
+                eq_op(lower_value, upper_value)
+            } else {
+                false
+            }
         } else {
             false
         }
     }
 }
 
-impl<T: Arithmetic> std::fmt::Display for ValueRange<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        
-    }
+impl<T: Arithmetic> Display for ValueRange<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {}
 }
 
-impl<'a, T: Arithmetic> Add<&'a T> for &'a ValueRange<T>
-where
-    &'a T: Add<&'a T, Output = T>,
+impl<'a, T: Arithmetic + Display> Add<&'a T> for &'a ValueRange<T>
+    where
+        &'a T: Add<&'a T, Output=T>,
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
@@ -105,8 +106,8 @@ where
 }
 
 impl<'a, T: RealNumber> Add<&'a T> for &'a ValueRange<T>
-where
-    &'a T: Add<&'a T, Output = T>,
+    where
+        &'a T: Add<&'a T, Output=T>,
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
@@ -114,8 +115,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Add<&'a ValueRange<T>> for &'a ValueRange<T>
-where
-    &'a T: Add<&'a T, Output = T>,
+    where
+        &'a T: Add<&'a T, Output=T>,
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
@@ -123,8 +124,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Sub<&'a T> for &'a ValueRange<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
@@ -132,8 +133,8 @@ where
 }
 
 impl<'a, T: RealNumber> Sub<&'a T> for &'a ValueRange<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
@@ -141,8 +142,8 @@ where
 }
 
 impl<'a, T: Arithmetic> Sub<&'a ValueRange<T>> for &'a ValueRange<T>
-where
-    &'a T: Sub<&'a T, Output = T>,
+    where
+        &'a T: Sub<&'a T, Output=T>,
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 

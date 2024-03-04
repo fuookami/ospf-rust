@@ -15,11 +15,11 @@ pub trait IntervalType: Clone + Copy + PartialEq + Eq {
 pub trait Union<Rhs: IntervalType>: IntervalType {
     type Result: IntervalType;
 
-    fn to_lb_sign() -> &'static str{
+    fn to_lb_sign() -> &'static str {
         Self::Result::to_lb_sign()
     }
 
-    fn to_ub_sign() -> &'static str{
+    fn to_ub_sign() -> &'static str {
         Self::Result::to_ub_sign()
     }
 
@@ -43,11 +43,11 @@ pub trait Union<Rhs: IntervalType>: IntervalType {
 pub trait Intersect<Rhs: IntervalType>: IntervalType {
     type Result: IntervalType;
 
-    fn to_lb_sign() ->&'static str{
+    fn to_lb_sign() -> &'static str {
         Self::Result::to_lb_sign()
     }
 
-    fn to_ub_sign() ->&'static str{
+    fn to_ub_sign() -> &'static str {
         Self::Result::to_ub_sign()
     }
 
@@ -76,7 +76,7 @@ impl IntervalType for Open {
         "("
     }
 
-    fn to_ub_sign() -> &'static str{
+    fn to_ub_sign() -> &'static str {
         ")"
     }
 
@@ -84,7 +84,7 @@ impl IntervalType for Open {
         Box::new(Less::new())
     }
 
-    fn lb_op_with<T: Arithmetic + Abs<Output = T> + Neg<Output = T>>(precision: T) -> Box<Comparator<T>> {
+    fn lb_op_with<T: Arithmetic + Abs<Output=T> + Neg<Output=T>>(precision: T) -> Box<Comparator<T>> {
         Box::new(Less::new_with(precision))
     }
 
@@ -113,11 +113,11 @@ impl<T: IntervalType> Intersect<T> for Open {
 pub struct Closed {}
 
 impl IntervalType for Closed {
-    fn to_lb_sign() ->&'static str {
+    fn to_lb_sign() -> &'static str {
         "["
     }
 
-    fn to_ub_sign() ->&'static str {
+    fn to_ub_sign() -> &'static str {
         "]"
     }
 
@@ -125,7 +125,7 @@ impl IntervalType for Closed {
         Box::new(LessEqual::new())
     }
 
-    fn lb_op_with<T>(precision: T) -> Box<Comparator<T>> {
+    fn lb_op_with<T: Arithmetic + Abs<Output=T> + Neg<Output=T>>(precision: T) -> Box<Comparator<T>> {
         Box::new(LessEqual::new_with(precision))
     }
 

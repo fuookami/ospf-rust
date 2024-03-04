@@ -142,32 +142,43 @@ pub const GLP_MPS_FILE: u32 = 2;
 pub const GLP_ASN_MIN: u32 = 1;
 pub const GLP_ASN_MAX: u32 = 2;
 pub const GLP_ASN_MMP: u32 = 3;
+
 pub type va_list = *mut ::std::os::raw::c_char;
+
 extern "C" {
     pub fn __va_start(arg1: *mut *mut ::std::os::raw::c_char, ...);
 }
+
 pub type size_t = ::std::os::raw::c_ulonglong;
 pub type __vcrt_bool = bool;
 pub type wchar_t = ::std::os::raw::c_ushort;
+
 extern "C" {
     pub fn __security_init_cookie();
 }
+
 extern "C" {
     pub fn __security_check_cookie(_StackCookie: usize);
 }
+
 extern "C" {
     pub fn __report_gsfailure(_StackCookie: usize);
 }
+
 extern "C" {
     pub static mut __security_cookie: usize;
 }
+
 pub type __crt_bool = bool;
+
 extern "C" {
     pub fn _invalid_parameter_noinfo();
 }
+
 extern "C" {
     pub fn _invalid_parameter_noinfo_noreturn();
 }
+
 extern "C" {
     pub fn _invoke_watson(
         _Expression: *const wchar_t,
@@ -177,11 +188,13 @@ extern "C" {
         _Reserved: usize,
     );
 }
+
 pub type errno_t = ::std::os::raw::c_int;
 pub type wint_t = ::std::os::raw::c_ushort;
 pub type wctype_t = ::std::os::raw::c_ushort;
 pub type __time32_t = ::std::os::raw::c_long;
 pub type __time64_t = ::std::os::raw::c_longlong;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_locale_data_public {
@@ -189,6 +202,7 @@ pub struct __crt_locale_data_public {
     pub _locale_mb_cur_max: ::std::os::raw::c_int,
     pub _locale_lc_codepage: ::std::os::raw::c_uint,
 }
+
 #[test]
 fn bindgen_test_layout___crt_locale_data_public() {
     assert_eq!(
@@ -207,10 +221,10 @@ fn bindgen_test_layout___crt_locale_data_public() {
         },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_data_public),
-            "::",
-            stringify!(_locale_pctype)
+        "Offset of field: ",
+        stringify!(__crt_locale_data_public),
+        "::",
+        stringify!(_locale_pctype)
         )
     );
     assert_eq!(
@@ -220,10 +234,10 @@ fn bindgen_test_layout___crt_locale_data_public() {
         },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_data_public),
-            "::",
-            stringify!(_locale_mb_cur_max)
+        "Offset of field: ",
+        stringify!(__crt_locale_data_public),
+        "::",
+        stringify!(_locale_mb_cur_max)
         )
     );
     assert_eq!(
@@ -233,19 +247,21 @@ fn bindgen_test_layout___crt_locale_data_public() {
         },
         12usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_data_public),
-            "::",
-            stringify!(_locale_lc_codepage)
+        "Offset of field: ",
+        stringify!(__crt_locale_data_public),
+        "::",
+        stringify!(_locale_lc_codepage)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_locale_pointers {
     pub locinfo: *mut __crt_locale_data,
     pub mbcinfo: *mut __crt_multibyte_data,
 }
+
 #[test]
 fn bindgen_test_layout___crt_locale_pointers() {
     assert_eq!(
@@ -262,24 +278,26 @@ fn bindgen_test_layout___crt_locale_pointers() {
         unsafe { &(*(::std::ptr::null::<__crt_locale_pointers>())).locinfo as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_pointers),
-            "::",
-            stringify!(locinfo)
+        "Offset of field: ",
+        stringify!(__crt_locale_pointers),
+        "::",
+        stringify!(locinfo)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<__crt_locale_pointers>())).mbcinfo as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_pointers),
-            "::",
-            stringify!(mbcinfo)
+        "Offset of field: ",
+        stringify!(__crt_locale_pointers),
+        "::",
+        stringify!(mbcinfo)
         )
     );
 }
+
 pub type _locale_t = *mut __crt_locale_pointers;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _Mbstatet {
@@ -287,6 +305,7 @@ pub struct _Mbstatet {
     pub _Byte: ::std::os::raw::c_ushort,
     pub _State: ::std::os::raw::c_ushort,
 }
+
 #[test]
 fn bindgen_test_layout__Mbstatet() {
     assert_eq!(
@@ -303,56 +322,64 @@ fn bindgen_test_layout__Mbstatet() {
         unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._Wchar as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_Wchar)
+        "Offset of field: ",
+        stringify!(_Mbstatet),
+        "::",
+        stringify!(_Wchar)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._Byte as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_Byte)
+        "Offset of field: ",
+        stringify!(_Mbstatet),
+        "::",
+        stringify!(_Byte)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._State as *const _ as usize },
         6usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_State)
+        "Offset of field: ",
+        stringify!(_Mbstatet),
+        "::",
+        stringify!(_State)
         )
     );
 }
+
 pub type mbstate_t = _Mbstatet;
 pub type time_t = __time64_t;
 pub type rsize_t = size_t;
+
 extern "C" {
     pub fn _errno() -> *mut ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _set_errno(_Value: ::std::os::raw::c_int) -> errno_t;
 }
+
 extern "C" {
     pub fn _get_errno(_Value: *mut ::std::os::raw::c_int) -> errno_t;
 }
+
 extern "C" {
     pub fn __threadid() -> ::std::os::raw::c_ulong;
 }
+
 extern "C" {
     pub fn __threadhandle() -> usize;
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_prob {
     _unused: [u8; 0],
 }
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct glp_bfcp {
@@ -370,6 +397,7 @@ pub struct glp_bfcp {
     pub rs_size: ::std::os::raw::c_int,
     pub foo_bar: [f64; 38usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_bfcp() {
     assert_eq!(
@@ -386,133 +414,134 @@ fn bindgen_test_layout_glp_bfcp() {
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).msg_lev as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(msg_lev)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(msg_lev)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).type_ as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(type_)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(type_)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).lu_size as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(lu_size)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(lu_size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).piv_tol as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(piv_tol)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(piv_tol)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).piv_lim as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(piv_lim)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(piv_lim)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).suhl as *const _ as usize },
         28usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(suhl)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(suhl)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).eps_tol as *const _ as usize },
         32usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(eps_tol)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(eps_tol)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).max_gro as *const _ as usize },
         40usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(max_gro)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(max_gro)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).nfs_max as *const _ as usize },
         48usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(nfs_max)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(nfs_max)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).upd_tol as *const _ as usize },
         56usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(upd_tol)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(upd_tol)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).nrs_max as *const _ as usize },
         64usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(nrs_max)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(nrs_max)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).rs_size as *const _ as usize },
         68usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(rs_size)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(rs_size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_bfcp>())).foo_bar as *const _ as usize },
         72usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_bfcp),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_bfcp),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct glp_smcp {
@@ -535,6 +564,7 @@ pub struct glp_smcp {
     pub aorn: ::std::os::raw::c_int,
     pub foo_bar: [f64; 33usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_smcp() {
     assert_eq!(
@@ -551,183 +581,184 @@ fn bindgen_test_layout_glp_smcp() {
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).msg_lev as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(msg_lev)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(msg_lev)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).meth as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(meth)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(meth)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).pricing as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(pricing)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(pricing)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).r_test as *const _ as usize },
         12usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(r_test)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(r_test)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).tol_bnd as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(tol_bnd)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(tol_bnd)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).tol_dj as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(tol_dj)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(tol_dj)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).tol_piv as *const _ as usize },
         32usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(tol_piv)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(tol_piv)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).obj_ll as *const _ as usize },
         40usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(obj_ll)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(obj_ll)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).obj_ul as *const _ as usize },
         48usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(obj_ul)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(obj_ul)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).it_lim as *const _ as usize },
         56usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(it_lim)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(it_lim)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).tm_lim as *const _ as usize },
         60usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(tm_lim)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(tm_lim)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).out_frq as *const _ as usize },
         64usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(out_frq)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(out_frq)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).out_dly as *const _ as usize },
         68usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(out_dly)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(out_dly)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).presolve as *const _ as usize },
         72usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(presolve)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(presolve)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).excl as *const _ as usize },
         76usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(excl)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(excl)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).shift as *const _ as usize },
         80usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(shift)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(shift)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).aorn as *const _ as usize },
         84usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(aorn)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(aorn)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_smcp>())).foo_bar as *const _ as usize },
         88usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_smcp),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_smcp),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct glp_iptcp {
@@ -735,6 +766,7 @@ pub struct glp_iptcp {
     pub ord_alg: ::std::os::raw::c_int,
     pub foo_bar: [f64; 48usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_iptcp() {
     assert_eq!(
@@ -751,38 +783,40 @@ fn bindgen_test_layout_glp_iptcp() {
         unsafe { &(*(::std::ptr::null::<glp_iptcp>())).msg_lev as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iptcp),
-            "::",
-            stringify!(msg_lev)
+        "Offset of field: ",
+        stringify!(glp_iptcp),
+        "::",
+        stringify!(msg_lev)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iptcp>())).ord_alg as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iptcp),
-            "::",
-            stringify!(ord_alg)
+        "Offset of field: ",
+        stringify!(glp_iptcp),
+        "::",
+        stringify!(ord_alg)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iptcp>())).foo_bar as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iptcp),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_iptcp),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_tree {
     _unused: [u8; 0],
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_iocp {
@@ -817,6 +851,7 @@ pub struct glp_iocp {
     pub flip: ::std::os::raw::c_int,
     pub foo_bar: [f64; 23usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_iocp() {
     assert_eq!(
@@ -833,283 +868,284 @@ fn bindgen_test_layout_glp_iocp() {
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).msg_lev as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(msg_lev)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(msg_lev)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).br_tech as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(br_tech)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(br_tech)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).bt_tech as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(bt_tech)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(bt_tech)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).tol_int as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(tol_int)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(tol_int)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).tol_obj as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(tol_obj)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(tol_obj)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).tm_lim as *const _ as usize },
         32usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(tm_lim)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(tm_lim)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).out_frq as *const _ as usize },
         36usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(out_frq)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(out_frq)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).out_dly as *const _ as usize },
         40usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(out_dly)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(out_dly)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).cb_func as *const _ as usize },
         48usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(cb_func)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(cb_func)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).cb_info as *const _ as usize },
         56usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(cb_info)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(cb_info)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).cb_size as *const _ as usize },
         64usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(cb_size)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(cb_size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).pp_tech as *const _ as usize },
         68usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(pp_tech)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(pp_tech)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).mip_gap as *const _ as usize },
         72usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(mip_gap)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(mip_gap)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).mir_cuts as *const _ as usize },
         80usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(mir_cuts)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(mir_cuts)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).gmi_cuts as *const _ as usize },
         84usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(gmi_cuts)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(gmi_cuts)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).cov_cuts as *const _ as usize },
         88usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(cov_cuts)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(cov_cuts)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).clq_cuts as *const _ as usize },
         92usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(clq_cuts)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(clq_cuts)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).presolve as *const _ as usize },
         96usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(presolve)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(presolve)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).binarize as *const _ as usize },
         100usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(binarize)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(binarize)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).fp_heur as *const _ as usize },
         104usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(fp_heur)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(fp_heur)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).ps_heur as *const _ as usize },
         108usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(ps_heur)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(ps_heur)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).ps_tm_lim as *const _ as usize },
         112usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(ps_tm_lim)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(ps_tm_lim)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).sr_heur as *const _ as usize },
         116usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(sr_heur)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(sr_heur)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).use_sol as *const _ as usize },
         120usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(use_sol)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(use_sol)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).save_sol as *const _ as usize },
         128usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(save_sol)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(save_sol)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).alien as *const _ as usize },
         136usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(alien)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(alien)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).flip as *const _ as usize },
         140usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(flip)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(flip)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_iocp>())).foo_bar as *const _ as usize },
         144usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_iocp),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_iocp),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_attr {
@@ -1118,6 +1154,7 @@ pub struct glp_attr {
     pub klass: ::std::os::raw::c_int,
     pub foo_bar: [f64; 7usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_attr() {
     assert_eq!(
@@ -1134,43 +1171,44 @@ fn bindgen_test_layout_glp_attr() {
         unsafe { &(*(::std::ptr::null::<glp_attr>())).level as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_attr),
-            "::",
-            stringify!(level)
+        "Offset of field: ",
+        stringify!(glp_attr),
+        "::",
+        stringify!(level)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_attr>())).origin as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_attr),
-            "::",
-            stringify!(origin)
+        "Offset of field: ",
+        stringify!(glp_attr),
+        "::",
+        stringify!(origin)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_attr>())).klass as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_attr),
-            "::",
-            stringify!(klass)
+        "Offset of field: ",
+        stringify!(glp_attr),
+        "::",
+        stringify!(klass)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_attr>())).foo_bar as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_attr),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_attr),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_mpscp {
@@ -1179,6 +1217,7 @@ pub struct glp_mpscp {
     pub tol_mps: f64,
     pub foo_bar: [f64; 17usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_mpscp() {
     assert_eq!(
@@ -1195,48 +1234,50 @@ fn bindgen_test_layout_glp_mpscp() {
         unsafe { &(*(::std::ptr::null::<glp_mpscp>())).blank as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_mpscp),
-            "::",
-            stringify!(blank)
+        "Offset of field: ",
+        stringify!(glp_mpscp),
+        "::",
+        stringify!(blank)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_mpscp>())).obj_name as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_mpscp),
-            "::",
-            stringify!(obj_name)
+        "Offset of field: ",
+        stringify!(glp_mpscp),
+        "::",
+        stringify!(obj_name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_mpscp>())).tol_mps as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_mpscp),
-            "::",
-            stringify!(tol_mps)
+        "Offset of field: ",
+        stringify!(glp_mpscp),
+        "::",
+        stringify!(tol_mps)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_mpscp>())).foo_bar as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_mpscp),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_mpscp),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_cpxcp {
     pub foo_bar: [f64; 20usize],
 }
+
 #[test]
 fn bindgen_test_layout_glp_cpxcp() {
     assert_eq!(
@@ -1253,41 +1294,50 @@ fn bindgen_test_layout_glp_cpxcp() {
         unsafe { &(*(::std::ptr::null::<glp_cpxcp>())).foo_bar as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_cpxcp),
-            "::",
-            stringify!(foo_bar)
+        "Offset of field: ",
+        stringify!(glp_cpxcp),
+        "::",
+        stringify!(foo_bar)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_prep {
     _unused: [u8; 0],
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_tran {
     _unused: [u8; 0],
 }
+
 extern "C" {
     pub fn glp_create_prob() -> *mut glp_prob;
 }
+
 extern "C" {
     pub fn glp_set_prob_name(P: *mut glp_prob, name: *const ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn glp_set_obj_name(P: *mut glp_prob, name: *const ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn glp_set_obj_dir(P: *mut glp_prob, dir: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_add_rows(P: *mut glp_prob, nrs: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_add_cols(P: *mut glp_prob, ncs: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_set_row_name(
         P: *mut glp_prob,
@@ -1295,6 +1345,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     );
 }
+
 extern "C" {
     pub fn glp_set_col_name(
         P: *mut glp_prob,
@@ -1302,6 +1353,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     );
 }
+
 extern "C" {
     pub fn glp_set_row_bnds(
         P: *mut glp_prob,
@@ -1311,6 +1363,7 @@ extern "C" {
         ub: f64,
     );
 }
+
 extern "C" {
     pub fn glp_set_col_bnds(
         P: *mut glp_prob,
@@ -1320,9 +1373,11 @@ extern "C" {
         ub: f64,
     );
 }
+
 extern "C" {
     pub fn glp_set_obj_coef(P: *mut glp_prob, j: ::std::os::raw::c_int, coef: f64);
 }
+
 extern "C" {
     pub fn glp_set_mat_row(
         P: *mut glp_prob,
@@ -1332,6 +1387,7 @@ extern "C" {
         val: *const f64,
     );
 }
+
 extern "C" {
     pub fn glp_set_mat_col(
         P: *mut glp_prob,
@@ -1341,6 +1397,7 @@ extern "C" {
         val: *const f64,
     );
 }
+
 extern "C" {
     pub fn glp_load_matrix(
         P: *mut glp_prob,
@@ -1350,6 +1407,7 @@ extern "C" {
         ar: *const f64,
     );
 }
+
 extern "C" {
     pub fn glp_check_dup(
         m: ::std::os::raw::c_int,
@@ -1359,9 +1417,11 @@ extern "C" {
         ja: *const ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_sort_matrix(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_del_rows(
         P: *mut glp_prob,
@@ -1369,6 +1429,7 @@ extern "C" {
         num: *const ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_del_cols(
         P: *mut glp_prob,
@@ -1376,66 +1437,85 @@ extern "C" {
         num: *const ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_copy_prob(dest: *mut glp_prob, prob: *mut glp_prob, names: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_erase_prob(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_delete_prob(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_get_prob_name(P: *mut glp_prob) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn glp_get_obj_name(P: *mut glp_prob) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn glp_get_obj_dir(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_num_rows(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_num_cols(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_row_name(
         P: *mut glp_prob,
         i: ::std::os::raw::c_int,
     ) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn glp_get_col_name(
         P: *mut glp_prob,
         j: ::std::os::raw::c_int,
     ) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn glp_get_row_type(P: *mut glp_prob, i: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_row_lb(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_row_ub(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_col_type(P: *mut glp_prob, j: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_col_lb(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_col_ub(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_obj_coef(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_num_nz(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_mat_row(
         P: *mut glp_prob,
@@ -1444,6 +1524,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_mat_col(
         P: *mut glp_prob,
@@ -1452,42 +1533,53 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_create_index(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_find_row(
         P: *mut glp_prob,
         name: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_find_col(
         P: *mut glp_prob,
         name: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_delete_index(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_set_rii(P: *mut glp_prob, i: ::std::os::raw::c_int, rii: f64);
 }
+
 extern "C" {
     pub fn glp_set_sjj(P: *mut glp_prob, j: ::std::os::raw::c_int, sjj: f64);
 }
+
 extern "C" {
     pub fn glp_get_rii(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_sjj(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_scale_prob(P: *mut glp_prob, flags: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_unscale_prob(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_set_row_stat(
         P: *mut glp_prob,
@@ -1495,6 +1587,7 @@ extern "C" {
         stat: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_set_col_stat(
         P: *mut glp_prob,
@@ -1502,87 +1595,115 @@ extern "C" {
         stat: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_std_basis(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_adv_basis(P: *mut glp_prob, flags: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_cpx_basis(P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_simplex(P: *mut glp_prob, parm: *const glp_smcp) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_exact(P: *mut glp_prob, parm: *const glp_smcp) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_init_smcp(parm: *mut glp_smcp);
 }
+
 extern "C" {
     pub fn glp_get_status(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_prim_stat(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_dual_stat(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_obj_val(P: *mut glp_prob) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_row_stat(P: *mut glp_prob, i: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_row_prim(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_row_dual(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_col_stat(P: *mut glp_prob, j: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_col_prim(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_col_dual(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_get_unbnd_ray(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_it_cnt(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_set_it_cnt(P: *mut glp_prob, it_cnt: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_interior(P: *mut glp_prob, parm: *const glp_iptcp) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_init_iptcp(parm: *mut glp_iptcp);
 }
+
 extern "C" {
     pub fn glp_ipt_status(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ipt_obj_val(P: *mut glp_prob) -> f64;
 }
+
 extern "C" {
     pub fn glp_ipt_row_prim(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_ipt_row_dual(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_ipt_col_prim(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_ipt_col_dual(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_set_col_kind(
         P: *mut glp_prob,
@@ -1590,33 +1711,43 @@ extern "C" {
         kind: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_get_col_kind(P: *mut glp_prob, j: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_num_int(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_num_bin(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_intopt(P: *mut glp_prob, parm: *const glp_iocp) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_init_iocp(parm: *mut glp_iocp);
 }
+
 extern "C" {
     pub fn glp_mip_status(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mip_obj_val(P: *mut glp_prob) -> f64;
 }
+
 extern "C" {
     pub fn glp_mip_row_val(P: *mut glp_prob, i: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_mip_col_val(P: *mut glp_prob, j: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_check_kkt(
         P: *mut glp_prob,
@@ -1628,24 +1759,28 @@ extern "C" {
         re_ind: *mut ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_print_sol(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_sol(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_sol(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_print_ranges(
         P: *mut glp_prob,
@@ -1655,75 +1790,93 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_print_ipt(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_ipt(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_ipt(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_print_mip(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_mip(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_mip(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_bf_exists(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_factorize(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_bf_updated(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_bfcp(P: *mut glp_prob, parm: *mut glp_bfcp);
 }
+
 extern "C" {
     pub fn glp_set_bfcp(P: *mut glp_prob, parm: *const glp_bfcp);
 }
+
 extern "C" {
     pub fn glp_get_bhead(P: *mut glp_prob, k: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_row_bind(P: *mut glp_prob, i: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_get_col_bind(P: *mut glp_prob, j: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ftran(P: *mut glp_prob, x: *mut f64);
 }
+
 extern "C" {
     pub fn glp_btran(P: *mut glp_prob, x: *mut f64);
 }
+
 extern "C" {
     pub fn glp_warm_up(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_eval_tab_row(
         P: *mut glp_prob,
@@ -1732,6 +1885,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_eval_tab_col(
         P: *mut glp_prob,
@@ -1740,6 +1894,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_transform_row(
         P: *mut glp_prob,
@@ -1748,6 +1903,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_transform_col(
         P: *mut glp_prob,
@@ -1756,6 +1912,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_prim_rtest(
         P: *mut glp_prob,
@@ -1766,6 +1923,7 @@ extern "C" {
         eps: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_dual_rtest(
         P: *mut glp_prob,
@@ -1776,6 +1934,7 @@ extern "C" {
         eps: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_analyze_bound(
         P: *mut glp_prob,
@@ -1786,6 +1945,7 @@ extern "C" {
         var2: *mut ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_analyze_coef(
         P: *mut glp_prob,
@@ -1798,9 +1958,11 @@ extern "C" {
         value2: *mut f64,
     );
 }
+
 extern "C" {
     pub fn glp_npp_alloc_wksp() -> *mut glp_prep;
 }
+
 extern "C" {
     pub fn glp_npp_load_prob(
         prep: *mut glp_prep,
@@ -1809,30 +1971,38 @@ extern "C" {
         names: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_npp_preprocess1(
         prep: *mut glp_prep,
         hard: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_npp_build_prob(prep: *mut glp_prep, Q: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_npp_postprocess(prep: *mut glp_prep, Q: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_npp_obtain_sol(prep: *mut glp_prep, P: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_npp_free_wksp(prep: *mut glp_prep);
 }
+
 extern "C" {
     pub fn glp_ios_reason(T: *mut glp_tree) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_get_prob(T: *mut glp_tree) -> *mut glp_prob;
 }
+
 extern "C" {
     pub fn glp_ios_tree_size(
         T: *mut glp_tree,
@@ -1841,42 +2011,54 @@ extern "C" {
         t_cnt: *mut ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_ios_curr_node(T: *mut glp_tree) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_next_node(T: *mut glp_tree, p: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_prev_node(T: *mut glp_tree, p: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_up_node(T: *mut glp_tree, p: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_node_level(T: *mut glp_tree, p: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_node_bound(T: *mut glp_tree, p: ::std::os::raw::c_int) -> f64;
 }
+
 extern "C" {
     pub fn glp_ios_best_node(T: *mut glp_tree) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_mip_gap(T: *mut glp_tree) -> f64;
 }
+
 extern "C" {
     pub fn glp_ios_node_data(
         T: *mut glp_tree,
         p: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_void;
 }
+
 extern "C" {
     pub fn glp_ios_row_attr(T: *mut glp_tree, i: ::std::os::raw::c_int, attr: *mut glp_attr);
 }
+
 extern "C" {
     pub fn glp_ios_pool_size(T: *mut glp_tree) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_add_row(
         T: *mut glp_tree,
@@ -1890,15 +2072,19 @@ extern "C" {
         rhs: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_del_row(T: *mut glp_tree, i: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_ios_clear_pool(T: *mut glp_tree);
 }
+
 extern "C" {
     pub fn glp_ios_can_branch(T: *mut glp_tree, j: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_branch_upon(
         T: *mut glp_tree,
@@ -1906,18 +2092,23 @@ extern "C" {
         sel: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_ios_select_node(T: *mut glp_tree, p: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_ios_heur_sol(T: *mut glp_tree, x: *const f64) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_ios_terminate(T: *mut glp_tree);
 }
+
 extern "C" {
     pub fn glp_init_mpscp(parm: *mut glp_mpscp);
 }
+
 extern "C" {
     pub fn glp_read_mps(
         P: *mut glp_prob,
@@ -1926,6 +2117,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_mps(
         P: *mut glp_prob,
@@ -1934,9 +2126,11 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_init_cpxcp(parm: *mut glp_cpxcp);
 }
+
 extern "C" {
     pub fn glp_read_lp(
         P: *mut glp_prob,
@@ -1944,6 +2138,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_lp(
         P: *mut glp_prob,
@@ -1951,6 +2146,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_prob(
         P: *mut glp_prob,
@@ -1958,6 +2154,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_prob(
         P: *mut glp_prob,
@@ -1965,12 +2162,15 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mpl_alloc_wksp() -> *mut glp_tran;
 }
+
 extern "C" {
     pub fn glp_mpl_init_rand(tran: *mut glp_tran, seed: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_mpl_read_model(
         tran: *mut glp_tran,
@@ -1978,21 +2178,25 @@ extern "C" {
         skip: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mpl_read_data(
         tran: *mut glp_tran,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mpl_generate(
         tran: *mut glp_tran,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mpl_build_prob(tran: *mut glp_tran, prob: *mut glp_prob);
 }
+
 extern "C" {
     pub fn glp_mpl_postsolve(
         tran: *mut glp_tran,
@@ -2000,27 +2204,33 @@ extern "C" {
         sol: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mpl_free_wksp(tran: *mut glp_tran);
 }
+
 extern "C" {
     pub fn glp_read_cnfsat(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_check_cnfsat(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_cnfsat(
         P: *mut glp_prob,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_minisat1(P: *mut glp_prob) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_intfeas1(
         P: *mut glp_prob,
@@ -2028,30 +2238,39 @@ extern "C" {
         obj_bound: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_init_env() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_version() -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn glp_config(option: *const ::std::os::raw::c_char) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn glp_free_env() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_puts(s: *const ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn glp_printf(fmt: *const ::std::os::raw::c_char, ...);
 }
+
 extern "C" {
     pub fn glp_vprintf(fmt: *const ::std::os::raw::c_char, arg: va_list);
 }
+
 extern "C" {
     pub fn glp_term_out(flag: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_term_hook(
         func: ::std::option::Option<
@@ -2063,23 +2282,29 @@ extern "C" {
         info: *mut ::std::os::raw::c_void,
     );
 }
+
 extern "C" {
     pub fn glp_open_tee(name: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_close_tee() -> ::std::os::raw::c_int;
 }
+
 pub type glp_errfunc =
-    ::std::option::Option<unsafe extern "C" fn(fmt: *const ::std::os::raw::c_char, ...)>;
+::std::option::Option<unsafe extern "C" fn(fmt: *const ::std::os::raw::c_char, ...)>;
+
 extern "C" {
     pub fn glp_error_(
         file: *const ::std::os::raw::c_char,
         line: ::std::os::raw::c_int,
     ) -> glp_errfunc;
 }
+
 extern "C" {
     pub fn glp_at_error() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_assert_(
         expr: *const ::std::os::raw::c_char,
@@ -2087,18 +2312,21 @@ extern "C" {
         line: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_error_hook(
         func: ::std::option::Option<unsafe extern "C" fn(info: *mut ::std::os::raw::c_void)>,
         info: *mut ::std::os::raw::c_void,
     );
 }
+
 extern "C" {
     pub fn glp_alloc(
         n: ::std::os::raw::c_int,
         size: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_void;
 }
+
 extern "C" {
     pub fn glp_realloc(
         ptr: *mut ::std::os::raw::c_void,
@@ -2106,12 +2334,15 @@ extern "C" {
         size: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_void;
 }
+
 extern "C" {
     pub fn glp_free(ptr: *mut ::std::os::raw::c_void);
 }
+
 extern "C" {
     pub fn glp_mem_limit(limit: ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_mem_usage(
         count: *mut ::std::os::raw::c_int,
@@ -2120,12 +2351,15 @@ extern "C" {
         tpeak: *mut size_t,
     );
 }
+
 extern "C" {
     pub fn glp_time() -> f64;
 }
+
 extern "C" {
     pub fn glp_difftime(t1: f64, t0: f64) -> f64;
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_graph {
@@ -2139,6 +2373,7 @@ pub struct glp_graph {
     pub v_size: ::std::os::raw::c_int,
     pub a_size: ::std::os::raw::c_int,
 }
+
 #[test]
 fn bindgen_test_layout_glp_graph() {
     assert_eq!(
@@ -2155,93 +2390,94 @@ fn bindgen_test_layout_glp_graph() {
         unsafe { &(*(::std::ptr::null::<glp_graph>())).pool as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(pool)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(pool)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).name as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(name)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).nv_max as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(nv_max)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(nv_max)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).nv as *const _ as usize },
         20usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(nv)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(nv)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).na as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(na)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(na)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).v as *const _ as usize },
         32usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(v)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).index as *const _ as usize },
         40usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(index)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(index)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).v_size as *const _ as usize },
         48usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(v_size)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(v_size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_graph>())).a_size as *const _ as usize },
         52usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_graph),
-            "::",
-            stringify!(a_size)
+        "Offset of field: ",
+        stringify!(glp_graph),
+        "::",
+        stringify!(a_size)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_vertex {
@@ -2253,6 +2489,7 @@ pub struct glp_vertex {
     pub in_: *mut glp_arc,
     pub out: *mut glp_arc,
 }
+
 #[test]
 fn bindgen_test_layout_glp_vertex() {
     assert_eq!(
@@ -2269,73 +2506,74 @@ fn bindgen_test_layout_glp_vertex() {
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).i as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(i)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(i)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).name as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(name)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).entry as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(entry)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(entry)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).data as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(data)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(data)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).temp as *const _ as usize },
         32usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(temp)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(temp)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).in_ as *const _ as usize },
         40usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(in_)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(in_)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_vertex>())).out as *const _ as usize },
         48usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_vertex),
-            "::",
-            stringify!(out)
+        "Offset of field: ",
+        stringify!(glp_vertex),
+        "::",
+        stringify!(out)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct glp_arc {
@@ -2348,6 +2586,7 @@ pub struct glp_arc {
     pub h_prev: *mut glp_arc,
     pub h_next: *mut glp_arc,
 }
+
 #[test]
 fn bindgen_test_layout_glp_arc() {
     assert_eq!(
@@ -2364,98 +2603,102 @@ fn bindgen_test_layout_glp_arc() {
         unsafe { &(*(::std::ptr::null::<glp_arc>())).tail as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(tail)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(tail)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).head as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(head)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(head)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).data as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(data)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(data)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).temp as *const _ as usize },
         24usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(temp)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(temp)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).t_prev as *const _ as usize },
         32usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(t_prev)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(t_prev)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).t_next as *const _ as usize },
         40usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(t_next)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(t_next)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).h_prev as *const _ as usize },
         48usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(h_prev)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(h_prev)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<glp_arc>())).h_next as *const _ as usize },
         56usize,
         concat!(
-            "Offset of field: ",
-            stringify!(glp_arc),
-            "::",
-            stringify!(h_next)
+        "Offset of field: ",
+        stringify!(glp_arc),
+        "::",
+        stringify!(h_next)
         )
     );
 }
+
 extern "C" {
     pub fn glp_create_graph(
         v_size: ::std::os::raw::c_int,
         a_size: ::std::os::raw::c_int,
     ) -> *mut glp_graph;
 }
+
 extern "C" {
     pub fn glp_set_graph_name(G: *mut glp_graph, name: *const ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn glp_add_vertices(
         G: *mut glp_graph,
         nadd: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_set_vertex_name(
         G: *mut glp_graph,
@@ -2463,6 +2706,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     );
 }
+
 extern "C" {
     pub fn glp_add_arc(
         G: *mut glp_graph,
@@ -2470,6 +2714,7 @@ extern "C" {
         j: ::std::os::raw::c_int,
     ) -> *mut glp_arc;
 }
+
 extern "C" {
     pub fn glp_del_vertices(
         G: *mut glp_graph,
@@ -2477,9 +2722,11 @@ extern "C" {
         num: *const ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_del_arc(G: *mut glp_graph, a: *mut glp_arc);
 }
+
 extern "C" {
     pub fn glp_erase_graph(
         G: *mut glp_graph,
@@ -2487,33 +2734,40 @@ extern "C" {
         a_size: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_delete_graph(G: *mut glp_graph);
 }
+
 extern "C" {
     pub fn glp_create_v_index(G: *mut glp_graph);
 }
+
 extern "C" {
     pub fn glp_find_vertex(
         G: *mut glp_graph,
         name: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_delete_v_index(G: *mut glp_graph);
 }
+
 extern "C" {
     pub fn glp_read_graph(
         G: *mut glp_graph,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_graph(
         G: *mut glp_graph,
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mincost_lp(
         P: *mut glp_prob,
@@ -2525,6 +2779,7 @@ extern "C" {
         a_cost: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_mincost_okalg(
         G: *mut glp_graph,
@@ -2537,6 +2792,7 @@ extern "C" {
         v_pi: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_mincost_relax4(
         G: *mut glp_graph,
@@ -2550,6 +2806,7 @@ extern "C" {
         a_rc: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_maxflow_lp(
         P: *mut glp_prob,
@@ -2560,6 +2817,7 @@ extern "C" {
         a_cap: ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn glp_maxflow_ffalg(
         G: *mut glp_graph,
@@ -2571,12 +2829,14 @@ extern "C" {
         v_cut: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_check_asnprob(
         G: *mut glp_graph,
         v_set: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_asnprob_lp(
         P: *mut glp_prob,
@@ -2587,6 +2847,7 @@ extern "C" {
         a_cost: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_asnprob_okalg(
         form: ::std::os::raw::c_int,
@@ -2597,6 +2858,7 @@ extern "C" {
         a_x: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_asnprob_hall(
         G: *mut glp_graph,
@@ -2604,6 +2866,7 @@ extern "C" {
         a_x: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_cpp(
         G: *mut glp_graph,
@@ -2612,6 +2875,7 @@ extern "C" {
         v_ls: ::std::os::raw::c_int,
     ) -> f64;
 }
+
 extern "C" {
     pub fn glp_read_mincost(
         G: *mut glp_graph,
@@ -2622,6 +2886,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_mincost(
         G: *mut glp_graph,
@@ -2632,6 +2897,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_maxflow(
         G: *mut glp_graph,
@@ -2641,6 +2907,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_maxflow(
         G: *mut glp_graph,
@@ -2650,6 +2917,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_asnprob(
         G: *mut glp_graph,
@@ -2658,6 +2926,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_asnprob(
         G: *mut glp_graph,
@@ -2666,6 +2935,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_read_ccdata(
         G: *mut glp_graph,
@@ -2673,6 +2943,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_write_ccdata(
         G: *mut glp_graph,
@@ -2680,6 +2951,7 @@ extern "C" {
         fname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_netgen(
         G: *mut glp_graph,
@@ -2689,9 +2961,11 @@ extern "C" {
         parm: *const ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_netgen_prob(nprob: ::std::os::raw::c_int, parm: *mut ::std::os::raw::c_int);
 }
+
 extern "C" {
     pub fn glp_gridgen(
         G: *mut glp_graph,
@@ -2701,6 +2975,7 @@ extern "C" {
         parm: *const ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_rmfgen(
         G: *mut glp_graph,
@@ -2710,18 +2985,22 @@ extern "C" {
         parm: *const ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_weak_comp(G: *mut glp_graph, v_num: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_strong_comp(
         G: *mut glp_graph,
         v_num: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_top_sort(G: *mut glp_graph, v_num: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn glp_wclique_exact(
         G: *mut glp_graph,
@@ -2730,11 +3009,13 @@ extern "C" {
         v_set: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_locale_data {
     pub _address: u8,
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_multibyte_data {

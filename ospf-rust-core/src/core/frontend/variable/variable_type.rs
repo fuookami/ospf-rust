@@ -1,15 +1,23 @@
+use std::{f64, i128, i8, u128, u8};
+use std::convert::Into;
+
 use crate::math::concept::*;
 use crate::math::value_range::*;
-use std::convert::Into;
-use std::{f64, i128, i8, u128, u8};
 
 pub struct Binary;
+
 pub struct Ternary;
+
 pub struct BalancedTernary;
+
 pub struct Percentage;
+
 pub struct Integer;
+
 pub struct UInteger;
+
 pub struct Continuous;
+
 pub struct UContinuous;
 
 pub trait VariableType {

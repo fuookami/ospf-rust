@@ -13,6 +13,7 @@ impl SequenceTuple for () {
 struct SequenceTuplePush<Lhs: SequenceTuple, Rhs> {
     _marker: std::marker::PhantomData<(Lhs, Rhs)>,
 }
+
 impl<Lhs: SequenceTuple, Rhs> SequenceTuple for SequenceTuplePush<Lhs, Rhs> {
     const LEN: usize = Lhs::LEN + 1;
     type LastSequence = Lhs;

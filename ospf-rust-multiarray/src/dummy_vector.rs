@@ -1,7 +1,8 @@
-use crate::Shape;
 use std::ops::{
     Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
+
+use crate::Shape;
 
 pub trait DummyIndexRange {
     fn start_bound(&self) -> Bound<isize>;
@@ -10,8 +11,8 @@ pub trait DummyIndexRange {
 }
 
 impl<T> DummyIndexRange for T
-where
-    T: RangeBounds<isize>,
+    where
+        T: RangeBounds<isize>,
 {
     fn start_bound(&self) -> Bound<isize> {
         match RangeBounds::start_bound(self) {
@@ -40,7 +41,7 @@ enum DummyIndexIterator {
 }
 
 impl DummyIndexIterator {
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = usize> + 'a> {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=usize> + 'a> {
         match self {
             DummyIndexIterator::Continuous(range) => Box::new(range.clone().into_iter()),
             DummyIndexIterator::Discrete(indexes) => Box::new(indexes.into_iter().map(|x| *x)),
@@ -176,7 +177,7 @@ impl<'a, 'b, S: Shape> DummyAccessPolicy<'a, S> {
 
 pub(crate) struct DummyAccessIterator<'a, 'b, S: Shape> {
     pub(self) policy: *const DummyAccessPolicy<'a, S>,
-    pub(self) iterators: Vec<Box<dyn Iterator<Item = usize> + 'b>>,
+    pub(self) iterators: Vec<Box<dyn Iterator<Item=usize> + 'b>>,
     pub(crate) now: S::VectorType,
 }
 

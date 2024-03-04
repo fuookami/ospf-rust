@@ -1,44 +1,39 @@
-use crate::algebra::*;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
+
+use crate::algebra::*;
 
 pub(self) trait RationalConstructor<I: Integer> {
     fn new(num: I, den: I) -> Self;
-    fn assign(&mut self, rhs: Self);
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Rational<I: Integer> {
+pub struct Rational<I: Integer + NumberField + Pow> {
     num: I,
     den: I,
 }
 
-default impl<I: Integer> RationalConstructor<I> for Rational<I> {
+default impl<I: Integer + NumberField + Pow> RationalConstructor<I> for Rational<I> {
     fn new(num: I, den: I) -> Self {
-        let divisor = ordinary::gcd(num, den);
+        let divisor = ordinary::gcd(num.clone(), den.clone());
         Self {
-            num: num / divisor,
+            num: num / divisor.clone(),
             den: den / divisor,
         }
     }
-
-    fn assign(&mut self, rhs: Self) {
-        self.num = rhs.num;
-        self.den = rhs.den;
-    }
 }
 
-impl<I: Integer + Signed> RationalConstructor<I> for Rational<I> {
+impl<I: Integer + Signed + NumberField + Pow> RationalConstructor<I> for Rational<I> {
     fn new(num: I, den: I) -> Self {
-        let divisor = ordinary::gcd(num, den);
+        let divisor = ordinary::gcd(num.clone(), den.clone());
         let negative = (num < I::ZERO) ^ (den < I::ZERO);
         if negative {
             Self {
-                num: num.abs().neg() / divisor,
+                num: num.abs().neg() / divisor.clone(),
                 den: den.abs() / divisor,
             }
         } else {
             Self {
-                num: num.abs() / divisor,
+                num: num.abs() / divisor.clone(),
                 den: den.abs() / divisor,
             }
         }
@@ -48,8 +43,8 @@ impl<I: Integer + Signed> RationalConstructor<I> for Rational<I> {
 impl<I: Integer + Copy> Copy for Rational<I> {}
 
 impl<I: Integer> Ord for Rational<I>
-where
-    Rational<I>: PartialOrd,
+    where
+        Rational<I>: PartialOrd,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
@@ -60,15 +55,21 @@ impl<I: Integer> Add<Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
+        Self::new(
+            self.num.clone() * rhs.den.clone() + rhs.num.clone() * self.den.clone(),
+            self.den.clone() * rhs.den.clone(),
+        )
     }
 }
 
-impl<'a, I: Integer> Add<Rational<I>> for &'a Rational<I> {
+impl<'a, I: Integer> Add<Rational<I>> for &'a Rational<I> where &I: Add<Output=I>, &I: Mul<Output=I> {
     type Output = Rational<I>;
 
     fn add(self, rhs: Rational<I>) -> Self::Output {
-        Self::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
+        Self::new(
+            &self.num * &rhs.den + &rhs.num * &self.den,
+            &self.den * &rhs.den,
+        )
     }
 }
 
@@ -222,11 +223,12 @@ impl<I: Integer> Reciprocal for Rational<I> {
 }
 
 impl<I: Integer + Signed> Signed for Rational<I> {}
+
 impl<I: Integer + Unsigned> Unsigned for Rational<I> {}
 
 impl<I: Integer> Invariant for Rational<I>
-where
-    Rational<I>: PartialOrd,
+    where
+        Rational<I>: PartialOrd,
 {
     type ValueType = Self;
 
@@ -242,8 +244,8 @@ impl<I: Integer> Bounded for Rational<I> {
 }
 
 impl<I: Integer> Arithmetic for Rational<I>
-where
-    Rational<I>: PartialOrd,
+    where
+        Rational<I>: PartialOrd,
 {
     const ZERO: Self = Self::new(I::ZERO, I::ONE);
     const ONE: Self = Self::new(I::ONE, I::ONE);

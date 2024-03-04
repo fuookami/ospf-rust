@@ -1,9 +1,10 @@
 use std::ops::Range;
+
 use crate::algebra::*;
 
 pub trait RangeTo
-where
-    Self: Ord + Sized + Clone,
+    where
+        Self: Ord + Sized + Clone,
 {
     fn until(self, rhs: Self) -> Range<Self> {
         Range {

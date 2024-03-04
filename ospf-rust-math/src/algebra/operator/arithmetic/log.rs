@@ -2,7 +2,7 @@ use bigdecimal::num_bigint::ToBigInt;
 
 use crate::algebra::*;
 
-pub trait Log<Base: FloatingNumber = Self> : Sized {
+pub trait Log<Base: FloatingNumber = Self>: Sized {
     type Output;
 
     fn log(self, base: Base) -> Option<Self::Output>;

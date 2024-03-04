@@ -108,8 +108,8 @@ pub const GRB_MINIMIZE: u32 = 1;
 pub const GRB_MAXIMIZE: i32 = -1;
 pub const GRB_SOS_TYPE1: u32 = 1;
 pub const GRB_SOS_TYPE2: u32 = 2;
-pub const GRB_INFINITY : f64 = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 ;
-pub const GRB_UNDEFINED : f64 = 100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 ;
+pub const GRB_INFINITY: f64 = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0;
+pub const GRB_UNDEFINED: f64 = 100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0;
 pub const GRB_MAXINT: u32 = 2000000000;
 pub const GRB_MAX_NAMELEN: u32 = 255;
 pub const GRB_MAX_STRLEN: u32 = 512;
@@ -531,32 +531,43 @@ pub const GRB_PARTITION_ROOTSTART: u32 = 8;
 pub const GRB_PARTITION_ROOTEND: u32 = 4;
 pub const GRB_PARTITION_NODES: u32 = 2;
 pub const GRB_PARTITION_CLEANUP: u32 = 1;
+
 pub type va_list = *mut ::std::os::raw::c_char;
+
 extern "C" {
     pub fn __va_start(arg1: *mut *mut ::std::os::raw::c_char, ...);
 }
+
 pub type size_t = ::std::os::raw::c_ulonglong;
 pub type __vcrt_bool = bool;
 pub type wchar_t = ::std::os::raw::c_ushort;
+
 extern "C" {
     pub fn __security_init_cookie();
 }
+
 extern "C" {
     pub fn __security_check_cookie(_StackCookie: usize);
 }
+
 extern "C" {
     pub fn __report_gsfailure(_StackCookie: usize);
 }
+
 extern "C" {
     pub static mut __security_cookie: usize;
 }
+
 pub type __crt_bool = bool;
+
 extern "C" {
     pub fn _invalid_parameter_noinfo();
 }
+
 extern "C" {
     pub fn _invalid_parameter_noinfo_noreturn();
 }
+
 extern "C" {
     pub fn _invoke_watson(
         _Expression: *const wchar_t,
@@ -566,11 +577,13 @@ extern "C" {
         _Reserved: usize,
     );
 }
+
 pub type errno_t = ::std::os::raw::c_int;
 pub type wint_t = ::std::os::raw::c_ushort;
 pub type wctype_t = ::std::os::raw::c_ushort;
 pub type __time32_t = ::std::os::raw::c_long;
 pub type __time64_t = ::std::os::raw::c_longlong;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_locale_data_public {
@@ -578,6 +591,7 @@ pub struct __crt_locale_data_public {
     pub _locale_mb_cur_max: ::std::os::raw::c_int,
     pub _locale_lc_codepage: ::std::os::raw::c_uint,
 }
+
 #[test]
 fn bindgen_test_layout___crt_locale_data_public() {
     assert_eq!(
@@ -596,10 +610,10 @@ fn bindgen_test_layout___crt_locale_data_public() {
         },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_data_public),
-            "::",
-            stringify!(_locale_pctype)
+        "Offset of field: ",
+        stringify!(__crt_locale_data_public),
+        "::",
+        stringify!(_locale_pctype)
         )
     );
     assert_eq!(
@@ -609,10 +623,10 @@ fn bindgen_test_layout___crt_locale_data_public() {
         },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_data_public),
-            "::",
-            stringify!(_locale_mb_cur_max)
+        "Offset of field: ",
+        stringify!(__crt_locale_data_public),
+        "::",
+        stringify!(_locale_mb_cur_max)
         )
     );
     assert_eq!(
@@ -622,19 +636,21 @@ fn bindgen_test_layout___crt_locale_data_public() {
         },
         12usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_data_public),
-            "::",
-            stringify!(_locale_lc_codepage)
+        "Offset of field: ",
+        stringify!(__crt_locale_data_public),
+        "::",
+        stringify!(_locale_lc_codepage)
         )
     );
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_locale_pointers {
     pub locinfo: *mut __crt_locale_data,
     pub mbcinfo: *mut __crt_multibyte_data,
 }
+
 #[test]
 fn bindgen_test_layout___crt_locale_pointers() {
     assert_eq!(
@@ -651,24 +667,26 @@ fn bindgen_test_layout___crt_locale_pointers() {
         unsafe { &(*(::std::ptr::null::<__crt_locale_pointers>())).locinfo as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_pointers),
-            "::",
-            stringify!(locinfo)
+        "Offset of field: ",
+        stringify!(__crt_locale_pointers),
+        "::",
+        stringify!(locinfo)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<__crt_locale_pointers>())).mbcinfo as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(__crt_locale_pointers),
-            "::",
-            stringify!(mbcinfo)
+        "Offset of field: ",
+        stringify!(__crt_locale_pointers),
+        "::",
+        stringify!(mbcinfo)
         )
     );
 }
+
 pub type _locale_t = *mut __crt_locale_pointers;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _Mbstatet {
@@ -676,6 +694,7 @@ pub struct _Mbstatet {
     pub _Byte: ::std::os::raw::c_ushort,
     pub _State: ::std::os::raw::c_ushort,
 }
+
 #[test]
 fn bindgen_test_layout__Mbstatet() {
     assert_eq!(
@@ -692,41 +711,44 @@ fn bindgen_test_layout__Mbstatet() {
         unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._Wchar as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_Wchar)
+        "Offset of field: ",
+        stringify!(_Mbstatet),
+        "::",
+        stringify!(_Wchar)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._Byte as *const _ as usize },
         4usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_Byte)
+        "Offset of field: ",
+        stringify!(_Mbstatet),
+        "::",
+        stringify!(_Byte)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._State as *const _ as usize },
         6usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_State)
+        "Offset of field: ",
+        stringify!(_Mbstatet),
+        "::",
+        stringify!(_State)
         )
     );
 }
+
 pub type mbstate_t = _Mbstatet;
 pub type time_t = __time64_t;
 pub type rsize_t = size_t;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _iobuf {
     pub _Placeholder: *mut ::std::os::raw::c_void,
 }
+
 #[test]
 fn bindgen_test_layout__iobuf() {
     assert_eq!(
@@ -743,35 +765,44 @@ fn bindgen_test_layout__iobuf() {
         unsafe { &(*(::std::ptr::null::<_iobuf>()))._Placeholder as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_iobuf),
-            "::",
-            stringify!(_Placeholder)
+        "Offset of field: ",
+        stringify!(_iobuf),
+        "::",
+        stringify!(_Placeholder)
         )
     );
 }
+
 pub type FILE = _iobuf;
+
 extern "C" {
     pub fn __acrt_iob_func(_Ix: ::std::os::raw::c_uint) -> *mut FILE;
 }
+
 extern "C" {
     pub fn fgetwc(_Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _fgetwchar() -> wint_t;
 }
+
 extern "C" {
     pub fn fputwc(_Character: wchar_t, _Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _fputwchar(_Character: wchar_t) -> wint_t;
 }
+
 extern "C" {
     pub fn getwc(_Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn getwchar() -> wint_t;
 }
+
 extern "C" {
     pub fn fgetws(
         _Buffer: *mut wchar_t,
@@ -779,30 +810,39 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> *mut wchar_t;
 }
+
 extern "C" {
     pub fn fputws(_Buffer: *const wchar_t, _Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _getws_s(_Buffer: *mut wchar_t, _BufferCount: size_t) -> *mut wchar_t;
 }
+
 extern "C" {
     pub fn putwc(_Character: wchar_t, _Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn putwchar(_Character: wchar_t) -> wint_t;
 }
+
 extern "C" {
     pub fn _putws(_Buffer: *const wchar_t) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn ungetwc(_Character: wint_t, _Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _wfdopen(_FileHandle: ::std::os::raw::c_int, _Mode: *const wchar_t) -> *mut FILE;
 }
+
 extern "C" {
     pub fn _wfopen(_FileName: *const wchar_t, _Mode: *const wchar_t) -> *mut FILE;
 }
+
 extern "C" {
     pub fn _wfopen_s(
         _Stream: *mut *mut FILE,
@@ -810,6 +850,7 @@ extern "C" {
         _Mode: *const wchar_t,
     ) -> errno_t;
 }
+
 extern "C" {
     pub fn _wfreopen(
         _FileName: *const wchar_t,
@@ -817,6 +858,7 @@ extern "C" {
         _OldStream: *mut FILE,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn _wfreopen_s(
         _Stream: *mut *mut FILE,
@@ -825,6 +867,7 @@ extern "C" {
         _OldStream: *mut FILE,
     ) -> errno_t;
 }
+
 extern "C" {
     pub fn _wfsopen(
         _FileName: *const wchar_t,
@@ -832,39 +875,51 @@ extern "C" {
         _ShFlag: ::std::os::raw::c_int,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn _wperror(_ErrorMessage: *const wchar_t);
 }
+
 extern "C" {
     pub fn _wpopen(_Command: *const wchar_t, _Mode: *const wchar_t) -> *mut FILE;
 }
+
 extern "C" {
     pub fn _wremove(_FileName: *const wchar_t) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _wtempnam(_Directory: *const wchar_t, _FilePrefix: *const wchar_t) -> *mut wchar_t;
 }
+
 extern "C" {
     pub fn _wtmpnam_s(_Buffer: *mut wchar_t, _BufferCount: size_t) -> errno_t;
 }
+
 extern "C" {
     pub fn _wtmpnam(_Buffer: *mut wchar_t) -> *mut wchar_t;
 }
+
 extern "C" {
     pub fn _fgetwc_nolock(_Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _fputwc_nolock(_Character: wchar_t, _Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _getwc_nolock(_Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _putwc_nolock(_Character: wchar_t, _Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn _ungetwc_nolock(_Character: wint_t, _Stream: *mut FILE) -> wint_t;
 }
+
 extern "C" {
     pub fn __stdio_common_vfwprintf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -874,6 +929,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfwprintf_s(
         _Options: ::std::os::raw::c_ulonglong,
@@ -883,6 +939,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfwprintf_p(
         _Options: ::std::os::raw::c_ulonglong,
@@ -892,6 +949,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfwscanf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -901,6 +959,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vswprintf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -911,6 +970,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vswprintf_s(
         _Options: ::std::os::raw::c_ulonglong,
@@ -921,6 +981,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vsnwprintf_s(
         _Options: ::std::os::raw::c_ulonglong,
@@ -932,6 +993,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vswprintf_p(
         _Options: ::std::os::raw::c_ulonglong,
@@ -942,6 +1004,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vswscanf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -952,7 +1015,9 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 pub type fpos_t = ::std::os::raw::c_longlong;
+
 extern "C" {
     pub fn _get_stream_buffer_pointers(
         _Stream: *mut FILE,
@@ -961,9 +1026,11 @@ extern "C" {
         _Count: *mut *mut ::std::os::raw::c_int,
     ) -> errno_t;
 }
+
 extern "C" {
     pub fn clearerr_s(_Stream: *mut FILE) -> errno_t;
 }
+
 extern "C" {
     pub fn fopen_s(
         _Stream: *mut *mut FILE,
@@ -971,6 +1038,7 @@ extern "C" {
         _Mode: *const ::std::os::raw::c_char,
     ) -> errno_t;
 }
+
 extern "C" {
     pub fn fread_s(
         _Buffer: *mut ::std::os::raw::c_void,
@@ -980,6 +1048,7 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> size_t;
 }
+
 extern "C" {
     pub fn freopen_s(
         _Stream: *mut *mut FILE,
@@ -988,51 +1057,65 @@ extern "C" {
         _OldStream: *mut FILE,
     ) -> errno_t;
 }
+
 extern "C" {
     pub fn gets_s(
         _Buffer: *mut ::std::os::raw::c_char,
         _Size: rsize_t,
     ) -> *mut ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn tmpfile_s(_Stream: *mut *mut FILE) -> errno_t;
 }
+
 extern "C" {
     pub fn tmpnam_s(_Buffer: *mut ::std::os::raw::c_char, _Size: rsize_t) -> errno_t;
 }
+
 extern "C" {
     pub fn clearerr(_Stream: *mut FILE);
 }
+
 extern "C" {
     pub fn fclose(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fcloseall() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fdopen(
         _FileHandle: ::std::os::raw::c_int,
         _Mode: *const ::std::os::raw::c_char,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn feof(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn ferror(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fflush(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fgetc(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fgetchar() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fgetpos(_Stream: *mut FILE, _Position: *mut fpos_t) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fgets(
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1040,30 +1123,37 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> *mut ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn _fileno(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _flushall() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fopen(
         _FileName: *const ::std::os::raw::c_char,
         _Mode: *const ::std::os::raw::c_char,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn fputc(_Character: ::std::os::raw::c_int, _Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fputchar(_Character: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fputs(
         _Buffer: *const ::std::os::raw::c_char,
         _Stream: *mut FILE,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fread(
         _Buffer: *mut ::std::os::raw::c_void,
@@ -1072,6 +1162,7 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> ::std::os::raw::c_ulonglong;
 }
+
 extern "C" {
     pub fn freopen(
         _FileName: *const ::std::os::raw::c_char,
@@ -1079,6 +1170,7 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn _fsopen(
         _FileName: *const ::std::os::raw::c_char,
@@ -1086,9 +1178,11 @@ extern "C" {
         _ShFlag: ::std::os::raw::c_int,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn fsetpos(_Stream: *mut FILE, _Position: *const fpos_t) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fseek(
         _Stream: *mut FILE,
@@ -1096,6 +1190,7 @@ extern "C" {
         _Origin: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fseeki64(
         _Stream: *mut FILE,
@@ -1103,12 +1198,15 @@ extern "C" {
         _Origin: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn ftell(_Stream: *mut FILE) -> ::std::os::raw::c_long;
 }
+
 extern "C" {
     pub fn _ftelli64(_Stream: *mut FILE) -> ::std::os::raw::c_longlong;
 }
+
 extern "C" {
     pub fn fwrite(
         _Buffer: *const ::std::os::raw::c_void,
@@ -1117,69 +1215,89 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> ::std::os::raw::c_ulonglong;
 }
+
 extern "C" {
     pub fn getc(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn getchar() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _getmaxstdio() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _getw(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn perror(_ErrorMessage: *const ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn _pclose(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _popen(
         _Command: *const ::std::os::raw::c_char,
         _Mode: *const ::std::os::raw::c_char,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn putc(_Character: ::std::os::raw::c_int, _Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn putchar(_Character: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn puts(_Buffer: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _putw(_Word: ::std::os::raw::c_int, _Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn remove(_FileName: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn rename(
         _OldFileName: *const ::std::os::raw::c_char,
         _NewFileName: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _unlink(_FileName: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn unlink(_FileName: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn rewind(_Stream: *mut FILE);
 }
+
 extern "C" {
     pub fn _rmtmp() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn setbuf(_Stream: *mut FILE, _Buffer: *mut ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn _setmaxstdio(_Maximum: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn setvbuf(
         _Stream: *mut FILE,
@@ -1188,42 +1306,53 @@ extern "C" {
         _Size: size_t,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _tempnam(
         _DirectoryName: *const ::std::os::raw::c_char,
         _FilePrefix: *const ::std::os::raw::c_char,
     ) -> *mut ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn tmpfile() -> *mut FILE;
 }
+
 extern "C" {
     pub fn tmpnam(_Buffer: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn ungetc(_Character: ::std::os::raw::c_int, _Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _lock_file(_Stream: *mut FILE);
 }
+
 extern "C" {
     pub fn _unlock_file(_Stream: *mut FILE);
 }
+
 extern "C" {
     pub fn _fclose_nolock(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fflush_nolock(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fgetc_nolock(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fputc_nolock(
         _Character: ::std::os::raw::c_int,
         _Stream: *mut FILE,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fread_nolock(
         _Buffer: *mut ::std::os::raw::c_void,
@@ -1232,6 +1361,7 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> size_t;
 }
+
 extern "C" {
     pub fn _fread_nolock_s(
         _Buffer: *mut ::std::os::raw::c_void,
@@ -1241,6 +1371,7 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> size_t;
 }
+
 extern "C" {
     pub fn _fseek_nolock(
         _Stream: *mut FILE,
@@ -1248,6 +1379,7 @@ extern "C" {
         _Origin: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _fseeki64_nolock(
         _Stream: *mut FILE,
@@ -1255,12 +1387,15 @@ extern "C" {
         _Origin: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _ftell_nolock(_Stream: *mut FILE) -> ::std::os::raw::c_long;
 }
+
 extern "C" {
     pub fn _ftelli64_nolock(_Stream: *mut FILE) -> ::std::os::raw::c_longlong;
 }
+
 extern "C" {
     pub fn _fwrite_nolock(
         _Buffer: *const ::std::os::raw::c_void,
@@ -1269,24 +1404,29 @@ extern "C" {
         _Stream: *mut FILE,
     ) -> size_t;
 }
+
 extern "C" {
     pub fn _getc_nolock(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _putc_nolock(
         _Character: ::std::os::raw::c_int,
         _Stream: *mut FILE,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _ungetc_nolock(
         _Character: ::std::os::raw::c_int,
         _Stream: *mut FILE,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __p__commode() -> *mut ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfprintf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1296,6 +1436,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfprintf_s(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1305,6 +1446,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfprintf_p(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1314,12 +1456,15 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _set_printf_count_output(_Value: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn _get_printf_count_output() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vfscanf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1329,6 +1474,7 @@ extern "C" {
         _Arglist: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vsprintf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1339,6 +1485,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vsprintf_s(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1349,6 +1496,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vsnprintf_s(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1360,6 +1508,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vsprintf_p(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1370,6 +1519,7 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn __stdio_common_vsscanf(
         _Options: ::std::os::raw::c_ulonglong,
@@ -1380,54 +1530,69 @@ extern "C" {
         _ArgList: va_list,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn tempnam(
         _Directory: *const ::std::os::raw::c_char,
         _FilePrefix: *const ::std::os::raw::c_char,
     ) -> *mut ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn fcloseall() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fdopen(
         _FileHandle: ::std::os::raw::c_int,
         _Format: *const ::std::os::raw::c_char,
     ) -> *mut FILE;
 }
+
 extern "C" {
     pub fn fgetchar() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fileno(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn flushall() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn fputchar(_Ch: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn getw(_Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn putw(_Ch: ::std::os::raw::c_int, _Stream: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn rmtmp() -> ::std::os::raw::c_int;
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _GRBmodel {
     _unused: [u8; 0],
 }
+
 pub type GRBmodel = _GRBmodel;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _GRBenv {
     _unused: [u8; 0],
 }
+
 pub type GRBenv = _GRBenv;
+
 extern "C" {
     pub fn GRBgetattrinfo(
         model: *mut GRBmodel,
@@ -1437,12 +1602,14 @@ extern "C" {
         settableP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBisattravailable(
         model: *mut GRBmodel,
         attrname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetintattr(
         model: *mut GRBmodel,
@@ -1450,6 +1617,7 @@ extern "C" {
         valueP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetintattr(
         model: *mut GRBmodel,
@@ -1457,6 +1625,7 @@ extern "C" {
         newvalue: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetintattrelement(
         model: *mut GRBmodel,
@@ -1465,6 +1634,7 @@ extern "C" {
         valueP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetintattrelement(
         model: *mut GRBmodel,
@@ -1473,6 +1643,7 @@ extern "C" {
         newvalue: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetintattrarray(
         model: *mut GRBmodel,
@@ -1482,6 +1653,7 @@ extern "C" {
         values: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetintattrarray(
         model: *mut GRBmodel,
@@ -1491,6 +1663,7 @@ extern "C" {
         newvalues: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetintattrlist(
         model: *mut GRBmodel,
@@ -1500,6 +1673,7 @@ extern "C" {
         values: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetintattrlist(
         model: *mut GRBmodel,
@@ -1509,6 +1683,7 @@ extern "C" {
         newvalues: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetcharattrelement(
         model: *mut GRBmodel,
@@ -1517,6 +1692,7 @@ extern "C" {
         valueP: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetcharattrelement(
         model: *mut GRBmodel,
@@ -1525,6 +1701,7 @@ extern "C" {
         newvalue: ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetcharattrarray(
         model: *mut GRBmodel,
@@ -1534,6 +1711,7 @@ extern "C" {
         values: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetcharattrarray(
         model: *mut GRBmodel,
@@ -1543,6 +1721,7 @@ extern "C" {
         newvalues: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetcharattrlist(
         model: *mut GRBmodel,
@@ -1552,6 +1731,7 @@ extern "C" {
         values: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetcharattrlist(
         model: *mut GRBmodel,
@@ -1561,6 +1741,7 @@ extern "C" {
         newvalues: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBgetdblattr(
@@ -1569,6 +1750,7 @@ extern "C" {
         valueP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetdblattr(
         model: *mut GRBmodel,
@@ -1576,6 +1758,7 @@ extern "C" {
         newvalue: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetdblattrelement(
         model: *mut GRBmodel,
@@ -1584,6 +1767,7 @@ extern "C" {
         valueP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetdblattrelement(
         model: *mut GRBmodel,
@@ -1592,6 +1776,7 @@ extern "C" {
         newvalue: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBgetdblattrarray(
@@ -1602,6 +1787,7 @@ extern "C" {
         values: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetdblattrarray(
         model: *mut GRBmodel,
@@ -1611,6 +1797,7 @@ extern "C" {
         newvalues: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetdblattrlist(
         model: *mut GRBmodel,
@@ -1620,6 +1807,7 @@ extern "C" {
         values: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetdblattrlist(
         model: *mut GRBmodel,
@@ -1629,6 +1817,7 @@ extern "C" {
         newvalues: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetstrattr(
         model: *mut GRBmodel,
@@ -1636,6 +1825,7 @@ extern "C" {
         valueP: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetstrattr(
         model: *mut GRBmodel,
@@ -1643,6 +1833,7 @@ extern "C" {
         newvalue: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetstrattrelement(
         model: *mut GRBmodel,
@@ -1651,6 +1842,7 @@ extern "C" {
         valueP: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetstrattrelement(
         model: *mut GRBmodel,
@@ -1659,6 +1851,7 @@ extern "C" {
         newvalue: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetstrattrarray(
         model: *mut GRBmodel,
@@ -1668,6 +1861,7 @@ extern "C" {
         values: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetstrattrarray(
         model: *mut GRBmodel,
@@ -1677,6 +1871,7 @@ extern "C" {
         newvalues: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetstrattrlist(
         model: *mut GRBmodel,
@@ -1686,6 +1881,7 @@ extern "C" {
         values: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetstrattrlist(
         model: *mut GRBmodel,
@@ -1695,6 +1891,7 @@ extern "C" {
         newvalues: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetcallbackfunc(
         model: *mut GRBmodel,
@@ -1709,6 +1906,7 @@ extern "C" {
         usrdata: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetcallbackfunc(
         model: *mut GRBmodel,
@@ -1722,6 +1920,7 @@ extern "C" {
         >,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetlogcallbackfunc(
         model: *mut GRBmodel,
@@ -1730,6 +1929,7 @@ extern "C" {
         >,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetlogcallbackfuncenv(
         env: *mut GRBenv,
@@ -1738,6 +1938,7 @@ extern "C" {
         >,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcbget(
         cbdata: *mut ::std::os::raw::c_void,
@@ -1746,6 +1947,7 @@ extern "C" {
         resultP: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcbsetparam(
         cbdata: *mut ::std::os::raw::c_void,
@@ -1753,6 +1955,7 @@ extern "C" {
         newvalue: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcbsolution(
         cbdata: *mut ::std::os::raw::c_void,
@@ -1760,6 +1963,7 @@ extern "C" {
         objvalP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcbcut(
         cbdata: *mut ::std::os::raw::c_void,
@@ -1770,6 +1974,7 @@ extern "C" {
         cutrhs: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcblazy(
         cbdata: *mut ::std::os::raw::c_void,
@@ -1780,6 +1985,7 @@ extern "C" {
         lazyrhs: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetcoeff(
         model: *mut GRBmodel,
@@ -1788,6 +1994,7 @@ extern "C" {
         valP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetconstrs(
         model: *mut GRBmodel,
@@ -1799,6 +2006,7 @@ extern "C" {
         len: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXgetconstrs(
         model: *mut GRBmodel,
@@ -1810,6 +2018,7 @@ extern "C" {
         len: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetvars(
         model: *mut GRBmodel,
@@ -1821,6 +2030,7 @@ extern "C" {
         len: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXgetvars(
         model: *mut GRBmodel,
@@ -1832,6 +2042,7 @@ extern "C" {
         len: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetsos(
         model: *mut GRBmodel,
@@ -1844,6 +2055,7 @@ extern "C" {
         len: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetgenconstrMax(
         model: *mut GRBmodel,
@@ -1854,6 +2066,7 @@ extern "C" {
         constantP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetgenconstrMin(
         model: *mut GRBmodel,
@@ -1864,6 +2077,7 @@ extern "C" {
         constantP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetgenconstrAbs(
         model: *mut GRBmodel,
@@ -1872,6 +2086,7 @@ extern "C" {
         argvarP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetgenconstrAnd(
         model: *mut GRBmodel,
@@ -1881,6 +2096,7 @@ extern "C" {
         vars: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetgenconstrOr(
         model: *mut GRBmodel,
@@ -1890,6 +2106,7 @@ extern "C" {
         vars: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetgenconstrIndicator(
         model: *mut GRBmodel,
@@ -1903,6 +2120,7 @@ extern "C" {
         rhsP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetq(
         model: *mut GRBmodel,
@@ -1912,6 +2130,7 @@ extern "C" {
         qval: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetqconstr(
         model: *mut GRBmodel,
@@ -1925,6 +2144,7 @@ extern "C" {
         qval: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetvarbyname(
         model: *mut GRBmodel,
@@ -1932,6 +2152,7 @@ extern "C" {
         indexP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetconstrbyname(
         model: *mut GRBmodel,
@@ -1939,6 +2160,7 @@ extern "C" {
         indexP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetpwlobj(
         model: *mut GRBmodel,
@@ -1948,19 +2170,24 @@ extern "C" {
         y: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBoptimize(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBoptimizeasync(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcopymodel(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBfixedmodel(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBfeasrelax(
         model: *mut GRBmodel,
@@ -1972,6 +2199,7 @@ extern "C" {
         feasobjP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetcbwhatinfo(
         cbdata: *mut ::std::os::raw::c_void,
@@ -1980,24 +2208,31 @@ extern "C" {
         sizeP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBrelaxmodel(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBconverttofixed(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBpresolvemodel(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBiismodel(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBfeasibility(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBlinearizemodel(model: *mut GRBmodel) -> *mut GRBmodel;
 }
+
 extern "C" {
     pub fn GRBloadenvsyscb(
         envP: *mut *mut GRBenv,
@@ -2047,6 +2282,7 @@ extern "C" {
         syscbusrdata: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBreadmodel(
         env: *mut GRBenv,
@@ -2054,12 +2290,14 @@ extern "C" {
         modelP: *mut *mut GRBmodel,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBread(
         model: *mut GRBmodel,
         filename: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBwrite(
@@ -2067,15 +2305,19 @@ extern "C" {
         filename: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBismodelfile(filename: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBfiletype(filename: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBisrecordfile(filename: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBnewmodel(
@@ -2090,6 +2332,7 @@ extern "C" {
         varnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadmodel(
         env: *mut GRBenv,
@@ -2113,6 +2356,7 @@ extern "C" {
         constrnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXloadmodel(
         env: *mut GRBenv,
@@ -2136,6 +2380,7 @@ extern "C" {
         constrnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBaddvar(
@@ -2150,6 +2395,7 @@ extern "C" {
         varname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddvars(
         model: *mut GRBmodel,
@@ -2165,6 +2411,7 @@ extern "C" {
         varnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXaddvars(
         model: *mut GRBmodel,
@@ -2180,6 +2427,7 @@ extern "C" {
         varnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBaddconstr(
@@ -2192,6 +2440,7 @@ extern "C" {
         constrname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddconstrs(
         model: *mut GRBmodel,
@@ -2205,6 +2454,7 @@ extern "C" {
         constrnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXaddconstrs(
         model: *mut GRBmodel,
@@ -2218,6 +2468,7 @@ extern "C" {
         constrnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddrangeconstr(
         model: *mut GRBmodel,
@@ -2229,6 +2480,7 @@ extern "C" {
         constrname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddrangeconstrs(
         model: *mut GRBmodel,
@@ -2242,6 +2494,7 @@ extern "C" {
         constrnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXaddrangeconstrs(
         model: *mut GRBmodel,
@@ -2255,6 +2508,7 @@ extern "C" {
         constrnames: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddsos(
         model: *mut GRBmodel,
@@ -2266,6 +2520,7 @@ extern "C" {
         weight: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddgenconstrMax(
         model: *mut GRBmodel,
@@ -2276,6 +2531,7 @@ extern "C" {
         constant: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddgenconstrMin(
         model: *mut GRBmodel,
@@ -2286,6 +2542,7 @@ extern "C" {
         constant: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddgenconstrAbs(
         model: *mut GRBmodel,
@@ -2294,6 +2551,7 @@ extern "C" {
         argvar: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddgenconstrAnd(
         model: *mut GRBmodel,
@@ -2303,6 +2561,7 @@ extern "C" {
         vars: *const ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddgenconstrOr(
         model: *mut GRBmodel,
@@ -2312,6 +2571,7 @@ extern "C" {
         vars: *const ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddgenconstrIndicator(
         lp: *mut GRBmodel,
@@ -2325,6 +2585,7 @@ extern "C" {
         rhs: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddqconstr(
         model: *mut GRBmodel,
@@ -2340,6 +2601,7 @@ extern "C" {
         QCname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddcone(
         model: *mut GRBmodel,
@@ -2347,6 +2609,7 @@ extern "C" {
         members: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBaddqpterms(
         model: *mut GRBmodel,
@@ -2356,6 +2619,7 @@ extern "C" {
         qval: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBdelvars(
         model: *mut GRBmodel,
@@ -2363,6 +2627,7 @@ extern "C" {
         ind: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBdelconstrs(
         model: *mut GRBmodel,
@@ -2370,6 +2635,7 @@ extern "C" {
         ind: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBdelsos(
         model: *mut GRBmodel,
@@ -2377,6 +2643,7 @@ extern "C" {
         ind: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBdelgenconstrs(
         model: *mut GRBmodel,
@@ -2384,6 +2651,7 @@ extern "C" {
         ind: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBdelqconstrs(
         model: *mut GRBmodel,
@@ -2391,9 +2659,11 @@ extern "C" {
         ind: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBdelq(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBchgcoeffs(
         model: *mut GRBmodel,
@@ -2403,6 +2673,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBXchgcoeffs(
         model: *mut GRBmodel,
@@ -2412,6 +2683,7 @@ extern "C" {
         val: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetpwlobj(
         model: *mut GRBmodel,
@@ -2421,22 +2693,28 @@ extern "C" {
         y: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBupdatemodel(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBreset(model: *mut GRBmodel, clearall: ::std::os::raw::c_int)
-        -> ::std::os::raw::c_int;
+                    -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBresetmodel(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBfreemodel(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcomputeIIS(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _GRBsvec {
@@ -2444,6 +2722,7 @@ pub struct _GRBsvec {
     pub ind: *mut ::std::os::raw::c_int,
     pub val: *mut f64,
 }
+
 #[test]
 fn bindgen_test_layout__GRBsvec() {
     assert_eq!(
@@ -2460,34 +2739,36 @@ fn bindgen_test_layout__GRBsvec() {
         unsafe { &(*(::std::ptr::null::<_GRBsvec>())).len as *const _ as usize },
         0usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_GRBsvec),
-            "::",
-            stringify!(len)
+        "Offset of field: ",
+        stringify!(_GRBsvec),
+        "::",
+        stringify!(len)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_GRBsvec>())).ind as *const _ as usize },
         8usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_GRBsvec),
-            "::",
-            stringify!(ind)
+        "Offset of field: ",
+        stringify!(_GRBsvec),
+        "::",
+        stringify!(ind)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_GRBsvec>())).val as *const _ as usize },
         16usize,
         concat!(
-            "Offset of field: ",
-            stringify!(_GRBsvec),
-            "::",
-            stringify!(val)
+        "Offset of field: ",
+        stringify!(_GRBsvec),
+        "::",
+        stringify!(val)
         )
     );
 }
+
 pub type GRBsvec = _GRBsvec;
+
 extern "C" {
     pub fn GRBFSolve(
         model: *mut GRBmodel,
@@ -2495,6 +2776,7 @@ extern "C" {
         x: *mut GRBsvec,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBBinvColj(
         model: *mut GRBmodel,
@@ -2502,6 +2784,7 @@ extern "C" {
         x: *mut GRBsvec,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBBinvj(
         model: *mut GRBmodel,
@@ -2509,6 +2792,7 @@ extern "C" {
         x: *mut GRBsvec,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBBSolve(
         model: *mut GRBmodel,
@@ -2516,6 +2800,7 @@ extern "C" {
         x: *mut GRBsvec,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBBinvi(
         model: *mut GRBmodel,
@@ -2523,6 +2808,7 @@ extern "C" {
         x: *mut GRBsvec,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBBinvRowi(
         model: *mut GRBmodel,
@@ -2530,12 +2816,14 @@ extern "C" {
         x: *mut GRBsvec,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetBasisHead(
         model: *mut GRBmodel,
         bhead: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcbstoponemultiobj(
         model: *mut GRBmodel,
@@ -2543,6 +2831,7 @@ extern "C" {
         objnum: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBstrongbranch(
         model: *mut GRBmodel,
@@ -2553,18 +2842,23 @@ extern "C" {
         statusP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcheckmodel(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetsignal(model: *mut GRBmodel);
 }
+
 extern "C" {
     pub fn GRBterminate(model: *mut GRBmodel);
 }
+
 extern "C" {
     pub fn GRBreplay(filename: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetobjective(
         model: *mut GRBmodel,
@@ -2579,6 +2873,7 @@ extern "C" {
         qval: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetobjectiven(
         model: *mut GRBmodel,
@@ -2594,6 +2889,7 @@ extern "C" {
         lval: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBclean2(
         lenP: *mut ::std::os::raw::c_int,
@@ -2601,6 +2897,7 @@ extern "C" {
         val: *mut f64,
     );
 }
+
 extern "C" {
     pub fn GRBclean3(
         lenP: *mut ::std::os::raw::c_int,
@@ -2609,15 +2906,19 @@ extern "C" {
         val: *mut f64,
     );
 }
+
 extern "C" {
     pub fn GRBmsg(env: *mut GRBenv, message: *const ::std::os::raw::c_char);
 }
+
 extern "C" {
     pub fn GRBgetlogfile(env: *mut GRBenv, logfileP: *mut *mut FILE) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetlogfile(env: *mut GRBenv, logfile: *mut FILE) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBgetintparam(
@@ -2626,6 +2927,7 @@ extern "C" {
         valueP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetdblparam(
         env: *mut GRBenv,
@@ -2633,6 +2935,7 @@ extern "C" {
         valueP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetstrparam(
         env: *mut GRBenv,
@@ -2640,6 +2943,7 @@ extern "C" {
         valueP: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetintparaminfo(
         env: *mut GRBenv,
@@ -2650,6 +2954,7 @@ extern "C" {
         defP: *mut ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetdblparaminfo(
         env: *mut GRBenv,
@@ -2660,6 +2965,7 @@ extern "C" {
         defP: *mut f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetstrparaminfo(
         env: *mut GRBenv,
@@ -2668,6 +2974,7 @@ extern "C" {
         defP: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetparam(
         env: *mut GRBenv,
@@ -2675,6 +2982,7 @@ extern "C" {
         value: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetintparam(
         env: *mut GRBenv,
@@ -2682,6 +2990,7 @@ extern "C" {
         value: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetdblparam(
         env: *mut GRBenv,
@@ -2689,6 +2998,7 @@ extern "C" {
         value: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsetstrparam(
         env: *mut GRBenv,
@@ -2696,33 +3006,40 @@ extern "C" {
         value: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetparamtype(
         env: *mut GRBenv,
         paramname: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBresetparams(env: *mut GRBenv) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBcopyparams(dest: *mut GRBenv, src: *mut GRBenv) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBwriteparams(
         env: *mut GRBenv,
         filename: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBreadparams(
         env: *mut GRBenv,
         filename: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetnumparams(env: *mut GRBenv) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetparamname(
         env: *mut GRBenv,
@@ -2730,9 +3047,11 @@ extern "C" {
         paramnameP: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetnumattributes(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetattrname(
         model: *mut GRBmodel,
@@ -2740,6 +3059,7 @@ extern "C" {
         attrnameP: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 #[link(name = "gurobi81")]
 extern "C" {
     pub fn GRBloadenv(
@@ -2747,9 +3067,11 @@ extern "C" {
         logfilename: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBemptyenv(envP: *mut *mut GRBenv) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBemptyenvadv(
         envP: *mut *mut GRBenv,
@@ -2759,9 +3081,11 @@ extern "C" {
         tech: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBstartenv(env: *mut GRBenv) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadenvadv(
         envP: *mut *mut GRBenv,
@@ -2789,6 +3113,7 @@ extern "C" {
         usrdata: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadenvadv2(
         envP: *mut *mut GRBenv,
@@ -2819,6 +3144,7 @@ extern "C" {
         >,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadclientenv(
         envP: *mut *mut GRBenv,
@@ -2832,6 +3158,7 @@ extern "C" {
         timeout: f64,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadclientenvadv(
         envP: *mut *mut GRBenv,
@@ -2858,6 +3185,7 @@ extern "C" {
         usrdata: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadcloudenv(
         envP: *mut *mut GRBenv,
@@ -2868,6 +3196,7 @@ extern "C" {
         priority: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBloadcloudenvadv(
         envP: *mut *mut GRBenv,
@@ -2891,33 +3220,43 @@ extern "C" {
         usrdata: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgetenv(model: *mut GRBmodel) -> *mut GRBenv;
 }
+
 extern "C" {
     pub fn GRBgetconcurrentenv(model: *mut GRBmodel, num: ::std::os::raw::c_int) -> *mut GRBenv;
 }
+
 extern "C" {
     pub fn GRBdiscardconcurrentenvs(model: *mut GRBmodel);
 }
+
 extern "C" {
     pub fn GRBgetmultiobjenv(model: *mut GRBmodel, num: ::std::os::raw::c_int) -> *mut GRBenv;
 }
+
 extern "C" {
     pub fn GRBdiscardmultiobjenvs(model: *mut GRBmodel);
 }
+
 extern "C" {
     pub fn GRBreleaselicense(env: *mut GRBenv);
 }
+
 extern "C" {
     pub fn GRBfreeenv(env: *mut GRBenv);
 }
+
 extern "C" {
     pub fn GRBgeterrormsg(env: *mut GRBenv) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn GRBgetmerrormsg(model: *mut GRBmodel) -> *const ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn GRBversion(
         majorP: *mut ::std::os::raw::c_int,
@@ -2925,15 +3264,19 @@ extern "C" {
         technicalP: *mut ::std::os::raw::c_int,
     );
 }
+
 extern "C" {
     pub fn GRBplatform() -> *mut ::std::os::raw::c_char;
 }
+
 extern "C" {
     pub fn GRBlisttokens() -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBtunemodel(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBtunemodels(
         nummodels: ::std::os::raw::c_int,
@@ -2942,12 +3285,14 @@ extern "C" {
         hint: *mut GRBmodel,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgettuneresult(
         model: *mut GRBmodel,
         i: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBgettunelog(
         model: *mut GRBmodel,
@@ -2955,6 +3300,7 @@ extern "C" {
         logP: *mut *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBtunemodeladv(
         model: *mut GRBmodel,
@@ -2962,23 +3308,28 @@ extern "C" {
         hint: *mut GRBmodel,
     ) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBsync(model: *mut GRBmodel) -> ::std::os::raw::c_int;
 }
+
 extern "C" {
     pub fn GRBpingserver(
         server: *const ::std::os::raw::c_char,
         password: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_locale_data {
     pub _address: u8,
 }
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __crt_multibyte_data {
     pub _address: u8,
 }
+
 pub type __builtin_va_list = *mut ::std::os::raw::c_char;

@@ -1,5 +1,3 @@
-use num::FromPrimitive;
-
 use crate::algebra::*;
 
 pub trait Precision: Arithmetic {
@@ -24,7 +22,7 @@ macro_rules! int_precision_template {
     )*)
 }
 
-int_precision_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 ix uix }
+int_precision_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
 
 impl Precision for f32 {
     const EPSILON: Self = <f32>::MIN_POSITIVE;
@@ -36,10 +34,4 @@ impl Precision for f64 {
     const EPSILON: Self = <f64>::MIN_POSITIVE;
     const DECIMAL_DIGITS: Option<usize> = Some(<f64>::DIGITS as usize);
     const DECIMAL_PRECISION: Self = Self::EPSILON;
-}
-
-impl Precision for dec {
-    const EPSILON: Self = dec::from_f64(1e-28).unwrap();
-    const DECIMAL_DIGITS: Option<usize> = Some(28);
-    const DECIMAL_PRECISION: Self = dec::from_f64(1e-28).unwrap();
 }

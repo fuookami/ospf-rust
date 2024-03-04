@@ -1,8 +1,10 @@
-use super::variable_type::VariableType;
-use crate::math::value_range::*;
 use std::convert::Into;
 use std::fmt;
 use std::fmt::Display;
+
+use crate::math::value_range::*;
+
+use super::variable_type::VariableType;
 
 #[derive(Clone)]
 pub struct VariableRange<Type: VariableType> {

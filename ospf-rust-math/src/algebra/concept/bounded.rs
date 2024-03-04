@@ -1,5 +1,3 @@
-use num::FromPrimitive;
-
 use crate::algebra::*;
 
 pub trait Bounded: Sized {
@@ -30,20 +28,6 @@ macro_rules! floating_bound_template {
 }
 floating_bound_template! { f32 f64 }
 
-impl Bounded for ix {
-    const MINIMUM: Option<Self> = None;
-    const MAXIMUM: Option<Self> = None;
-    const POSITIVE_MINIMUM: Self = Self::ONE;
-}
 
-impl Bounded for uix {
-    const MINIMUM: Option<Self> = Some(Self::ZERO);
-    const MAXIMUM: Option<Self> = None;
-    const POSITIVE_MINIMUM: Self = Self::ONE;
-}
 
-impl Bounded for dec {
-    const MINIMUM: Option<Self> = None;
-    const MAXIMUM: Option<Self> = None;
-    const POSITIVE_MINIMUM: Self = dec::from_f64(1e-28).unwrap();
-}
+

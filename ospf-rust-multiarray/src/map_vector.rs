@@ -1,5 +1,6 @@
-use crate::dummy_vector::DummyIndexRange;
 use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+
+use crate::dummy_vector::DummyIndexRange;
 
 pub struct PlaceHolder {
     index: usize,
@@ -30,7 +31,7 @@ const _20: PlaceHolder = PlaceHolder { index: 20 };
 pub(super) enum MapIndex<'a> {
     Index(isize),
     Range(Box<dyn DummyIndexRange>),
-    IndexArray(Box<dyn Iterator<Item = isize> + 'a>),
+    IndexArray(Box<dyn Iterator<Item=isize> + 'a>),
     Map(PlaceHolder),
 }
 

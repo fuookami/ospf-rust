@@ -1,7 +1,8 @@
-use crate::algebra::concept::FloatingNumber;
 use std::ops::Neg;
 
-pub fn log<T: FloatingNumber + Neg<Output = T>>(nature: T, x: T) -> Option<T> {
+use crate::algebra::concept::FloatingNumber;
+
+pub fn log<T: FloatingNumber + Neg<Output=T>>(nature: T, x: T) -> Option<T> {
     if let (Some(ln_nature), Some(ln_x)) = (ln(nature), ln(x)) {
         Some(ln_x / ln_nature)
     } else {
@@ -9,7 +10,7 @@ pub fn log<T: FloatingNumber + Neg<Output = T>>(nature: T, x: T) -> Option<T> {
     }
 }
 
-pub fn ln<T: FloatingNumber + Neg<Output = T>>(x: T) -> Option<T> {
+pub fn ln<T: FloatingNumber + Neg<Output=T>>(x: T) -> Option<T> {
     if x <= T::ZERO {
         T::NAN
     } else {
@@ -46,10 +47,10 @@ pub fn ln<T: FloatingNumber + Neg<Output = T>>(x: T) -> Option<T> {
     }
 }
 
-pub fn lg10<T: FloatingNumber + Neg<Output = T>>(x: T) -> Option<T> {
+pub fn lg10<T: FloatingNumber + Neg<Output=T>>(x: T) -> Option<T> {
     return log(T::TEN, x);
 }
 
-pub fn lg2<T: FloatingNumber + Neg<Output = T>>(x: T) -> Option<T> {
+pub fn lg2<T: FloatingNumber + Neg<Output=T>>(x: T) -> Option<T> {
     return log(T::TWO, x);
 }
