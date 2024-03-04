@@ -61,22 +61,6 @@ macro_rules! int_log_template {
 }
 int_log_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
 
-impl Log<dec> for ix {
-    type Output = dec;
-
-    fn log(self, base: dec) -> Option<Self::Output> {
-        dec::new(self, 1).log(base)
-    }
-}
-
-impl Log<dec> for uix {
-    type Output = dec;
-
-    fn log(self, base: Self) -> Option<Self::Output> {
-        dec::new(self.to_bigint(), 1).log(dec::new(base.to_bigint(), 1))
-    }
-}
-
 macro_rules! floating_log_template {
     ($($type:ty)*) => ($(
         impl Log for $type {
@@ -89,23 +73,3 @@ macro_rules! floating_log_template {
     )*);
 }
 floating_log_template! { f32 f64 }
-
-impl Log for dec {
-    type Output = Self;
-
-    fn log(self, base: Self) -> Option<Self::Output> {
-        ordinary::log(base, self)
-    }
-
-    fn lg2(self) -> Option<Self::Output> {
-        ordinary::lg2(self)
-    }
-
-    fn lg(self) -> Option<Self::Output> {
-        ordinary::lg10(self)
-    }
-
-    fn ln(self) -> Option<Self::Output> {
-        ordinary::ln(self)
-    }
-}

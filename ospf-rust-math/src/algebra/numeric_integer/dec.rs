@@ -3,6 +3,7 @@ use std::ops::*;
 use bigdecimal::*;
 
 use crate::algebra::concept::*;
+use crate::algebra::numeric_integer::*;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct dec {
@@ -25,6 +26,14 @@ impl From<f64> for dec {
     fn from(value: f64) -> Self {
         dec { value: BigDecimal::from_f64(value).unwrap() }
     }
+}
+
+impl From<ix> for dec {
+    fn from(value: ix) -> Self { dec { value: BigDecimal::from(value.value).unwrap() } }
+}
+
+impl From<uix> for dec {
+    fn from(value: uix) -> Self { dec { value: BigDecimal::from(value.value).unwrap() } })
 }
 
 impl Add for dec {

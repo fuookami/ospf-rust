@@ -7,7 +7,7 @@ use crate::algebra::concept::*;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct uix {
-    value: BigUint,
+    pub(crate) value: BigUint,
 }
 
 impl<T> From<T> for uix where BigUint: From<T> {

@@ -21,7 +21,7 @@ macro_rules! int_abs_template {
         }
     )*)
 }
-int_abs_template! { i8 i16 i32 i64 i128 ix }
+int_abs_template! { i8 i16 i32 i64 i128 }
 
 macro_rules! uint_abs_template {
     ($($type:ty)*) => ($(
@@ -34,7 +34,7 @@ macro_rules! uint_abs_template {
         }
     )*)
 }
-uint_abs_template! { u8 u16 u32 u64 u128 uix }
+uint_abs_template! { u8 u16 u32 u64 u128 }
 
 macro_rules! floating_abs_template {
     ($($type:ty)*) => ($(
@@ -47,4 +47,4 @@ macro_rules! floating_abs_template {
         }
     )*)
 }
-floating_abs_template! { f32 f64 dec }
+floating_abs_template! { f32 f64 }

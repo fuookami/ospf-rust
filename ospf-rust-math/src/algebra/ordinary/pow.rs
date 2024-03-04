@@ -1,9 +1,6 @@
-use std::ops::Neg;
+use std::ops::{AddAssign, MulAssign, Neg};
 
-use crate::{
-    algebra::concept::{RealNumber, TimesGroup, TimesSemiGroup},
-    FloatingNumber,
-};
+use crate::{algebra::concept::{RealNumber, TimesGroup, TimesSemiGroup}, Arithmetic, FloatingNumber};
 
 use super::ln;
 
@@ -49,7 +46,7 @@ impl<T: std::fmt::Debug> std::fmt::Display for NegativeIndexError<T> {
     }
 }
 
-pub(crate) fn pow_times_semi_group<T: RealNumber + TimesSemiGroup + std::fmt::Debug>(
+pub(crate) fn pow_times_semi_group<T: TimesSemiGroup + std::fmt::Debug>(
     base: T,
     index: i64,
 ) -> Result<T, NegativeIndexError<T>> {
@@ -62,7 +59,7 @@ pub(crate) fn pow_times_semi_group<T: RealNumber + TimesSemiGroup + std::fmt::De
     }
 }
 
-pub(crate) fn pow_times_group<T: RealNumber + TimesGroup + std::fmt::Debug>(
+pub(crate) fn pow_times_group<T: TimesGroup + std::fmt::Debug>(
     base: T,
     index: i64,
 ) -> T {
@@ -75,7 +72,7 @@ pub(crate) fn pow_times_group<T: RealNumber + TimesGroup + std::fmt::Debug>(
     }
 }
 
-pub fn exp<T: FloatingNumber>(index: T) -> T {
+pub fn exp<T: Arithmetic + AddAssign + MulAssign>(index: T) -> T {
     let mut value = T::ONE;
     let mut base = index.clone();
     let mut i = T::ONE;
@@ -92,7 +89,7 @@ pub fn exp<T: FloatingNumber>(index: T) -> T {
     value
 }
 
-pub fn powf<T: FloatingNumber + Neg<Output=T>>(base: T, index: T) -> Option<T> {
+pub fn powf<T: Neg<Output=T>>(base: T, index: T) -> Option<T> {
     if let Some(ln_base) = ln(base) {
         Some(exp(index * ln_base))
     } else {

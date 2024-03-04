@@ -21,7 +21,7 @@ macro_rules! signed_neg_template {
         }
     )*)
 }
-signed_neg_template! { i8 i16 i32 i64 i128 ix f32 f64 dec }
+signed_neg_template! { i8 i16 i32 i64 i128 f32 f64 }
 
 macro_rules! unsigned_neg_template {
     ($($type:ty)*) => ($(
@@ -35,11 +35,3 @@ macro_rules! unsigned_neg_template {
     )*)
 }
 unsigned_neg_template! { u8 u16 u32 u64 u128 }
-
-impl Neg for uix {
-    type Output = ix;
-
-    fn neg(&self) -> Self::Output {
-        -ix::from(*self)
-    }
-}
