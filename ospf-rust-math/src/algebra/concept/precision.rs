@@ -1,12 +1,12 @@
-use crate::algebra::*;
+use super::Arithmetic;
 
-pub trait Precision: Arithmetic {
+pub trait Precision {
     const EPSILON: Self;
     const DECIMAL_DIGITS: Option<usize>;
     const DECIMAL_PRECISION: Self;
 }
 
-default impl<T: Arithmetic> Precision for T {
+default impl <T: Arithmetic> Precision for T {
     const EPSILON: Self = Self::ZERO;
     const DECIMAL_DIGITS: Option<usize> = None;
     const DECIMAL_PRECISION: Self = Self::EPSILON;
@@ -21,7 +21,6 @@ macro_rules! int_precision_template {
          }
     )*)
 }
-
 int_precision_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
 
 impl Precision for f32 {

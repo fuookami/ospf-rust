@@ -1,4 +1,6 @@
-use crate::algebra::*;
+use std::ops::Div;
+
+use crate::algebra::concept::FloatingNumber;
 
 pub trait IntDiv<Rhs = Self> {
     type Output;
@@ -6,30 +8,29 @@ pub trait IntDiv<Rhs = Self> {
     fn int_div(self, rhs: Rhs) -> Self::Output;
 }
 
+impl <T: Div<U>, U> IntDiv<U> for T {
+    type Output = <T as Div<U>>::Output;
+
+    default fn int_div(self, rhs: U) -> Self::Output {
+        return self / rhs
+    }
+}
+
 fn int_div<T: IntDiv>(lhs: T, rhs: T) -> T::Output {
     lhs.int_div(rhs)
 }
 
-macro_rules! int_int_div_template {
-    ($($type:ty)*) => ($(
-        impl IntDiv for $type {
-            type Output = $type;
-
-            fn int_div(self, rhs: Self) -> Self::Output {
-                return self / rhs
-            }
-        }
-    )*)
-}
-int_int_div_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
-
 macro_rules! floating_int_div_template {
     ($($type:ty)*) => ($(
         impl IntDiv for $type {
-            type Output = $type;
-
             fn int_div(self, rhs: Self) -> Self::Output {
-                return self - self % rhs
+                return (self / rhs).floor()
+            }
+        }
+
+        impl IntDiv for &$type {
+            fn int_div(self, rhs: Self) -> Self::Output {
+                return (*self / *rhs).floor()
             }
         }
     )*)

@@ -1,11 +1,9 @@
-use crate::algebra::*;
+use super::Arithmetic;
 
 pub trait Variant: Arithmetic {
     type ValueType: Arithmetic;
 
-    fn value(&self) -> Option<&Self::ValueType> {
-        None
-    }
+    fn value(&self) -> Option<&Self::ValueType> { None }
 
     fn equiv(&self, rhs: &Self::ValueType) -> bool;
 }

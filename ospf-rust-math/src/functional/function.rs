@@ -1,6 +1,7 @@
+use std::marker::Tuple;
 use std::ops::Fn;
 
-pub trait Operator<Args: Sized>: Fn<Args> {
+pub trait Operator<Args: Sized + Tuple>: Fn<Args> {
     type IndependentVariable;
     type DependentVariable;
 

@@ -1,32 +1,16 @@
-use std::ops::{AddAssign, MulAssign, Neg};
+use std::fmt::{Debug, Display, Formatter};
 
-use crate::{algebra::concept::{RealNumber, TimesGroup, TimesSemiGroup}, Arithmetic, FloatingNumber};
+use crate::algebra::concept::*;
 
 use super::ln;
 
-pub(self) fn pow_pos_impl<T: TimesSemiGroup>(value: T, base: T, index: i64) -> T {
-    if index == 0 {
-        T::ONE
-    } else {
-        pow_pos_impl(value * base.clone(), base, index - 1)
-    }
-}
-
-pub(self) fn pow_neg_impl<T: TimesGroup>(value: T, base: T, index: i64) -> T {
-    if index == 0 {
-        T::ONE
-    } else {
-        pow_neg_impl(value / base.clone(), base, index + 1)
-    }
-}
-
 #[derive(Debug)]
-pub struct NegativeIndexError<T: std::fmt::Debug> {
+pub struct NegativeIndexError<T: Debug> {
     index: i64,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: std::fmt::Debug> NegativeIndexError<T> {
+impl<T: Debug> NegativeIndexError<T> {
     fn new(index: i64) -> Self {
         Self {
             index: index,
@@ -35,8 +19,8 @@ impl<T: std::fmt::Debug> NegativeIndexError<T> {
     }
 }
 
-impl<T: std::fmt::Debug> std::fmt::Display for NegativeIndexError<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T: Debug> Display for NegativeIndexError<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Invalid argument for negative index \'{}\' exponential function: {}",
@@ -46,7 +30,23 @@ impl<T: std::fmt::Debug> std::fmt::Display for NegativeIndexError<T> {
     }
 }
 
-pub(crate) fn pow_times_semi_group<T: TimesSemiGroup + std::fmt::Debug>(
+pub(self) fn pow_pos_impl<T: Arithmetic + TimesSemiGroup + Clone>(value: T, base: T, index: i64) -> T {
+    if index == 0 {
+        T::ONE.clone()
+    } else {
+        pow_pos_impl(value * base.clone(), base, index - 1)
+    }
+}
+
+pub(self) fn pow_neg_impl<T: Arithmetic + TimesGroup + Clone>(value: T, base: T, index: i64) -> T {
+    if index == 0 {
+        T::ONE.clone()
+    } else {
+        pow_neg_impl(value / base.clone(), base, index + 1)
+    }
+}
+
+pub(crate) fn pow_times_semi_group<T: Arithmetic + TimesSemiGroup + Clone + Debug>(
     base: T,
     index: i64,
 ) -> Result<T, NegativeIndexError<T>> {
@@ -59,7 +59,7 @@ pub(crate) fn pow_times_semi_group<T: TimesSemiGroup + std::fmt::Debug>(
     }
 }
 
-pub(crate) fn pow_times_group<T: TimesGroup + std::fmt::Debug>(
+pub(crate) fn pow_times_group<T: Arithmetic + TimesGroup + Clone>(
     base: T,
     index: i64,
 ) -> T {
@@ -72,10 +72,10 @@ pub(crate) fn pow_times_group<T: TimesGroup + std::fmt::Debug>(
     }
 }
 
-pub fn exp<T: Arithmetic + AddAssign + MulAssign>(index: T) -> T {
-    let mut value = T::ONE;
+pub fn exp<T: FloatingNumber + NumberField + Clone>(index: T) -> T {
+    let mut value = T::ONE.clone();
     let mut base = index.clone();
-    let mut i = T::ONE;
+    let mut i = T::ONE.clone();
     loop {
         let this_item = base.clone() / i.clone();
         value += this_item.clone();
@@ -89,7 +89,7 @@ pub fn exp<T: Arithmetic + AddAssign + MulAssign>(index: T) -> T {
     value
 }
 
-pub fn powf<T: Neg<Output=T>>(base: T, index: T) -> Option<T> {
+pub fn powf<T: FloatingNumber + NumberField + Clone>(base: T, index: T) -> Option<T> {
     if let Some(ln_base) = ln(base) {
         Some(exp(index * ln_base))
     } else {

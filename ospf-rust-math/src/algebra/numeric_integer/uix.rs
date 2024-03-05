@@ -48,6 +48,38 @@ impl Div for uix {
     }
 }
 
+impl Pow for uix {
+    type Output = Self;
+
+    fn pow(self, index: i64) -> Self::Output {
+        ordinary::pow_times_semi_group(self, index).unwrap()
+    }
+}
+
+impl PowF<f64> for uix {
+    type Output = dec;
+
+    fn powf(self, index: f64) -> Option<Self::Output> {
+        dec::from(self).powf(index)
+    }
+
+    fn sqr(self) -> Option<Self::Output> {
+        dec::from(self).sqr()
+    }
+
+    fn cbr(self) -> Option<Self::Output> {
+        dec::from(self).cbr()
+    }
+}
+
+impl Exp for uix {
+    type Output = dec;
+
+    fn exp(self) -> Self::Output {
+        dec::from(self).exp()
+    }
+}
+
 impl Bounded for uix {
     const MINIMUM: Option<Self> = Some(Self::ZERO);
     const MAXIMUM: Option<Self> = None;

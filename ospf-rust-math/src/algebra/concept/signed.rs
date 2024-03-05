@@ -1,4 +1,4 @@
-use crate::algebra::*;
+use std::ops::Neg;
 
 pub trait Signed: Neg<Output=Self> {}
 

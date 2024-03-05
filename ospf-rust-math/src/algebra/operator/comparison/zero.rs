@@ -39,7 +39,7 @@ impl<T: Arithmetic + Abs<Output=T>> FnMut<(T,)> for Zero<T> {
 }
 
 impl<T: Arithmetic + Abs<Output=T>> Fn<(T,)> for Zero<T> {
-    extern "rust-call" fn call(&mut self, args: (T,)) -> Self::Output {
+    extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
         return self.call_once(args);
     }
 }
@@ -59,7 +59,7 @@ impl<T: Arithmetic + Abs<Output=T>> FnMut<(&T,)> for Zero<T> {
 }
 
 impl<T: Arithmetic + Abs<Output=T>> Fn<(&T,)> for Zero<T> {
-    extern "rust-call" fn call(&mut self, args: (&T,)) -> Self::Output {
+    extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
         return self.call_once(args);
     }
 }

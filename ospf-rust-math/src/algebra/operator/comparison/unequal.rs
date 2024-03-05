@@ -1,4 +1,4 @@
-use std::ops::Sub;
+use std::ops::*;
 
 use crate::algebra::{Arithmetic, Precision};
 use crate::operator::Abs;
@@ -41,7 +41,7 @@ impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T>> FnMut<(T, T)> for Unequal<T>
 }
 
 impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T>> Fn<(T, T)> for Unequal<T> {
-    extern "rust-call" fn call(&mut self, args: (T, T)) -> Self::Output {
+    extern "rust-call" fn call(&self, args: (T, T)) -> Self::Output {
         return self.call_once(args);
     }
 }
@@ -70,7 +70,7 @@ impl<'a, T: Arithmetic + Abs<Output=T>> Fn<(&'a T, &'a T)> for Unequal<T>
     where
         &'a T: Sub<&'a T, Output=T>,
 {
-    extern "rust-call" fn call(&mut self, args: (&'a T, &'a T)) -> Self::Output {
+    extern "rust-call" fn call(&self, args: (&'a T, &'a T)) -> Self::Output {
         return self.call_once(args);
     }
 }

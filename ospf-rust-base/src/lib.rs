@@ -1,6 +1,7 @@
 #![feature(specialization)]
 #![feature(entry_insert)]
 #![feature(coroutines, coroutine_trait)]
+#![cfg_attr(debug_assertions, allow(dead_code, unused, incomplete_features))]
 
 #[macro_use]
 extern crate strum;
@@ -14,4 +15,3 @@ pub mod meta_programming;
 pub mod error;
 mod generator_iterator;
 pub mod indexed_type;
-

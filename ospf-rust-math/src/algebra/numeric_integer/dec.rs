@@ -68,6 +68,46 @@ impl Div for dec {
     }
 }
 
+impl Reciprocal for dec {
+    type Output = Self;
+
+    fn reciprocal(&self) -> Self::Output {
+        dec::ONE / self
+    }
+}
+
+impl Pow for dec {
+    type Output = Self;
+
+    fn pow(self, index: i64) -> Self::Output {
+        ordinary::pow_times_group(self, index)
+    }
+}
+
+impl PowF for dec {
+    type Output = Self;
+
+    fn powf(self, index: Self) -> Option<Self::Output> {
+        ordinary::powf(self, index)
+    }
+
+    fn sqr(self) -> Option<Self::Output> {
+        self.powf(Self::ONE / Self::TWO)
+    }
+
+    fn cbr(self) -> Option<Self::Output> {
+        self.powf(Self::ONE / Self::THREE)
+    }
+}
+
+impl Exp for dec {
+    type Output = Self;
+
+    fn exp(self) -> Self::Output {
+        ordinary::exp(self)
+    }
+}
+
 impl Bounded for dec {
     const MINIMUM: Option<Self> = None;
     const MAXIMUM: Option<Self> = None;

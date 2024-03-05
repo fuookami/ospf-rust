@@ -1,8 +1,8 @@
-use std::ops::{Div, Mul, Neg, Rem};
+use std::ops::*;
 
 use crate::algebra::*;
 
-pub trait Scalar: Arithmetic + PlusSemiGroup + TimesSemiGroup + Bounded + Cross + Abs {}
+pub trait Scalar: Arithmetic + Bounded {}
 
 pub trait RealNumber: Scalar + Precision + Invariant {
     const TWO: Self;
@@ -26,20 +26,19 @@ pub trait RealNumber: Scalar + Precision + Invariant {
     }
 }
 
-pub trait Integer: RealNumber + RangeTo + Log<f64> + PowF<f64> + Exp + Ord + Eq {}
+pub trait Integer: RealNumber + Ord + Eq {}
 
-pub trait IntegerNumber: Integer + Signed + NumberField + Pow {}
+pub trait IntegerNumber: Integer + Signed {}
 
-pub trait UIntegerNumber: Integer + Unsigned + NumberField + Pow {}
+pub trait UIntegerNumber: Integer + Unsigned {}
 
-pub trait RationalNumber<I: Integer + NumberField>:
-RealNumber + NumberField + Log<f64> + PowF<f64> + Exp + Pow + Ord + Eq
+pub trait RationalNumber<I: Integer>: RealNumber + Ord + Eq
 {
     fn num(&self) -> &I;
     fn den(&self) -> &I;
 }
 
-pub trait FloatingNumber: RealNumber + Signed + NumberField + Log + PowF + Exp + Pow {
+pub trait FloatingNumber: RealNumber + Signed {
     const PI: Self;
     const E: Self;
 
@@ -50,43 +49,12 @@ pub trait FloatingNumber: RealNumber + Signed + NumberField + Log + PowF + Exp +
     fn fract(&self) -> Self;
 }
 
-pub trait NumericIntegerNumber<I: IntegerNumber>:
-Integer
-+ Signed
-+ PlusGroup
-+ TimesSemiGroup
-+ Reciprocal
-+ Div
-+ IntDiv<Output=Self>
-+ Rem<Output=Self>
-+ Pow
-+ Ord
-+ Eq
-{}
+pub trait NumericIntegerNumber<I: IntegerNumber>: Integer + Signed + Ord + Eq {}
 
-pub trait NumericUIntegerNumber<I: UIntegerNumber>:
-Integer
-+ Unsigned
-+ PlusSemiGroup
-+ TimesSemiGroup
-+ Neg
-+ Mul
-+ Reciprocal
-+ Div
-+ IntDiv<Output=Self>
-+ Rem<Output=Self>
-+ Pow
-+ Ord
-+ Eq
-{}
+pub trait NumericUIntegerNumber<I: UIntegerNumber>: Integer + Unsigned + Ord + Eq {}
 
 macro_rules! int_real_number_template {
     ($($type:ty)*) => ($(
-        impl Arithmetic for $type {
-            const ZERO: Self = 0;
-            const ONE: Self = 1;
-        }
-
         impl Scalar for $type {}
 
         impl RealNumber for $type {
@@ -103,11 +71,6 @@ int_real_number_template! { i8 i16 i32 i64 i128 }
 
 macro_rules! uint_real_number_template {
     ($($type:ty)*) => ($(
-        impl Arithmetic for $type {
-            const ZERO: Self = 0;
-            const ONE: Self = 1;
-        }
-
         impl Scalar for $type {}
 
         impl RealNumber for $type {
@@ -124,11 +87,6 @@ uint_real_number_template! { u8 u16 u32 u64 u128 }
 
 macro_rules! floating_real_number_template {
     ($($type:ty)*) => ($(
-        impl Arithmetic for $type {
-            const ZERO: Self = 0.;
-            const ONE: Self = 1.;
-        }
-
         impl Scalar for $type {}
 
         impl RealNumber for $type {

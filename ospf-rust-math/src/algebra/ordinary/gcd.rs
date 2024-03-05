@@ -1,9 +1,10 @@
 use std::ops::Rem;
 
-use crate::algebra::{Abs, Integer};
+use crate::algebra::concept::*;
+use crate::algebra::operator::*;
 
-pub(self) fn gcd_impl<I: Integer + Abs<Output=I> + Rem<I, Output=I>>(x: I, y: I) -> I {
-    let remainder = x % y;
+pub(self) fn gcd_impl<I: Arithmetic + Rem<I, Output=I>>(x: I, y: I) -> I {
+    let remainder = x % y.clone();
 
     if remainder == I::ZERO {
         y
@@ -12,6 +13,6 @@ pub(self) fn gcd_impl<I: Integer + Abs<Output=I> + Rem<I, Output=I>>(x: I, y: I)
     }
 }
 
-pub fn gcd<I: Integer + Abs<Output=I> + Rem<I, Output=I>>(x: I, y: I) -> I {
+pub fn gcd<I: Arithmetic + Abs<Output=I> + Rem<I, Output=I>>(x: I, y: I) -> I {
     gcd_impl(x.abs(), y.abs())
 }

@@ -1,4 +1,4 @@
-use crate::algebra::*;
+use super::{Arithmetic, Precision};
 
 pub trait Bounded: Sized {
     const MINIMUM: Option<Self>;
@@ -27,7 +27,3 @@ macro_rules! floating_bound_template {
     )*)
 }
 floating_bound_template! { f32 f64 }
-
-
-
-

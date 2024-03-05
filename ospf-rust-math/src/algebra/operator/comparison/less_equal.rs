@@ -1,7 +1,7 @@
-use std::ops::Sub;
+use std::ops::*;
 
 use crate::algebra::{Arithmetic, Precision};
-use crate::operator::{Abs, Neg};
+use crate::operator::Abs;
 
 pub struct LessEqual<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> {
     pub(self) precision: T,
@@ -47,7 +47,7 @@ for LessEqual<T>
 impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> Fn<(T, T)>
 for LessEqual<T>
 {
-    extern "rust-call" fn call(&mut self, args: (T, T)) -> Self::Output {
+    extern "rust-call" fn call(&self, args: (T, T)) -> Self::Output {
         return self.call_once(args);
     }
 }
@@ -76,7 +76,7 @@ impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> Fn<(&'a T, &'a T)> for L
     where
         &'a T: Sub<&'a T, Output=T>,
 {
-    extern "rust-call" fn call(&mut self, args: (&'a T, &'a T)) -> Self::Output {
+    extern "rust-call" fn call(&self, args: (&'a T, &'a T)) -> Self::Output {
         return self.call_once(args);
     }
 }

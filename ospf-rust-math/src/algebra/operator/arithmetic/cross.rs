@@ -1,4 +1,4 @@
-use crate::algebra::*;
+use std::ops::Mul;
 
 pub trait Cross<Rhs = Self> {
     type Output;
@@ -6,19 +6,14 @@ pub trait Cross<Rhs = Self> {
     fn cross(self, rhs: Rhs) -> Self::Output;
 }
 
-fn cross<T: Cross>(lhs: T, rhs: T) -> T::Output {
+impl <T: Mul<U> + Clone, U> Cross<U> for &T {
+    type Output = <T as Mul<U>>::Output;
+
+    default fn cross(self, rhs: U) -> Self::Output {
+        self.clone() * rhs
+    }
+}
+
+fn cross<T: Cross<U>, U>(lhs: T, rhs: U) -> T::Output {
     lhs.cross(rhs)
 }
-
-macro_rules! cross_template {
-    ($($type:ty)*) => ($(
-        impl Cross for $type {
-            type Output = $type;
-
-            fn cross(self, rhs: Self) -> Self::Output {
-                return self * rhs
-            }
-        }
-    )*)
-}
-cross_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 }
