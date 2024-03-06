@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::algebra::concept::*;
+use crate::algebra::concept::{Arithmetic, FloatingNumber, TimesSemiGroup, TimesGroup, NumberField};
 
 use super::ln;
 

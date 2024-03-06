@@ -6,7 +6,7 @@ pub trait Precision {
     const DECIMAL_PRECISION: Self;
 }
 
-default impl <T: Arithmetic> Precision for T {
+default impl<T: Arithmetic> Precision for T {
     const EPSILON: Self = Self::ZERO;
     const DECIMAL_DIGITS: Option<usize> = None;
     const DECIMAL_PRECISION: Self = Self::EPSILON;

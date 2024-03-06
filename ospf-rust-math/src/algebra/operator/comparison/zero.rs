@@ -24,42 +24,42 @@ impl<T: Arithmetic + Abs<Output=T>> Zero<T> {
     }
 }
 
-impl<T: Arithmetic + Abs<Output=T>> FnOnce<(T,)> for Zero<T> {
+impl<T: Arithmetic + Abs<Output=T>> FnOnce<(T, )> for Zero<T> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+    extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
         return args.0.abs() <= self.precision;
     }
 }
 
-impl<T: Arithmetic + Abs<Output=T>> FnMut<(T,)> for Zero<T> {
-    extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
+impl<T: Arithmetic + Abs<Output=T>> FnMut<(T, )> for Zero<T> {
+    extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
         return self.call_once(args);
     }
 }
 
-impl<T: Arithmetic + Abs<Output=T>> Fn<(T,)> for Zero<T> {
-    extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
+impl<T: Arithmetic + Abs<Output=T>> Fn<(T, )> for Zero<T> {
+    extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
         return self.call_once(args);
     }
 }
 
-impl<T: Arithmetic + Abs<Output=T>> FnOnce<(&T,)> for Zero<T> {
+impl<T: Arithmetic + Abs<Output=T>> FnOnce<(&T, )> for Zero<T> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
+    extern "rust-call" fn call_once(self, args: (&T, )) -> Self::Output {
         return args.0.abs() <= self.precision;
     }
 }
 
-impl<T: Arithmetic + Abs<Output=T>> FnMut<(&T,)> for Zero<T> {
-    extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
+impl<T: Arithmetic + Abs<Output=T>> FnMut<(&T, )> for Zero<T> {
+    extern "rust-call" fn call_mut(&mut self, args: (&T, )) -> Self::Output {
         return self.call_once(args);
     }
 }
 
-impl<T: Arithmetic + Abs<Output=T>> Fn<(&T,)> for Zero<T> {
-    extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
+impl<T: Arithmetic + Abs<Output=T>> Fn<(&T, )> for Zero<T> {
+    extern "rust-call" fn call(&self, args: (&T, )) -> Self::Output {
         return self.call_once(args);
     }
 }

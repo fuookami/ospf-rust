@@ -1,6 +1,6 @@
 use std::ops::Neg;
 
-use crate::algebra::concept::{ Arithmetic, Signed };
+use crate::algebra::concept::{Arithmetic, Signed};
 
 pub trait Abs {
     type Output;
@@ -8,7 +8,7 @@ pub trait Abs {
     fn abs(self) -> Self::Output;
 }
 
-impl <T: Abs + Clone> Abs for &T {
+impl<T: Abs + Clone> Abs for &T {
     type Output = <T as Abs>::Output;
 
     fn abs(self) -> Self::Output {
@@ -16,7 +16,7 @@ impl <T: Abs + Clone> Abs for &T {
     }
 }
 
-fn abs<T: Abs>(value: T) -> T::Output {
+pub fn abs<T: Abs>(value: T) -> T::Output {
     value.abs()
 }
 
@@ -65,8 +65,7 @@ mod tests {
     use std::fmt::Debug;
     use bigdecimal::num_traits::Unsigned;
 
-    use crate::algebra::concept::{ Bounded, IntegerNumber };
-    use crate::{FloatingNumber, UIntegerNumber};
+    use crate::algebra::concept::{Bounded, IntegerNumber, UIntegerNumber, FloatingNumber};
     use super::*;
 
     fn test_bounded<T: Arithmetic + Bounded + Abs<Output=T> + Debug>() {

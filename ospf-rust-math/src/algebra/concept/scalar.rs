@@ -11,7 +11,7 @@ pub enum RealNumberCategory {
     NegativeInfinite,
     Zero,
     Subnormal,
-    Normal
+    Normal,
 }
 
 pub trait RealNumber: Scalar + Precision + Invariant {
@@ -39,7 +39,7 @@ pub trait RealNumber: Scalar + Precision + Invariant {
     }
 
     fn is_finite(&self) -> bool {
-        return !self.is_inf() && !self.is_inf() && !self.is_neg_inf()
+        return !self.is_inf() && !self.is_inf() && !self.is_neg_inf();
     }
 }
 

@@ -1,6 +1,6 @@
 use std::ops::Div;
 
-use crate::algebra::concept::{ Arithmetic, RealNumber };
+use crate::algebra::concept::{Arithmetic, RealNumber};
 
 pub trait Reciprocal {
     type Output;
@@ -8,7 +8,7 @@ pub trait Reciprocal {
     fn reciprocal(self) -> Self::Output;
 }
 
-impl <T: Reciprocal + Clone> Reciprocal for &T {
+impl<T: Reciprocal + Clone> Reciprocal for &T {
     type Output = <T as Reciprocal>::Output;
 
     fn reciprocal(self) -> Self::Output {
@@ -16,7 +16,7 @@ impl <T: Reciprocal + Clone> Reciprocal for &T {
     }
 }
 
-fn reciprocal<T: Reciprocal>(value: T) -> T::Output {
+pub fn reciprocal<T: Reciprocal>(value: T) -> T::Output {
     value.reciprocal()
 }
 
@@ -81,7 +81,7 @@ flt_reciprocal_template! { f32 f64 }
 mod tests {
     use std::fmt::Debug;
 
-    use crate::algebra::concept::{ Integer, IntegerNumber, UIntegerNumber, FloatingNumber };
+    use crate::algebra::concept::{Integer, IntegerNumber, UIntegerNumber, FloatingNumber};
     use super::*;
 
     fn test_integer<T: Integer + Reciprocal<Output=Option<T>> + Debug>() {

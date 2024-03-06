@@ -1,4 +1,4 @@
-use std::fmt::{ Display, Debug };
+use std::fmt::{Display, Debug};
 
 pub trait Arithmetic: Sized + Clone + PartialEq + PartialOrd {
     const ZERO: Self;
