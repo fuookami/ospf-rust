@@ -14,9 +14,9 @@ pub trait TimesSemiGroup: Sized + Mul<Output=Self> + MulAssign {}
 
 impl<T: Mul<Output=Self> + MulAssign> TimesSemiGroup for T {}
 
-pub trait TimesGroup: TimesSemiGroup + Reciprocal<Output=Self> + Div<Output=Self> + DivAssign + Rem<Output=Self> {}
+pub trait TimesGroup: TimesSemiGroup + Reciprocal<Output=Option<Self>> + Div<Output=Self> + DivAssign + Rem<Output=Self> {}
 
-impl <T: TimesSemiGroup + Reciprocal<Output=Self> + Div<Output=Self> + DivAssign + Rem<Output=Self>> TimesGroup for T {}
+impl <T: TimesSemiGroup + Reciprocal<Output=Option<Self>> + Div<Output=Self> + DivAssign + Rem<Output=Self>> TimesGroup for T {}
 
 pub trait NumberRing: PlusGroup + TimesSemiGroup {}
 

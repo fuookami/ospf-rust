@@ -5,14 +5,14 @@ pub trait Signed: Neg<Output=Self> {}
 pub trait Unsigned {}
 
 macro_rules! signed_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Signed for $type { }
     )*)
 }
 signed_template! { i8 i16 i32 i64 i128 f32 f64 }
 
 macro_rules! unsigned_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Unsigned for $type { }
     )*)
 }

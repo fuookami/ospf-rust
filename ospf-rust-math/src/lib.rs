@@ -1,5 +1,6 @@
 #![feature(associated_type_defaults)]
 #![feature(specialization)]
+#![feature(concat_idents)]
 #![feature(unboxed_closures, fn_traits)]
 #![feature(coroutines, coroutine_trait)]
 #![feature(tuple_trait)]

@@ -1,12 +1,13 @@
 use std::ops::*;
 
 use crate::algebra::concept::{FloatingNumber, NumberField};
+use crate::algebra::operator::Reciprocal;
 
 pub fn ln<T: FloatingNumber + NumberField + Clone>(x: T) -> Option<T> {
     if x <= T::ZERO {
         T::NAN
     } else {
-        let frac_e = T::E.reciprocal();
+        let frac_e = T::E.reciprocal().unwrap();
 
         let mut val = T::ZERO.clone();
         let mut xp = x;

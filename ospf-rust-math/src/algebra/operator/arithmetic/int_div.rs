@@ -21,7 +21,7 @@ fn int_div<T: IntDiv>(lhs: T, rhs: T) -> T::Output {
 }
 
 macro_rules! floating_int_div_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl IntDiv for $type {
             fn int_div(self, rhs: Self) -> Self::Output {
                 return (self / rhs).floor()

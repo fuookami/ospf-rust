@@ -7,7 +7,7 @@ pub trait Bounded: Sized {
 }
 
 macro_rules! int_bound_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Bounded for $type {
             const MINIMUM: Option<Self> = Some(<$type>::MIN);
             const MAXIMUM: Option<Self> = Some(<$type>::MAX);
@@ -18,7 +18,7 @@ macro_rules! int_bound_template {
 int_bound_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
 
 macro_rules! floating_bound_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Bounded for $type {
             const MINIMUM: Option<Self> = Some(<$type>::MIN);
             const MAXIMUM: Option<Self> = Some(<$type>::MAX);

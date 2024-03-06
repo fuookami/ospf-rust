@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 num = "*"
 bigdecimal = "*"
+concat-idents = "*"
 
 [dependencies.ospf-rust-base]
 path = "../ospf-rust-base"

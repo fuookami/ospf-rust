@@ -80,7 +80,7 @@ macro_rules! flush {
 
 #[macro_export]
 macro_rules! auto_indexed {
-    ($($type:ty)*) => {$(
+    ($($type:ident)*) => {$(
         impl Indexed for $type {
             fn index(&self) -> usize {
                 self.index
@@ -104,7 +104,7 @@ macro_rules! auto_indexed {
 
 #[macro_export]
 macro_rules! manual_indexed {
-    ($($type:ty)*) => {$(
+    ($($type:ident)*) => {$(
         impl Indexed for $type {
             fn index(&self) -> usize {
                 self.index.unwrap()

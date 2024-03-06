@@ -9,7 +9,7 @@ pub trait Cross<Rhs = Self> {
 impl <T: Mul<U> + Clone, U> Cross<U> for &T {
     type Output = <T as Mul<U>>::Output;
 
-    default fn cross(self, rhs: U) -> Self::Output {
+    fn cross(self, rhs: U) -> Self::Output {
         self.clone() * rhs
     }
 }

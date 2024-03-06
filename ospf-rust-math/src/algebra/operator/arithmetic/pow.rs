@@ -30,7 +30,7 @@ pub trait Exp {
 }
 
 macro_rules! int_pow_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Pow for $type {
             type Output = Self;
 
@@ -67,7 +67,7 @@ macro_rules! int_pow_template {
 int_pow_template! { u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 }
 
 macro_rules! floating_pow_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Pow for $type {
             type Output = Self;
 

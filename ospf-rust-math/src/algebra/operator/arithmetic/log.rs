@@ -37,7 +37,7 @@ fn ln<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
 }
 
 macro_rules! int_log_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Log<f64> for $type {
             type Output = f64;
 
@@ -62,7 +62,7 @@ macro_rules! int_log_template {
 int_log_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
 
 macro_rules! floating_log_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Log for $type {
             type Output = Self;
 

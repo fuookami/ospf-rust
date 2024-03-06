@@ -73,6 +73,14 @@ impl SubAssign for ix {
     }
 }
 
+impl Neg for ix {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self::Output {
+        ix { value: -self.value }
+    }
+}
+
 impl Mul for ix {
     type Output = Self;
 

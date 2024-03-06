@@ -13,7 +13,7 @@ default impl <T: Arithmetic> Precision for T {
 }
 
 macro_rules! int_precision_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Precision for $type {
             const EPSILON: Self = Self::ZERO;
             const DECIMAL_DIGITS: Option<usize> = None;

@@ -10,7 +10,7 @@ pub mod range;
 pub mod variable_type;
 
 macro_rules! variable_type_exporter_template {
-    ($id:ident, $type:ty) => {
+    ($id:ident, $type:ident) => {
         concat_idents!(export_type = $id, Var, {
             pub type export_type = item::IndependentVariableItem<$type>;
         });

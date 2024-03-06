@@ -19,7 +19,7 @@ pub trait Invariant: Arithmetic {
 }
 
 macro_rules! invariant_template {
-    ($($type:ty)*) => ($(
+    ($($type:ident)*) => ($(
         impl Invariant for $type {
             type ValueType = Self;
 
