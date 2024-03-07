@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::{Div, Mul, Sub};
 
-use crate::algebra::concept::{Arithmetic, FloatingNumber, TimesSemiGroup, TimesGroup, NumberField};
+use crate::algebra::concept::{Arithmetic, FloatingNumber, TimesSemiGroup, TimesGroup};
 
 use super::ln;
 
@@ -13,7 +14,7 @@ pub struct NegativeIndexError<T: Debug> {
 impl<T: Debug> NegativeIndexError<T> {
     fn new(index: i64) -> Self {
         Self {
-            index: index,
+            index,
             _marker: std::marker::PhantomData,
         }
     }
@@ -30,7 +31,7 @@ impl<T: Debug> Display for NegativeIndexError<T> {
     }
 }
 
-pub(self) fn pow_pos_impl<T: Arithmetic + TimesSemiGroup + Clone>(value: T, base: T, index: i64) -> T {
+pub(self) fn pow_pos_impl<T: Arithmetic + TimesSemiGroup>(value: T, base: T, index: i64) -> T {
     if index == 0 {
         T::ONE.clone()
     } else {
@@ -38,7 +39,7 @@ pub(self) fn pow_pos_impl<T: Arithmetic + TimesSemiGroup + Clone>(value: T, base
     }
 }
 
-pub(self) fn pow_neg_impl<T: Arithmetic + TimesGroup + Clone>(value: T, base: T, index: i64) -> T {
+pub(self) fn pow_neg_impl<T: Arithmetic + TimesGroup>(value: T, base: T, index: i64) -> T {
     if index == 0 {
         T::ONE.clone()
     } else {
@@ -46,7 +47,7 @@ pub(self) fn pow_neg_impl<T: Arithmetic + TimesGroup + Clone>(value: T, base: T,
     }
 }
 
-pub(crate) fn pow_times_semi_group<T: Arithmetic + TimesSemiGroup + Clone + Debug>(
+pub(crate) fn pow_times_semi_group<T: Arithmetic + TimesSemiGroup + Debug>(
     base: T,
     index: i64,
 ) -> Result<T, NegativeIndexError<T>> {
@@ -59,7 +60,7 @@ pub(crate) fn pow_times_semi_group<T: Arithmetic + TimesSemiGroup + Clone + Debu
     }
 }
 
-pub(crate) fn pow_times_group<T: Arithmetic + TimesGroup + Clone>(
+pub(crate) fn pow_times_group<T: Arithmetic + TimesGroup>(
     base: T,
     index: i64,
 ) -> T {
@@ -72,7 +73,7 @@ pub(crate) fn pow_times_group<T: Arithmetic + TimesGroup + Clone>(
     }
 }
 
-pub fn exp<T: FloatingNumber + NumberField + Clone>(index: T) -> T {
+pub fn exp<T: FloatingNumber>(index: T) -> T {
     let mut value = T::ONE.clone();
     let mut base = index.clone();
     let mut i = T::ONE.clone();
@@ -89,7 +90,10 @@ pub fn exp<T: FloatingNumber + NumberField + Clone>(index: T) -> T {
     value
 }
 
-pub fn powf<T: FloatingNumber + NumberField + Clone>(base: T, index: T) -> Option<T> {
+pub fn powf<T: FloatingNumber>(base: T, index: T) -> Option<T>
+    where for<'a> &'a T: Sub<&'a T, Output=T> +
+        Mul<&'a T, Output=T> +
+        Div<&'a T, Output=T> {
     if let Some(ln_base) = ln(base) {
         Some(exp(index * ln_base))
     } else {

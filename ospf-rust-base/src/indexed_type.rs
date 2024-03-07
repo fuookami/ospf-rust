@@ -78,6 +78,8 @@ macro_rules! flush {
     };
 }
 
+// todo: replace with procedure macro
+
 #[macro_export]
 macro_rules! auto_indexed {
     ($($type:ident)*) => {$(

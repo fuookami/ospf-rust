@@ -5,6 +5,9 @@ pub use log::*;
 pub use pow::*;
 pub use range_to::*;
 pub use reciprocal::*;
+pub use gcd::*;
+pub use lcm::*;
+pub use trailing_zeros::*;
 
 pub mod abs;
 pub mod cross;
@@ -13,4 +16,6 @@ pub mod log;
 pub mod pow;
 pub mod range_to;
 pub mod reciprocal;
-
+pub mod gcd;
+pub mod lcm;
+pub mod trailing_zeros;

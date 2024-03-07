@@ -5,6 +5,11 @@ pub trait Arithmetic: Sized + Clone + PartialEq + PartialOrd {
     const ONE: Self;
 }
 
+impl Arithmetic for bool {
+    const ZERO: Self = false;
+    const ONE: Self = true;
+}
+
 macro_rules! int_arithmetic_template {
     ($($type:ident)*) => ($(
         impl Arithmetic for $type {
@@ -13,7 +18,7 @@ macro_rules! int_arithmetic_template {
         }
     )*)
 }
-int_arithmetic_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
+int_arithmetic_template! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 
 macro_rules! floating_arithmetic_template {
     ($($type:ident)*) => ($(

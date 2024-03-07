@@ -5,27 +5,27 @@ use crate::algebra::concept::{Arithmetic, RealNumber};
 pub trait Reciprocal {
     type Output;
 
-    fn reciprocal(self) -> Self::Output;
+    fn reciprocal(self) -> Option<Self::Output>;
 }
 
 impl<T: Reciprocal + Clone> Reciprocal for &T {
     type Output = <T as Reciprocal>::Output;
 
-    fn reciprocal(self) -> Self::Output {
+    fn reciprocal(self) -> Option<Self::Output> {
         self.clone().reciprocal()
     }
 }
 
-pub fn reciprocal<T: Reciprocal>(value: T) -> T::Output {
+pub fn reciprocal<T: Reciprocal>(value: T) -> Option<T::Output> {
     value.reciprocal()
 }
 
 macro_rules! int_reciprocal_template {
     ($($type:ident)*) => ($(
         impl Reciprocal for $type {
-            type Output = Option<$type>;
+            type Output = $type;
 
-            fn reciprocal(self) -> Self::Output {
+            fn reciprocal(self) -> Option<Self::Output> {
                 if (self == 0) {
                     <$type as RealNumber>::NAN
                 } else if (self == 1) {
@@ -44,9 +44,9 @@ int_reciprocal_template! { i8 i16 i32 i64 i128 }
 macro_rules! uint_reciprocal_template {
     ($($type:ident)*) => ($(
         impl Reciprocal for $type {
-            type Output = Option<$type>;
+            type Output = $type;
 
-            fn reciprocal(self) -> Self::Output {
+            fn reciprocal(self) -> Option<Self::Output> {
                 if (self == 0) {
                     <$type as RealNumber>::NAN
                 } else if (self == 1) {
@@ -63,9 +63,9 @@ uint_reciprocal_template! { u8 u16 u32 u64 u128 }
 macro_rules! flt_reciprocal_template {
     ($($type:ident)*) => ($(
         impl Reciprocal for $type {
-            type Output = Option<$type>;
+            type Output = $type;
 
-            fn reciprocal(self) -> Self::Output {
+            fn reciprocal(self) -> Option<Self::Output> {
                 if (self == 0.) {
                     return <$type as RealNumber>::NAN;
                 } else {
@@ -84,7 +84,7 @@ mod tests {
     use crate::algebra::concept::{Integer, IntegerNumber, UIntegerNumber, FloatingNumber};
     use super::*;
 
-    fn test_integer<T: Integer + Reciprocal<Output=Option<T>> + Debug>() {
+    fn test_integer<T: Integer + Reciprocal<Output=T> + Debug>() {
         assert_eq!(T::ZERO.reciprocal(), T::NAN);
         assert_eq!((&T::ZERO).reciprocal(), T::NAN);
         assert_eq!(reciprocal(T::ZERO), T::NAN);
@@ -101,7 +101,7 @@ mod tests {
         assert_eq!(reciprocal(&T::TWO), Some(T::ZERO));
     }
 
-    fn test_int<T: IntegerNumber + Reciprocal<Output=Option<T>> + Debug>() {
+    fn test_int<T: IntegerNumber + Reciprocal<Output=T> + Debug>() {
         test_integer::<T>();
 
         assert_eq!((-T::ONE).reciprocal(), Some(-T::ONE));
@@ -110,11 +110,11 @@ mod tests {
         assert_eq!(reciprocal(&-T::ONE), Some(-T::ONE));
     }
 
-    fn test_uint<T: UIntegerNumber + Reciprocal<Output=Option<T>> + Debug>() {
+    fn test_uint<T: UIntegerNumber + Reciprocal<Output=T> + Debug>() {
         test_integer::<T>();
     }
 
-    fn test_flt<T: FloatingNumber + Div<Output=T> + Reciprocal<Output=Option<T>> + Debug>() {
+    fn test_flt<T: FloatingNumber + Div<Output=T> + Reciprocal<Output=T> + Debug>() {
         assert!(T::ZERO.reciprocal().unwrap().is_nan());
         assert!((&T::ZERO).reciprocal().unwrap().is_nan());
         assert!(reciprocal(T::ZERO).unwrap().is_nan());

@@ -5,4 +5,3 @@ pub use pow::*;
 pub mod gcd;
 pub mod log;
 pub mod pow;
-

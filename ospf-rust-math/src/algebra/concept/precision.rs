@@ -21,7 +21,7 @@ macro_rules! int_precision_template {
          }
     )*)
 }
-int_precision_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
+int_precision_template! { bool i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 
 impl Precision for f32 {
     const EPSILON: Self = <f32>::MIN_POSITIVE;

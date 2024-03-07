@@ -20,19 +20,39 @@ pub trait Log<Base: FloatingNumber = Self>: Sized {
     }
 }
 
-fn log<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs, rhs: Rhs) -> Option<Lhs::Output> {
+impl <T: Log<U> + Clone, U: FloatingNumber> Log<U> for &T {
+    type Output = <T as Log<U>>::Output;
+    
+    fn log(self, base: U) -> Option<Self::Output> {
+        self.clone().log(base)
+    }
+
+    fn lg2(self) -> Option<Self::Output> {
+        self.clone().lg2()
+    }
+
+    fn lg(self) -> Option<Self::Output> {
+        self.clone().lg()
+    }
+
+    fn ln(self) -> Option<Self::Output> {
+        self.clone().ln()
+    }
+}
+
+pub fn log<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs, rhs: Rhs) -> Option<Lhs::Output> {
     lhs.log(rhs)
 }
 
-fn lg2<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
+pub fn lg2<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
     lhs.lg2()
 }
 
-fn lg<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
+pub fn lg<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
     lhs.lg()
 }
 
-fn ln<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
+pub fn ln<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
     lhs.ln()
 }
 

@@ -1,4 +1,4 @@
-use super::MetaJudgement;
+use crate::meta_programming::MetaJudgement;
 
 pub struct IsSameType<T, F> {
     _marker: std::marker::PhantomData<(T, F)>,
@@ -20,14 +20,19 @@ impl<T> SameType for IsSameType<T, T> {
     type Type = T;
 }
 
-#[test]
-fn test_is_same_type() {
-    assert!(IsSameType::<i32, i32>::VALUE);
-    assert!(IsSameType::<i64, i64>::VALUE);
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_is_not_same_type() {
-    assert!(!IsSameType::<i32, i64>::VALUE);
-    assert!(!IsSameType::<i64, i32>::VALUE);
+    #[test]
+    fn test_is_same_type() {
+        assert!(IsSameType::<i32, i32>::VALUE);
+        assert!(IsSameType::<i64, i64>::VALUE);
+    }
+
+    #[test]
+    fn test_is_not_same_type() {
+        assert!(!IsSameType::<i32, i64>::VALUE);
+        assert!(!IsSameType::<i64, i32>::VALUE);
+    }
 }
