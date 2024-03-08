@@ -1,76 +1,70 @@
-use std::ops::*;
+use std::marker::Tuple;
+use std::ops::Sub;
 
-use crate::algebra::{Arithmetic, Precision};
-use crate::operator::Abs;
+use crate::algebra::concept::{Arithmetic, Precision};
+use crate::algebra::operator::Abs;
+use crate::Equal;
 
 use super::Zero;
 
-pub struct Unequal<T: Arithmetic + Abs<Output=T>> {
-    pub(self) zero_op: Zero<T>,
+pub struct Unequal<T: Sized> {
+    pub(self) zero: Zero<T>,
 }
 
-impl<T: Arithmetic + Abs<Output=T>> Unequal<T> {
-    fn new() -> Self
-        where
-            T: Precision,
-    {
+impl <T> From<T> for Unequal<T> where Zero<T>: From<T> {
+    fn from(precision: T) -> Self {
         Self {
-            zero_op: Zero::new(),
-        }
-    }
-
-    fn new_with(precision: T) -> Self {
-        Self {
-            zero_op: Zero::new_with(precision),
+            zero: Zero::from(precision)
         }
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T>> FnOnce<(T, T)> for Unequal<T> {
+impl<T: Arithmetic> Unequal<T> {
+    pub fn new() -> Self where T: Precision {
+        Self {
+            zero: Zero::new(),
+        }
+    }
+
+    pub fn new_with(precision: T) -> Self where Self: From<T> {
+        Self::from(precision)
+    }
+
+    pub fn precision(&self) -> &T {
+        self.zero.precision()
+    }
+}
+
+impl<T: Arithmetic, U> FnOnce<(T, U)> for Unequal<T>
+    where
+        for<'a> &'a T: Sub<&'a U, Output=T>,
+        Zero<T>: FnOnce<(T, ), Output=bool> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: (T, T)) -> Self::Output {
-        !self.zero_op.call_once((args.0 - args.1, ))
+    extern "rust-call" fn call_once(self, args: (T, U)) -> Self::Output {
+        !self.zero.call_once((&args.0 - &args.1, ))
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T>> FnMut<(T, T)> for Unequal<T> {
-    extern "rust-call" fn call_mut(&mut self, args: (T, T)) -> Self::Output {
-        return self.call_once(args);
-    }
-}
-
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T>> Fn<(T, T)> for Unequal<T> {
-    extern "rust-call" fn call(&self, args: (T, T)) -> Self::Output {
-        return self.call_once(args);
-    }
-}
-
-impl<'a, T: Arithmetic + Abs<Output=T>> FnOnce<(&'a T, &'a T)> for Unequal<T>
+impl<T: Arithmetic, U> FnOnce<(&T, &U)> for Unequal<T>
     where
-        &'a T: Sub<&'a T, Output=T>,
-{
+        for<'a> &'a T: Sub<&'a U, Output=T>,
+        Zero<T>: FnOnce<(T, ), Output=bool> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: (&'a T, &'a T)) -> Self::Output {
-        !self.zero_op.call_once((args.0 - args.1, ))
+    extern "rust-call" fn call_once(self, args: (&T, &U)) -> Self::Output {
+        !self.zero.call_once((args.0 - args.1, ))
     }
 }
 
-impl<'a, T: Arithmetic + Abs<Output=T>> FnMut<(&'a T, &'a T)> for Unequal<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (&'a T, &'a T)) -> Self::Output {
-        return self.call_once(args);
+impl<T: Tuple> FnMut<T> for Unequal<T> where Unequal<T>: FnOnce<T> {
+    extern "rust-call" fn call_mut(&mut self, args: T) -> Self::Output {
+        self.call_once(args)
     }
 }
 
-impl<'a, T: Arithmetic + Abs<Output=T>> Fn<(&'a T, &'a T)> for Unequal<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    extern "rust-call" fn call(&self, args: (&'a T, &'a T)) -> Self::Output {
-        return self.call_once(args);
+impl<T: Tuple> Fn<T> for Unequal<T> where Unequal<T>: FnMut<T> {
+    extern "rust-call" fn call(&self, args: T) -> Self::Output {
+        self.call_once(args)
     }
 }

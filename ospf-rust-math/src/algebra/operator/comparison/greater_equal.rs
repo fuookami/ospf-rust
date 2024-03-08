@@ -3,25 +3,22 @@ use std::ops::*;
 use crate::algebra::{Arithmetic, Precision};
 use crate::operator::Abs;
 
-pub struct GreaterEqual<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> {
+pub struct GreaterEqual<T> {
     pub(self) precision: T,
     pub(self) neg_precision: T,
 }
 
-impl<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> GreaterEqual<T> {
-    pub fn new() -> Self
-        where
-            T: Precision,
-    {
+impl<T: Arithmetic> GreaterEqual<T> where for <'a> &'a T: Abs<Output=T> + Neg<Output=T> {
+    pub fn new() -> Self where T: Precision {
         Self::new_with(<T as Precision>::DECIMAL_PRECISION)
     }
 
-    pub fn new_with(precision: T) -> Self {
-        let actual_precision = precision.abs();
-        let neg_precision = actual_precision.neg();
+    pub fn new_with(precision: &T) -> Self {
+        let actual_precision = (&precision).abs();
+        let neg_precision = (&actual_precision).neg();
         Self {
             precision: actual_precision,
-            neg_precision: neg_precision,
+            neg_precision,
         }
     }
 
@@ -30,18 +27,16 @@ impl<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> GreaterEqual<T> {
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnOnce<(T, T)>
-for GreaterEqual<T>
-{
+impl<T: Arithmetic> FnOnce<(&T, &T)> for GreaterEqual<T>
+    where for <'a> &'a T: Sub<&'a T, Output=T> + Abs<Output=T> + Neg<Output=T> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: (T, T)) -> Self::Output {
+    extern "rust-call" fn call_once(self, args: (&T, &T)) -> Self::Output {
         (args.0 - args.1) >= self.neg_precision
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnMut<(T, T)>
-for GreaterEqual<T>
+impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnMut<(T, T)> for GreaterEqual<T>
 {
     extern "rust-call" fn call_mut(&mut self, args: (T, T)) -> Self::Output {
         return self.call_once(args);

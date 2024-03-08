@@ -13,4 +13,5 @@ pub mod less;
 pub mod less_equal;
 pub mod unequal;
 pub mod zero;
+mod compare;
 

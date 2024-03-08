@@ -31,7 +31,7 @@ macro_rules! int_abs_template {
         }
     )*)
 }
-int_abs_template! { i8 i16 i32 i64 i128 }
+int_abs_template! { i8 i16 i32 i64 i128 isize }
 
 macro_rules! uint_abs_template {
     ($($type:ident)*) => ($(
@@ -44,7 +44,7 @@ macro_rules! uint_abs_template {
         }
     )*)
 }
-uint_abs_template! { u8 u16 u32 u64 u128 }
+uint_abs_template! { bool u8 u16 u32 u64 u128 usize }
 
 macro_rules! flt_abs_template {
     ($($type:ident)*) => ($(
@@ -68,52 +68,56 @@ mod tests {
     use crate::algebra::concept::{Bounded, IntegerNumber, UIntegerNumber, FloatingNumber};
     use super::*;
 
-    fn test_bounded<T: Arithmetic + Bounded + Abs<Output=T> + Debug>() {
-        assert_eq!(T::ZERO.abs(), T::ZERO);
-        assert_eq!((&T::ZERO).abs(), T::ZERO);
-        assert_eq!(abs(T::ZERO), T::ZERO);
-        assert_eq!(abs(&T::ZERO), T::ZERO);
+    fn test_bounded<T: Arithmetic + Bounded + Abs<Output=T> + Debug>()
+        where for<'a> &'a T: Abs<Output=T> {
+        assert_eq!(&T::ZERO.abs(), T::ZERO);
+        assert_eq!(&(&T::ZERO).abs(), T::ZERO);
+        assert_eq!(&abs(T::ZERO), T::ZERO);
+        assert_eq!(&abs(&T::ZERO), T::ZERO);
 
-        assert_eq!(T::POSITIVE_MINIMUM.abs(), T::POSITIVE_MINIMUM);
-        assert_eq!((&T::POSITIVE_MINIMUM).abs(), T::POSITIVE_MINIMUM);
-        assert_eq!(abs(T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
-        assert_eq!(abs(&T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
+        assert_eq!(&T::POSITIVE_MINIMUM.abs(), T::POSITIVE_MINIMUM);
+        assert_eq!(&(&T::POSITIVE_MINIMUM).abs(), T::POSITIVE_MINIMUM);
+        assert_eq!(&abs(T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
+        assert_eq!(&abs(&T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
 
-        assert_eq!(T::MAXIMUM.map(|x| x.abs()), T::MAXIMUM);
-        assert_eq!(T::MAXIMUM.map(|x| (&x).abs()), T::MAXIMUM);
-        assert_eq!(T::MAXIMUM.map(|x| abs(x)), T::MAXIMUM);
-        assert_eq!(T::MAXIMUM.map(|x| abs(&x)), T::MAXIMUM);
+        assert_eq!(&T::MAXIMUM.as_ref().map(|x| x.clone().abs()), T::MAXIMUM);
+        assert_eq!(&T::MAXIMUM.as_ref().map(|x| x.abs()), T::MAXIMUM);
+        assert_eq!(&T::MAXIMUM.as_ref().map(|x| abs(x.clone())), T::MAXIMUM);
+        assert_eq!(&T::MAXIMUM.as_ref().map(|x| abs(&x)), T::MAXIMUM);
     }
 
-    fn test_signed<T: Arithmetic + Bounded + Signed + Abs<Output=T> + Debug>() {
+    fn test_signed<T: Arithmetic + Bounded + Signed + Abs<Output=T> + Debug>()
+        where for<'a> &'a T: Neg<Output=T> + Abs<Output=T> {
         test_bounded::<T>();
 
-        assert_eq!((-T::POSITIVE_MINIMUM).abs(), T::POSITIVE_MINIMUM);
-        assert_eq!((&-T::POSITIVE_MINIMUM).abs(), T::POSITIVE_MINIMUM);
-        assert_eq!(abs(-T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
-        assert_eq!(abs(&-T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
+        assert_eq!(&(-T::POSITIVE_MINIMUM).abs(), T::POSITIVE_MINIMUM);
+        assert_eq!(&(&-T::POSITIVE_MINIMUM).abs(), T::POSITIVE_MINIMUM);
+        assert_eq!(&abs(-T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
+        assert_eq!(&abs(&-T::POSITIVE_MINIMUM), T::POSITIVE_MINIMUM);
     }
 
-    fn test_int<T: IntegerNumber + Add<Output=T> + Abs<Output=T> + Debug>() {
+    fn test_int<T: IntegerNumber + Abs<Output=T> + Debug>()
+        where for<'a> &'a T: Add<&'a T, Output=T> + Neg<Output=T> + Abs<Output=T> {
         test_signed::<T>();
 
-        assert_eq!(T::MINIMUM.map(|x| (x + T::ONE.clone()).abs()), T::MAXIMUM);
-        assert_eq!(T::MINIMUM.map(|x| (&(x + T::ONE.clone())).abs()), T::MAXIMUM);
-        assert_eq!(T::MINIMUM.map(|x| abs(x + T::ONE.clone())), T::MAXIMUM);
-        assert_eq!(T::MINIMUM.map(|x| abs(&(x + T::ONE.clone()))), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| (x + T::ONE).abs()), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| (&(x + T::ONE)).abs()), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| abs(x + T::ONE)), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| abs(&(x + T::ONE))), T::MAXIMUM);
     }
 
-    fn test_uint<T: UIntegerNumber + Add<Output=T> + Abs<Output=T> + Debug>() {
+    fn test_uint<T: UIntegerNumber + Abs<Output=T> + Debug>() {
         test_bounded::<T>();
     }
 
-    fn test_flt<T: FloatingNumber + Abs<Output=T> + Debug>() {
+    fn test_flt<T: FloatingNumber + Abs<Output=T> + Debug>()
+        where for<'a> &'a T: Neg<Output=T> + Abs<Output=T> {
         test_signed::<T>();
 
-        assert_eq!(T::MINIMUM.map(|x| x.abs()), T::MAXIMUM);
-        assert_eq!(T::MINIMUM.map(|x| (&x).abs()), T::MAXIMUM);
-        assert_eq!(T::MINIMUM.map(|x| abs(x)), T::MAXIMUM);
-        assert_eq!(T::MINIMUM.map(|x| abs(&x)), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| x.abs()), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| (&x).abs()), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| abs(x)), T::MAXIMUM);
+        assert_eq!(&T::MINIMUM.as_ref().map(|x| abs(&x)), T::MAXIMUM);
     }
 
     #[test]

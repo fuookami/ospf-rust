@@ -5,7 +5,7 @@ use crate::algebra::*;
 pub trait Log<Base: FloatingNumber = Self>: Sized {
     type Output;
 
-    fn log(self, base: Base) -> Option<Self::Output>;
+    fn log(self, base: &Base) -> Option<Self::Output>;
 
     fn lg2(self) -> Option<Self::Output> {
         self.log(Base::TWO)
@@ -20,28 +20,16 @@ pub trait Log<Base: FloatingNumber = Self>: Sized {
     }
 }
 
-impl <T: Log<U> + Clone, U: FloatingNumber> Log<U> for &T {
-    type Output = <T as Log<U>>::Output;
-    
-    fn log(self, base: U) -> Option<Self::Output> {
-        self.clone().log(base)
-    }
+impl <T, U: FloatingNumber + Log<U> + for<'a> From<&'a T>> Log<U> for &T {
+    type Output = <U as Log<U>>::Output;
 
-    fn lg2(self) -> Option<Self::Output> {
-        self.clone().lg2()
-    }
-
-    fn lg(self) -> Option<Self::Output> {
-        self.clone().lg()
-    }
-
-    fn ln(self) -> Option<Self::Output> {
-        self.clone().ln()
+    fn log(self, base: &U) -> Option<Self::Output> {
+        U::from(self).log(base)
     }
 }
 
-pub fn log<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs, rhs: Rhs) -> Option<Lhs::Output> {
-    lhs.log(rhs)
+pub fn log<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs, rhs: &Rhs) -> Option<Lhs::Output> {
+    lhs.log(&rhs)
 }
 
 pub fn lg2<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output> {
@@ -61,33 +49,21 @@ macro_rules! int_log_template {
         impl Log<f64> for $type {
             type Output = f64;
 
-            fn log(self, base: f64) -> Option<Self::Output> {
-                Some((self as f64).log(base))
-            }
-
-            fn lg2(self) -> Option<Self::Output> {
-                Some((self as f64).log2())
-            }
-
-            fn lg(self) -> Option<Self::Output> {
-                Some((self as f64).log10())
-            }
-
-            fn ln(self) -> Option<Self::Output> {
-                Some((self as f64).ln())
+            fn log(self, base: &f64) -> Option<Self::Output> {
+                Some((self as f64).log(*base))
             }
         }
     )*)
 }
-int_log_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 }
+int_log_template! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 
 macro_rules! floating_log_template {
     ($($type:ident)*) => ($(
         impl Log for $type {
-            type Output = Self;
+            type Output = $type;
 
-            fn log(self, base: Self) -> Option<Self::Output> {
-                Some(self.log(base))
+            fn log(self, base: &Self) -> Option<Self::Output> {
+                Some(self.log(*base))
             }
         }
     )*);

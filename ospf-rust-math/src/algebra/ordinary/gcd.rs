@@ -15,10 +15,10 @@ pub fn gcd_stein<I: Arithmetic +
     debug_assert!(&x >= &Arithmetic::ZERO);
     debug_assert!(&y >= &Arithmetic::ZERO);
 
-    if &x == &Arithmetic::ZERO {
+    if &x == Arithmetic::ZERO {
         return y;
     }
-    if &y == &Arithmetic::ZERO {
+    if &y == Arithmetic::ZERO {
         return x;
     }
 
@@ -33,7 +33,7 @@ pub fn gcd_stein<I: Arithmetic +
             swap(&mut x, &mut y);
         }
         y -= &x;
-        if &y == &Arithmetic::ZERO {
+        if &y == Arithmetic::ZERO {
             break;
         }
     }
@@ -44,10 +44,10 @@ pub fn gcd_euclid<I: Arithmetic + for<'a> SubAssign<&'a I>>(mut x: I, mut y: I) 
     debug_assert!(&x >= &Arithmetic::ZERO);
     debug_assert!(&y >= &Arithmetic::ZERO);
 
-    if &x == &Arithmetic::ZERO {
+    if &x == Arithmetic::ZERO {
         return y;
     }
-    if &y == &Arithmetic::ZERO {
+    if &y == Arithmetic::ZERO {
         return x;
     }
 
@@ -56,7 +56,7 @@ pub fn gcd_euclid<I: Arithmetic + for<'a> SubAssign<&'a I>>(mut x: I, mut y: I) 
             swap(&mut x, &mut y);
         }
         y -= &x;
-        if &y == &Arithmetic::ZERO {
+        if &y == Arithmetic::ZERO {
             break;
         }
     }

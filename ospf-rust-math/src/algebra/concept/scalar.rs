@@ -17,27 +17,27 @@ pub enum RealNumberCategory {
 }
 
 pub trait RealNumber: Scalar + Precision + Invariant {
-    const TWO: Self;
-    const THREE: Self;
-    const FIVE: Self;
-    const TEN: Self;
+    const TWO: &'static Self;
+    const THREE: &'static Self;
+    const FIVE: &'static Self;
+    const TEN: &'static Self;
 
-    const NAN: Option<Self> = None;
-    const INF: Option<Self> = None;
-    const NEG_INF: Option<Self> = None;
+    const NAN: &'static Option<Self> = &None;
+    const INF: &'static Option<Self> = &None;
+    const NEG_INF: &'static Option<Self> = &None;
 
     // todo: category
 
     fn is_nan(&self) -> bool {
-        Self::NAN.is_some_and(|nan_value| *self == nan_value)
+        Self::NAN.as_ref().is_some_and(|nan_value| self == nan_value)
     }
 
     fn is_inf(&self) -> bool {
-        Self::INF.is_some_and(|inf_value| *self == inf_value)
+        Self::INF.as_ref().is_some_and(|inf_value| self == inf_value)
     }
 
     fn is_neg_inf(&self) -> bool {
-        Self::NEG_INF.is_some_and(|inf_value| *self == inf_value)
+        Self::NEG_INF.as_ref().is_some_and(|inf_value| self == inf_value)
     }
 
     fn is_finite(&self) -> bool {
@@ -63,8 +63,8 @@ pub trait RationalNumber<I: Integer>: RealNumber + NumberField + Ord + Eq {
 }
 
 pub trait FloatingNumber: RealNumber + NumberField + Signed {
-    const PI: Self;
-    const E: Self;
+    const PI: &'static Self;
+    const E: &'static Self;
 
     fn floor(&self) -> Self;
     fn ceil(&self) -> Self;
@@ -80,10 +80,10 @@ pub trait NumericUIntegerNumber<I: UIntegerNumber>: Integer + Unsigned + Ord + E
 macro_rules! int_real_number_template {
     ($($type:ident)*) => ($(
         impl RealNumber for $type {
-            const TWO: Self = 2;
-            const THREE: Self = 3;
-            const FIVE: Self = 3;
-            const TEN: Self = 10;
+            const TWO: &'static Self = &2;
+            const THREE: &'static Self = &3;
+            const FIVE: &'static Self = &3;
+            const TEN: &'static Self = &10;
         }
     )*)
 }
@@ -92,10 +92,10 @@ int_real_number_template! { i8 i16 i32 i64 i128 isize }
 macro_rules! uint_real_number_template {
     ($($type:ident)*) => ($(
         impl RealNumber for $type {
-            const TWO: Self = 2;
-            const THREE: Self = 3;
-            const FIVE: Self = 5;
-            const TEN: Self = 10;
+            const TWO: &'static Self = &2;
+            const THREE: &'static Self = &3;
+            const FIVE: &'static Self = &5;
+            const TEN: &'static Self = &10;
         }
     )*)
 }
@@ -104,14 +104,14 @@ uint_real_number_template! { u8 u16 u32 u64 u128 usize }
 macro_rules! floating_real_number_template {
     ($($type:ident)*) => ($(
         impl RealNumber for $type {
-            const TWO: Self = 2.;
-            const THREE: Self = 3.;
-            const FIVE: Self = 5.;
-            const TEN: Self = 10.;
+            const TWO: &'static Self = &2.;
+            const THREE: &'static Self = &3.;
+            const FIVE: &'static Self = &5.;
+            const TEN: &'static Self = &10.;
 
-            const NAN: Option<Self> = Some(<$type>::NAN);
-            const INF: Option<Self> = Some(<$type>::INFINITY);
-            const NEG_INF: Option<Self> = Some(<$type>::NEG_INFINITY);
+            const NAN: &'static Option<Self> = &Some(<$type>::NAN);
+            const INF: &'static Option<Self> = &Some(<$type>::INFINITY);
+            const NEG_INF: &'static Option<Self> = &Some(<$type>::NEG_INFINITY);
 
             fn is_nan(&self) -> bool {
                 <$type>::is_nan(*self)
@@ -127,8 +127,8 @@ macro_rules! floating_real_number_template {
         }
 
         impl FloatingNumber for $type {
-                const PI: Self = std::$type::consts::PI;
-                const E: Self = std::$type::consts::E;
+                const PI: &'static Self = &std::$type::consts::PI;
+                const E: &'static Self = &std::$type::consts::E;
 
                 fn floor(&self) -> Self {
                     <$type>::floor(*self)

@@ -31,28 +31,30 @@ impl<T: Debug> Display for NegativeIndexError<T> {
     }
 }
 
-pub(self) fn pow_pos_impl<T: Arithmetic + TimesSemiGroup>(value: T, base: T, index: i64) -> T {
+pub(self) fn pow_pos_impl<T: Arithmetic>(value: &T, base: &T, index: i64) -> T
+    where for<'a> &'a T: Mul<&'a T, Output=T> {
     if index == 0 {
         T::ONE.clone()
     } else {
-        pow_pos_impl(value * base.clone(), base, index - 1)
+        pow_pos_impl(&(value * base), base, index - 1)
     }
 }
 
-pub(self) fn pow_neg_impl<T: Arithmetic + TimesGroup>(value: T, base: T, index: i64) -> T {
+pub(self) fn pow_neg_impl<T: Arithmetic>(value: &T, base: &T, index: i64) -> T
+    where for<'a> &'a T: Div<&'a T, Output=T>{
     if index == 0 {
         T::ONE.clone()
     } else {
-        pow_neg_impl(value / base.clone(), base, index + 1)
+        pow_neg_impl(&(value / base), base, index + 1)
     }
 }
 
-pub(crate) fn pow_times_semi_group<T: Arithmetic + TimesSemiGroup + Debug>(
-    base: T,
+pub(crate) fn pow_times_semi_group<T: Arithmetic + Debug>(
+    base: &T,
     index: i64,
-) -> Result<T, NegativeIndexError<T>> {
+) -> Result<T, NegativeIndexError<T>> where for<'a> &'a T: Mul<&'a T, Output=T> {
     if index >= 1 {
-        Ok(pow_pos_impl(T::ONE.clone(), base, index))
+        Ok(pow_pos_impl(T::ONE, base, index))
     } else if index <= -1 {
         Err(NegativeIndexError::new(index))
     } else {
@@ -60,10 +62,10 @@ pub(crate) fn pow_times_semi_group<T: Arithmetic + TimesSemiGroup + Debug>(
     }
 }
 
-pub(crate) fn pow_times_group<T: Arithmetic + TimesGroup>(
-    base: T,
+pub(crate) fn pow_times_group<T: Arithmetic>(
+    base: &T,
     index: i64,
-) -> T {
+) -> T where for<'a> &'a T: Mul<&'a T, Output=T> + Div<&'a T, Output=T> {
     if index >= 1 {
         pow_pos_impl(T::ONE, base, index)
     } else if index <= -1 {
@@ -73,30 +75,30 @@ pub(crate) fn pow_times_group<T: Arithmetic + TimesGroup>(
     }
 }
 
-pub fn exp<T: FloatingNumber>(index: T) -> T {
+pub fn exp<T: FloatingNumber>(index: &T) -> T where for<'a> &'a T: Div<&'a T, Output=T> {
     let mut value = T::ONE.clone();
     let mut base = index.clone();
     let mut i = T::ONE.clone();
     loop {
-        let this_item = base.clone() / i.clone();
-        value += this_item.clone();
-        base *= index.clone();
+        let this_item = &base / &i;
+        value += &this_item;
+        base *= index;
         i += T::ONE;
 
-        if this_item <= T::EPSILON {
+        if &this_item <= T::EPSILON {
             break;
         }
     }
     value
 }
 
-pub fn powf<T: FloatingNumber>(base: T, index: T) -> Option<T>
+pub fn powf<T: FloatingNumber>(base: &T, index: &T) -> Option<T>
     where for<'a> &'a T: Sub<&'a T, Output=T> +
         Mul<&'a T, Output=T> +
         Div<&'a T, Output=T> {
     if let Some(ln_base) = ln(base) {
-        Some(exp(index * ln_base))
+        Some(exp(&(index * &ln_base)))
     } else {
-        T::NAN
+        T::NAN.clone()
     }
 }

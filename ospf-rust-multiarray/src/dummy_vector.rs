@@ -207,7 +207,7 @@ impl<'a, 'b, S: Shape> DummyAccessIterator<'a, 'b, S> {
                 },
             }
         }
-        return None;
+        None
     }
 }
 

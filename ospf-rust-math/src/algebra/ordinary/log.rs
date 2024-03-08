@@ -2,39 +2,39 @@ use std::ops::*;
 
 use crate::algebra::concept::FloatingNumber;
 
-pub fn ln<T: FloatingNumber>(x: T) -> Option<T>
+pub fn ln<T: FloatingNumber>(x: &T) -> Option<T>
     where for<'a> &'a T: Sub<&'a T, Output=T> +
         Mul<&'a T, Output=T> +
         Div<&'a T, Output=T> {
     if x <= T::ZERO {
-        T::NAN
+        T::NAN.clone()
     } else {
         let frac_e = T::ONE / T::E;
 
         let mut val = T::ZERO.clone();
         let mut xp = x.clone();
-        if &xp < &T::ONE {
+        if &xp < T::ONE {
             while xp <= frac_e {
-                xp *= &T::E;
-                val -= &T::ONE;
+                xp *= T::E;
+                val -= T::ONE;
             }
-        } else if &xp > &T::ONE {
-            while &xp >= &T::E {
-                xp /= &T::E;
-                val += &T::ONE;
+        } else if &xp > T::ONE {
+            while &xp >= T::E {
+                xp /= T::E;
+                val += T::ONE;
             }
         }
-        let mut base = &xp - &T::ONE;
+        let mut base = &xp - T::ONE;
         let mut signed = T::ONE.clone();
         let mut i = T::ONE.clone();
         loop {
             let this_item = &signed * &base / &i;
             val += this_item.clone();
-            base *= &xp - &T::ONE;
+            base *= &xp - T::ONE;
             signed = -signed;
-            i += &T::ONE;
+            i += T::ONE;
 
-            if &this_item <= &T::EPSILON {
+            if &this_item <= T::EPSILON {
                 break;
             }
         }
@@ -42,7 +42,7 @@ pub fn ln<T: FloatingNumber>(x: T) -> Option<T>
     }
 }
 
-pub fn log<T: FloatingNumber + Clone>(nature: T, x: T) -> Option<T>
+pub fn log<T: FloatingNumber + Clone>(nature: &T, x: &T) -> Option<T>
     where for<'a> &'a T: Sub<&'a T, Output=T> +
         Mul<&'a T, Output=T> +
         Div<&'a T, Output=T> {
@@ -53,16 +53,16 @@ pub fn log<T: FloatingNumber + Clone>(nature: T, x: T) -> Option<T>
     }
 }
 
-pub fn lg10<T: FloatingNumber + Clone>(x: T) -> Option<T>
+pub fn lg10<T: FloatingNumber + Clone>(x: &T) -> Option<T>
     where for<'a> &'a T: Sub<&'a T, Output=T> +
         Mul<&'a T, Output=T> +
         Div<&'a T, Output=T> {
-    return log(T::TEN, x);
+    log(T::TEN, x)
 }
 
-pub fn lg2<T: FloatingNumber + Clone>(x: T) -> Option<T>
+pub fn lg2<T: FloatingNumber + Clone>(x: &T) -> Option<T>
     where for<'a> &'a T: Sub<&'a T, Output=T> +
         Mul<&'a T, Output=T> +
         Div<&'a T, Output=T> {
-    return log(T::TWO, x);
+    log(T::TWO, x)
 }

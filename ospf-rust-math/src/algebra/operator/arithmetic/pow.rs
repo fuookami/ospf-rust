@@ -94,7 +94,7 @@ macro_rules! int_pow_template {
             type Output = Self;
 
             fn pow(self, index: i64) -> Self::Output {
-                ordinary::pow_times_semi_group(self, index).unwrap()
+                ordinary::pow_times_semi_group(&self, index).unwrap()
             }
         }
 
@@ -123,7 +123,7 @@ macro_rules! int_pow_template {
         }
     )*)
 }
-int_pow_template! { u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 }
+int_pow_template! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 
 macro_rules! floating_pow_template {
     ($($type:ident)*) => ($(
@@ -131,7 +131,7 @@ macro_rules! floating_pow_template {
             type Output = Self;
 
             fn pow(self, index: i64) -> Self::Output {
-                ordinary::pow_times_group(self, index)
+                ordinary::pow_times_group(&self, index)
             }
         }
 

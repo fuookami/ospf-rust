@@ -1,20 +1,20 @@
 use std::fmt::{Display, Debug};
 
-pub trait Arithmetic: Sized + Clone + PartialEq + PartialOrd {
-    const ZERO: Self;
-    const ONE: Self;
+pub trait Arithmetic: 'static + Sized + Clone + PartialEq + PartialOrd {
+    const ZERO: &'static Self;
+    const ONE: &'static Self;
 }
 
 impl Arithmetic for bool {
-    const ZERO: Self = false;
-    const ONE: Self = true;
+    const ZERO: &'static Self = &false;
+    const ONE: &'static Self = &true;
 }
 
 macro_rules! int_arithmetic_template {
     ($($type:ident)*) => ($(
         impl Arithmetic for $type {
-            const ZERO: Self = 0;
-            const ONE: Self = 1;
+            const ZERO: &'static Self = &0;
+            const ONE: &'static Self = &1;
         }
     )*)
 }
@@ -23,8 +23,8 @@ int_arithmetic_template! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 macro_rules! floating_arithmetic_template {
     ($($type:ident)*) => ($(
         impl Arithmetic for $type {
-            const ZERO: Self = 0.;
-            const ONE: Self = 1.;
+            const ZERO: &'static Self = &0.;
+            const ONE: &'static Self = &1.;
         }
     )*)
 }

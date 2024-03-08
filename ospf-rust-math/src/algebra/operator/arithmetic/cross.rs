@@ -29,7 +29,7 @@ macro_rules! scalar_cross_template {
         }
     )*)
 }
-scalar_cross_template! { i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 }
+scalar_cross_template! { bool i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize f32 f64 }
 
 #[cfg(test)]
 mod tests {
@@ -39,20 +39,20 @@ mod tests {
     use super::*;
 
     fn test_scalar<T: RealNumber + Cross<Output=T> + for<'a> Cross<&'a T, Output=T> + Debug>() {
-        assert_eq!(T::ZERO.clone().cross(T::ZERO.clone()), T::ZERO);
-        assert_eq!((&T::ZERO).cross(T::ZERO.clone()), T::ZERO);
-        assert_eq!(T::ZERO.clone().cross(&T::ZERO), T::ZERO);
-        assert_eq!((&T::ZERO).cross(&T::ZERO), T::ZERO);
+        assert_eq!(&(T::ZERO.clone().cross(T::ZERO.clone())), T::ZERO);
+        assert_eq!(&((T::ZERO).cross(T::ZERO.clone())), T::ZERO);
+        assert_eq!(&(T::ZERO.clone().cross(T::ZERO)), T::ZERO);
+        assert_eq!(&((T::ZERO).cross(T::ZERO)), T::ZERO);
 
-        assert_eq!(T::ONE.clone().cross(T::TWO.clone()), T::TWO);
-        assert_eq!((&T::ONE).cross(T::TWO.clone()), T::TWO);
-        assert_eq!(T::ONE.clone().cross(&T::TWO), T::TWO);
-        assert_eq!((&T::ONE).cross(&T::TWO), T::TWO);
+        assert_eq!(&(T::ONE.clone().cross(T::TWO.clone())), T::TWO);
+        assert_eq!(&((T::ONE).cross(T::TWO.clone())), T::TWO);
+        assert_eq!(&(T::ONE.clone().cross(T::TWO)), T::TWO);
+        assert_eq!(&((T::ONE).cross(T::TWO)), T::TWO);
 
-        assert_eq!(T::TWO.clone().cross(T::ONE.clone()), T::TWO);
-        assert_eq!((&T::TWO).cross(T::ONE.clone()), T::TWO);
-        assert_eq!(T::TWO.clone().cross(&T::ONE), T::TWO);
-        assert_eq!((&T::TWO).cross(&T::ONE), T::TWO);
+        assert_eq!(&(T::TWO.clone().cross(T::ONE.clone())), T::TWO);
+        assert_eq!(&((T::TWO).cross(T::ONE.clone())), T::TWO);
+        assert_eq!(&(T::TWO.clone().cross(T::ONE)), T::TWO);
+        assert_eq!(&((T::TWO).cross(T::ONE)), T::TWO);
     }
 
     #[test]
