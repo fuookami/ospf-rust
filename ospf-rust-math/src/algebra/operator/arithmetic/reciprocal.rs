@@ -8,14 +8,6 @@ pub trait Reciprocal {
     fn reciprocal(self) -> Option<Self::Output>;
 }
 
-impl<T: Reciprocal + Clone> Reciprocal for &T {
-    type Output = <T as Reciprocal>::Output;
-
-    fn reciprocal(self) -> Option<Self::Output> {
-        self.clone().reciprocal()
-    }
-}
-
 pub fn reciprocal<T: Reciprocal>(value: T) -> Option<T::Output> {
     value.reciprocal()
 }
@@ -31,6 +23,22 @@ macro_rules! int_reciprocal_template {
                 } else if (self == 1) {
                     Some(1)
                 } else if (self == -1) {
+                    Some(-1)
+                } else {
+                    Some(0)
+                }
+            }
+        }
+
+        impl Reciprocal for &$type {
+            type Output = $type;
+
+            fn reciprocal(self) -> Option<Self::Output> {
+                if (self == &0) {
+                    <$type as RealNumber>::NAN.clone()
+                } else if (self == &1) {
+                    Some(1)
+                } else if (self == &-1) {
                     Some(-1)
                 } else {
                     Some(0)
@@ -56,6 +64,20 @@ macro_rules! uint_reciprocal_template {
                 }
             }
         }
+
+        impl Reciprocal for &$type {
+            type Output = $type;
+
+            fn reciprocal(self) -> Option<Self::Output> {
+                if (self == &0) {
+                    <$type as RealNumber>::NAN.clone()
+                } else if (self == &1) {
+                    Some(1)
+                } else {
+                    Some(0)
+                }
+            }
+        }
     )*)
 }
 uint_reciprocal_template! { u8 u16 u32 u64 u128 usize }
@@ -67,6 +89,18 @@ macro_rules! flt_reciprocal_template {
 
             fn reciprocal(self) -> Option<Self::Output> {
                 if (self == 0.) {
+                    return <$type as RealNumber>::NAN.clone();
+                } else {
+                    return Some(1. / self);
+                }
+            }
+        }
+
+        impl Reciprocal for &$type {
+            type Output = $type;
+
+            fn reciprocal(self) -> Option<Self::Output> {
+                if (self == &0.) {
                     return <$type as RealNumber>::NAN.clone();
                 } else {
                     return Some(1. / self);
@@ -85,24 +119,26 @@ mod tests {
     use crate::algebra::concept::{Integer, IntegerNumber, UIntegerNumber, FloatingNumber};
     use super::*;
 
-    fn test_integer<T: Integer + Reciprocal<Output=T> + Debug>() {
+    fn test_integer<T: Integer + Reciprocal<Output=T> + Debug>()
+        where for<'a> &'a T: Reciprocal<Output=T> {
+        assert_eq!(&(T::ZERO.clone().reciprocal()), T::NAN);
         assert_eq!(&(T::ZERO.reciprocal()), T::NAN);
-        assert_eq!(&((&T::ZERO).reciprocal()), T::NAN);
+        assert_eq!(&reciprocal(T::ZERO.clone()), T::NAN);
         assert_eq!(&reciprocal(T::ZERO), T::NAN);
-        assert_eq!(&reciprocal(&T::ZERO), T::NAN);
 
+        assert_eq!(T::ONE.clone().reciprocal(), Some(T::ONE.clone()));
         assert_eq!(T::ONE.reciprocal(), Some(T::ONE.clone()));
-        assert_eq!((&T::ONE).reciprocal(), Some(T::ONE.clone()));
+        assert_eq!(reciprocal(T::ONE.clone()), Some(T::ONE.clone()));
         assert_eq!(reciprocal(T::ONE), Some(T::ONE.clone()));
-        assert_eq!(reciprocal(&T::ONE), Some(T::ONE.clone()));
 
+        assert_eq!(T::TWO.clone().reciprocal(), Some(T::ZERO.clone()));
         assert_eq!(T::TWO.reciprocal(), Some(T::ZERO.clone()));
-        assert_eq!((&T::TWO).reciprocal(), Some(T::ZERO.clone()));
+        assert_eq!(reciprocal(T::TWO.clone()), Some(T::ZERO.clone()));
         assert_eq!(reciprocal(T::TWO), Some(T::ZERO.clone()));
-        assert_eq!(reciprocal(&T::TWO), Some(T::ZERO.clone()));
     }
 
-    fn test_int<T: IntegerNumber + Reciprocal<Output=T> + Debug>() where for<'a> &'a T: Neg<Output=T> {
+    fn test_int<T: IntegerNumber + Reciprocal<Output=T> + Debug>()
+        where for<'a> &'a T: Neg<Output=T> + Reciprocal<Output=T> {
         test_integer::<T>();
 
         assert_eq!((-T::ONE).reciprocal(), Some(-T::ONE.clone()));
@@ -111,26 +147,32 @@ mod tests {
         assert_eq!(reciprocal(&-T::ONE), Some(-T::ONE.clone()));
     }
 
-    fn test_uint<T: UIntegerNumber + Reciprocal<Output=T> + Debug>() {
+    fn test_uint<T: UIntegerNumber + Reciprocal<Output=T> + Debug>()
+        where for<'a> &'a T: Reciprocal<Output=T> {
         test_integer::<T>();
     }
 
     fn test_flt<T: FloatingNumber + Div<Output=T> + Reciprocal<Output=T> + Debug>()
-        where for<'a> &'a T: Div<&'a T, Output=T> {
+        where for<'a> &'a T: Div<&'a T, Output=T> + Neg<Output=T> + Reciprocal<Output=T> {
         assert!(T::ZERO.reciprocal().unwrap().is_nan());
         assert!((&T::ZERO).reciprocal().unwrap().is_nan());
+        assert!(reciprocal(T::ZERO.clone()).unwrap().is_nan());
         assert!(reciprocal(T::ZERO).unwrap().is_nan());
-        assert!(reciprocal(&T::ZERO).unwrap().is_nan());
 
+        assert_eq!(T::ONE.clone().reciprocal(), Some(T::ONE.clone()));
         assert_eq!(T::ONE.reciprocal(), Some(T::ONE.clone()));
-        assert_eq!((&T::ONE).reciprocal(), Some(T::ONE.clone()));
+        assert_eq!(reciprocal(T::ONE.clone()), Some(T::ONE.clone()));
         assert_eq!(reciprocal(T::ONE), Some(T::ONE.clone()));
-        assert_eq!(reciprocal(&T::ONE), Some(T::ONE.clone()));
 
+        assert_eq!((-T::ONE).reciprocal(), Some(-T::ONE.clone()));
+        assert_eq!((&-T::ONE).reciprocal(), Some(-T::ONE.clone()));
+        assert_eq!(reciprocal(-T::ONE), Some(-T::ONE.clone()));
+        assert_eq!(reciprocal(&-T::ONE), Some(-T::ONE.clone()));
+
+        assert_eq!(T::TWO.clone().reciprocal(), Some(T::ONE / T::TWO));
         assert_eq!(T::TWO.reciprocal(), Some(T::ONE / T::TWO));
-        assert_eq!((&T::TWO).reciprocal(), Some(T::ONE / T::TWO));
+        assert_eq!(reciprocal(T::TWO.clone()), Some(T::ONE / T::TWO));
         assert_eq!(reciprocal(T::TWO), Some(T::ONE / T::TWO));
-        assert_eq!(reciprocal(&T::TWO), Some(T::ONE / T::TWO));
     }
 
     #[test]

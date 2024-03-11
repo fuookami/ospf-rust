@@ -4,7 +4,6 @@ pub trait Variant: Arithmetic {
     type ValueType: Arithmetic;
 
     fn value(&self) -> Option<&Self::ValueType> { None }
-
     fn equiv(&self, rhs: &Self::ValueType) -> bool;
 }
 
@@ -15,6 +14,7 @@ pub fn equiv<Lhs: Variant>(lhs: &Lhs, rhs: &Lhs::ValueType) -> bool {
 pub trait Invariant: Arithmetic {
     type ValueType: Arithmetic;
 
+    fn from(value: &Self::ValueType) -> Self;
     fn value(&self) -> &Self::ValueType;
 }
 
@@ -22,6 +22,10 @@ macro_rules! invariant_template {
     ($($type:ident)*) => ($(
         impl Invariant for $type {
             type ValueType = Self;
+
+            fn from(value: &Self::ValueType) -> Self {
+                value.clone()
+            }
 
             fn value(&self) -> &Self::ValueType {
                 &self

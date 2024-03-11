@@ -1,6 +1,8 @@
 use std::ops::Neg;
 
-pub trait Signed: Neg<Output=Self> {}
+pub trait Signed {}
+
+impl<T> Signed for T where T: Neg<Output=T> {}
 
 pub trait Unsigned {}
 

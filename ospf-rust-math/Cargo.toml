@@ -7,9 +7,9 @@ description = "A math utils for ospf-rust."
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+concat-idents = "*"
 num = "*"
 bigdecimal = "*"
-concat-idents = "*"
 
 [dependencies.ospf-rust-base]
 path = "../ospf-rust-base"
