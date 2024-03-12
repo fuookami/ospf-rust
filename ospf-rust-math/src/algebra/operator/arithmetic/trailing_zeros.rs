@@ -49,13 +49,13 @@ mod tests {
     use super::*;
 
     fn test_int<T: Integer + TrailingZeros + Debug>() where for<'a> &'a T: Mul<&'a T, Output=T> {
-        assert_eq!(T::ZERO.clone().trailing_zeros(), std::mem::size_of::<T>());
+        assert_eq!(T::ZERO.clone().trailing_zeros(), std::mem::size_of::<T>() * 8);
         assert_eq!(T::ONE.clone().trailing_zeros(), 0);
         assert_eq!(T::TWO.clone().trailing_zeros(), 1);
         assert_eq!(T::THREE.clone().trailing_zeros(), 0);
         assert_eq!(T::FIVE.clone().trailing_zeros(), 0);
         assert_eq!(T::TEN.clone().trailing_zeros(), 1);
-        assert_eq!((T::TWO * T::TEN).trailing_zeros(), 1);
+        assert_eq!((T::TWO * T::TEN).trailing_zeros(), 2);
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use std::ops::Div;
 use crate::algebra::concept::FloatingNumber;
 use crate::algebra::ordinary;
+use crate::{RealNumber, Reciprocal};
 
 pub trait Pow: Sized {
     type Output;
@@ -16,22 +17,6 @@ pub trait Pow: Sized {
     }
 }
 
-impl <T: Pow + Clone> Pow for &T {
-    type Output = <T as Pow>::Output;
-
-    fn pow(self, index: i64) -> Self::Output {
-        self.clone().pow(index)
-    }
-
-    fn square(self) -> Self::Output {
-        self.clone().square()
-    }
-
-    fn cubic(self) -> Self::Output {
-        self.clone().cubic()
-    }
-}
-
 pub fn pow<Lhs: Pow>(lhs: Lhs, index: i64) -> Lhs::Output {
     lhs.pow(index)
 }
@@ -44,34 +29,33 @@ pub fn cubic<Lhs: Pow>(lhs: Lhs) -> Lhs::Output {
     lhs.cubic()
 }
 
-pub trait PowF<Index: FloatingNumber + Div<Output=Index> = Self>: Sized {
+pub trait PowF<Index: FloatingNumber = Self>: Sized where for<'a> &'a Index: Reciprocal<Output=Index> {
     type Output: FloatingNumber;
 
-    fn powf(self, index: Index) -> Option<Self::Output>;
+    fn powf(self, index: &Index) -> Option<Self::Output>;
 
     fn sqrt(self) -> Option<Self::Output> {
-        self.powf(Index::ONE.clone() / Index::TWO.clone())
+        self.powf(&Index::TWO.reciprocal().unwrap())
     }
 
     fn cbrt(self) -> Option<Self::Output> {
-        self.powf(Index::ONE.clone() / Index::THREE.clone())
+        self.powf(&Index::THREE.reciprocal().unwrap())
     }
 }
 
-impl <T: PowF<U> + Clone, U: FloatingNumber + Div<Output=U>> PowF<U> for &T {
-    type Output = <T as PowF<U>>::Output;
+pub fn powf<Lhs: PowF<Rhs>, Rhs: FloatingNumber>(lhs: Lhs, rhs: &Rhs) -> Option<Lhs::Output>
+    where for<'a> &'a Rhs: Reciprocal<Output=Rhs> {
+    lhs.powf(rhs)
+}
 
-    fn powf(self, index: U) -> Option<Self::Output> {
-        self.clone().powf(index)
-    }
+pub fn sqrt<Lhs: PowF<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output>
+    where for<'a> &'a Rhs: Reciprocal<Output=Rhs> {
+    lhs.sqrt()
+}
 
-    fn sqrt(self) -> Option<Self::Output> {
-        self.clone().sqrt()
-    }
-
-    fn cbrt(self) -> Option<Self::Output> {
-        self.clone().cbrt()
-    }
+pub fn cbrt<Lhs: PowF<Rhs>, Rhs: FloatingNumber>(lhs: Lhs) -> Option<Lhs::Output>
+    where for<'a> &'a Rhs: Reciprocal<Output=Rhs> {
+    lhs.cbrt()
 }
 
 pub trait Exp {
@@ -80,12 +64,8 @@ pub trait Exp {
     fn exp(self) -> Self::Output;
 }
 
-impl <T: Exp + Clone> Exp for &T {
-    type Output = <T as Exp>::Output;
-
-    fn exp(self) -> Self::Output {
-        self.clone().exp()
-    }
+pub fn exp<Lhs: Exp>(lhs: Lhs) -> Lhs::Output {
+    lhs.exp()
 }
 
 macro_rules! int_pow_template {
@@ -101,8 +81,8 @@ macro_rules! int_pow_template {
         impl PowF<f64> for $type {
             type Output = f64;
 
-            fn powf(self, index: f64) -> Option<Self::Output> {
-                Some((self as f64).powf(index))
+            fn powf(self, index: &f64) -> Option<Self::Output> {
+                Some((self as f64).powf(*index))
             }
 
             fn sqrt(self) -> Option<Self::Output> {
@@ -138,8 +118,8 @@ macro_rules! floating_pow_template {
         impl PowF for $type {
             type Output = Self;
 
-            fn powf(self, index: Self) -> Option<Self::Output> {
-                Some(<$type>::powf(self, index))
+            fn powf(self, index: &Self) -> Option<Self::Output> {
+                Some(<$type>::powf(self, *index))
             }
 
             fn sqrt(self) -> Option<Self::Output> {

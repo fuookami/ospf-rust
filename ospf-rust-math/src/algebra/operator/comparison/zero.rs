@@ -1,10 +1,9 @@
 use std::marker::Tuple;
 
-use crate::algebra::concept::{Arithmetic, Precision, Unsigned, Signed};
+use crate::algebra::concept::{Arithmetic, Precision, FloatingNumber, Unsigned, Signed};
 use crate::algebra::operator::Abs;
-use crate::FloatingNumber;
 
-trait ZeroOpr<T: Sized>: Sized + FnOnce<(T, ), Output=bool> + for<'a> FnOnce<(&'a T, ), Output=bool> {
+pub trait ZeroOpr<T: Sized>: for<'a> FnOnce<(&'a T, ), Output=bool> {
     fn precision(&self) -> &T;
 }
 
@@ -13,14 +12,6 @@ struct ZeroInt {}
 impl ZeroInt {
     fn new() -> Self {
         Self {}
-    }
-}
-
-impl<T: Arithmetic> FnOnce<(T, )> for ZeroInt {
-    type Output = bool;
-
-    extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
-        &args.0 == T::ZERO
     }
 }
 
@@ -70,33 +61,15 @@ impl<T: Arithmetic> ZeroFlt<T> {
     }
 }
 
-impl<T: Arithmetic> FnOnce<(T, )> for ZeroFlt<T> {
-    type Output = bool;
-
-    extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
-        &args.0 <= self.precision()
-    }
-}
-
 impl<T: Arithmetic> FnOnce<(&T, )> for ZeroFlt<T> {
     type Output = bool;
 
-    extern "rust-call" fn call_once(self, args: (&T, )) -> Self::Output {
+    default extern "rust-call" fn call_once(self, args: (&T, )) -> Self::Output {
         args.0 <= self.precision()
     }
 }
 
-impl<T: Arithmetic + Signed> FnOnce<(T, )> for ZeroFlt<T> where for<'a> &'a T: Abs<Output=T> {
-    type Output = bool;
-
-    extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
-        &(&args.0).abs() <= self.precision()
-    }
-}
-
 impl<T: Arithmetic + Signed> FnOnce<(&T, )> for ZeroFlt<T> where for<'a> &'a T: Abs<Output=T> {
-    type Output = bool;
-
     extern "rust-call" fn call_once(self, args: (&T, )) -> Self::Output {
         &args.0.abs() <= self.precision()
     }

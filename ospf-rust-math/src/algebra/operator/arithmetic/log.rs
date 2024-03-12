@@ -20,14 +20,6 @@ pub trait Log<Base: FloatingNumber = Self>: Sized {
     }
 }
 
-impl <T, U: FloatingNumber + Log<U> + for<'a> From<&'a T>> Log<U> for &T {
-    type Output = <U as Log<U>>::Output;
-
-    fn log(self, base: &U) -> Option<Self::Output> {
-        U::from(self).log(base)
-    }
-}
-
 pub fn log<Lhs: Log<Rhs>, Rhs: FloatingNumber>(lhs: Lhs, rhs: &Rhs) -> Option<Lhs::Output> {
     lhs.log(&rhs)
 }
@@ -53,6 +45,14 @@ macro_rules! int_log_template {
                 Some((self as f64).log(*base))
             }
         }
+
+        impl Log<f64> for &$type {
+            type Output = f64;
+
+            fn log(self, base: &f64) -> Option<Self::Output> {
+                Some((*self as f64).log(*base))
+            }
+        }
     )*)
 }
 int_log_template! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
@@ -64,6 +64,14 @@ macro_rules! floating_log_template {
 
             fn log(self, base: &Self) -> Option<Self::Output> {
                 Some(self.log(*base))
+            }
+        }
+
+        impl Log<$type> for &$type {
+            type Output = $type;
+
+            fn log(self, base: &$type) -> Option<Self::Output> {
+                Some((*self).log(*base))
             }
         }
     )*);
