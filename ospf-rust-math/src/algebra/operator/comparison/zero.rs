@@ -1,5 +1,3 @@
-use std::marker::Tuple;
-
 use crate::algebra::concept::*;
 use crate::algebra::operator::Abs;
 
@@ -155,18 +153,18 @@ mod tests {
     #[test]
     fn test_zero_int() {
         let zero = Zero::<i64>::new();
-        assert_eq!((&zero)(&0), true);
-        assert_eq!((&zero)(&1), false);
+        assert_eq!(zero(&0), true);
+        assert_eq!(zero(&1), false);
     }
 
     #[test]
     fn test_zero_flt() {
         let zero = Zero::<f64>::new();
-        assert_eq!((&zero)(&0.0), true);
-        assert_eq!((&zero)(&1e-6), false);
+        assert_eq!(zero(&0.0), true);
+        assert_eq!(zero(&1e-6), false);
 
         let zero = Zero::<f64>::new_with(1e-5);
-        assert_eq!((&zero)(&0.0), true);
-        assert_eq!((&zero)(&1e-6), true);
+        assert_eq!(zero(&0.0), true);
+        assert_eq!(zero(&1e-6), true);
     }
 }

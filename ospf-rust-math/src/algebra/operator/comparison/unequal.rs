@@ -1,4 +1,3 @@
-use std::marker::Tuple;
 use std::ops::Sub;
 
 use crate::algebra::concept::*;
@@ -161,21 +160,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_eq_int() {
-        let ueq = Unequal::<i64>::new();
-        assert_eq!((&ueq)(&0, &0), false);
-        assert_eq!((&ueq)(&1, &0), true);
+    fn test_neq_int() {
+        let neq = Unequal::<i64>::new();
+        assert_eq!(neq(&0, &0), false);
+        assert_eq!(neq(&1, &0), true);
     }
 
     #[test]
-    fn test_eq_flt() {
-        let ueq = Unequal::<f64>::new();
-        assert_eq!((&ueq)(&0.0, &0.0), false);
-        assert_eq!((&ueq)(&1e-6, &0.0), true);
+    fn test_neq_flt() {
+        let neq = Unequal::<f64>::new();
+        assert_eq!(neq(&0.0, &0.0), false);
+        assert_eq!(neq(&1e-6, &0.0), true);
 
-        let ueq = Unequal::<f64>::new_with(1e-5);
-        assert_eq!((&ueq)(&0.0, &0.0), false);
-        assert_eq!((&ueq)(&1e-6, &0.0), false);
+        let neq = Unequal::<f64>::new_with(1e-5);
+        assert_eq!(neq(&0.0, &0.0), false);
+        assert_eq!(neq(&1e-6, &0.0), false);
     }
 }
 

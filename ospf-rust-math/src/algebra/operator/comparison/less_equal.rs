@@ -1,82 +1,173 @@
-use std::ops::*;
+use std::ops::Sub;
 
-use crate::algebra::{Arithmetic, Precision};
-use crate::operator::Abs;
+use crate::algebra::concept::*;
+use crate::algebra::operator::Abs;
 
-pub struct LessEqual<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> {
-    pub(self) precision: T,
+pub trait LessEqualOpr<T: Sized>: for<'a> Fn<(&'a T, &'a T), Output=bool> {
+    fn precision(&self) -> &T;
 }
 
-impl<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> LessEqual<T> {
-    pub fn new() -> Self
-        where
-            T: Precision,
-    {
-        Self::new_with(<T as Precision>::DECIMAL_PRECISION)
-    }
+#[derive(Clone, Copy, Debug)]
+pub struct LessEqualInt {}
 
-    pub fn new_with(precision: T) -> Self {
+impl LessEqualInt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl<T: Arithmetic> FnOnce<(&T, &T)> for LessEqualInt {
+    type Output = bool;
+
+    extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
+        x <= y
+    }
+}
+
+impl<T: Arithmetic> FnMut<(&T, &T)> for LessEqualInt {
+    extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
+        x <= y
+    }
+}
+
+impl<T: Arithmetic> Fn<(&T, &T)> for LessEqualInt {
+    extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
+        x <= y
+    }
+}
+
+impl<T: Arithmetic> LessEqualOpr<T> for LessEqualInt {
+    fn precision(&self) -> &T {
+        T::ZERO
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct LessEqualFlt<T: Arithmetic> {
+    pub(self) precision: T
+}
+
+impl<T: Arithmetic> From<T> for LessEqualFlt<T> {
+    fn from(precision: T) -> Self {
         Self {
-            precision: precision.abs(),
+            precision
+        }
+    }
+}
+
+impl<T: Arithmetic + Signed> From<&T> for LessEqualFlt<T> where for<'a> &'a T: Abs<Output=T> {
+    fn from(precision: &T) -> Self {
+        Self {
+            precision: precision.abs()
+        }
+    }
+}
+
+impl<T: Arithmetic> LessEqualFlt<T> {
+    pub fn new() -> Self where T: Precision {
+        Self {
+            precision: <T as Precision>::DECIMAL_PRECISION.clone()
         }
     }
 
-    pub fn precision(&self) -> &T {
+    pub fn new_with(precision: T) -> Self where Self: From<T> {
+        Self::from(precision)
+    }
+}
+
+impl<T: Arithmetic> FnOnce<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    type Output = bool;
+
+    extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
+        if (x < y) {
+            true
+        } else {
+            &(x - y) <= self.precision()
+        }
+    }
+}
+
+impl<T: Arithmetic> FnMut<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
+        if (x < y) {
+            true
+        } else {
+            &(x - y) <= self.precision()
+        }
+    }
+}
+
+impl<T: Arithmetic> Fn<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
+        if (x < y) {
+            true
+        } else {
+            &(x - y) <= self.precision()
+        }
+    }
+}
+
+impl<T: Arithmetic> LessEqualOpr<T> for LessEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    fn precision(&self) -> &T {
         &self.precision
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnOnce<(T, T)>
-for LessEqual<T>
-{
-    type Output = bool;
+pub trait LessEqualOprBuilder<T> {
+    fn new() -> Box<dyn LessEqualOpr<T, Output=bool>>;
+    fn new_with(precision: T) -> Box<dyn LessEqualOpr<T, Output=bool>>;
+}
 
-    extern "rust-call" fn call_once(self, args: (T, T)) -> Self::Output {
-        (args.0 - args.1) <= self.precision
+pub struct LessEqual<T> {
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<T: Arithmetic> LessEqualOprBuilder<T> for LessEqual<T> {
+    default fn new() -> Box<dyn LessEqualOpr<T, Output=bool>> {
+        Box::new(LessEqualInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn LessEqualOpr<T, Output=bool>> {
+        Box::new(LessEqualInt::new())
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnMut<(T, T)>
-for LessEqual<T>
-{
-    extern "rust-call" fn call_mut(&mut self, args: (T, T)) -> Self::Output {
-        return self.call_once(args);
+impl<T: Arithmetic + FloatingNumber> LessEqualOprBuilder<T> for LessEqual<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    fn new() -> Box<dyn LessEqualOpr<T, Output=bool>> where T: Precision {
+        Box::new(LessEqualFlt::new())
+    }
+
+    fn new_with(precision: T) -> Box<dyn LessEqualOpr<T, Output=bool>> where LessEqualFlt<T>: From<T> {
+        Box::new(LessEqualFlt::new_with(precision))
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> Fn<(T, T)>
-for LessEqual<T>
-{
-    extern "rust-call" fn call(&self, args: (T, T)) -> Self::Output {
-        return self.call_once(args);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_leq_int() {
+        let leq = LessEqual::<i64>::new();
+        assert_eq!(leq(&1, &2), true);
+        assert_eq!(leq(&2, &1), false);
+        assert_eq!(leq(&1, &1), true);
     }
-}
 
-impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> FnOnce<(&'a T, &'a T)> for LessEqual<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    type Output = bool;
+    #[test]
+    fn test_leq_flt() {
+        let leq = LessEqual::<f64>::new();
+        assert_eq!(leq(&0.0, &0.0), true);
+        assert_eq!(leq(&0.0, &1e-6), true);
+        assert_eq!(leq(&1e-6, &0.0), false);
+        assert_eq!(leq(&0.0, &1e-4), true);
+        assert_eq!(leq(&1e-4, &0.0), false);
 
-    extern "rust-call" fn call_once(self, args: (&'a T, &'a T)) -> Self::Output {
-        (args.0 - args.1) <= self.precision
-    }
-}
-
-impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> FnMut<(&'a T, &'a T)> for LessEqual<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (&'a T, &'a T)) -> Self::Output {
-        return self.call_once(args);
-    }
-}
-
-impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> Fn<(&'a T, &'a T)> for LessEqual<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    extern "rust-call" fn call(&self, args: (&'a T, &'a T)) -> Self::Output {
-        return self.call_once(args);
+        let leq = LessEqual::<f64>::new_with(1e-5);
+        assert_eq!(leq(&0.0, &0.0), true);
+        assert_eq!(leq(&0.0, &1e-6), true);
+        assert_eq!(leq(&1e-6, &0.0), true);
+        assert_eq!(leq(&0.0, &1e-4), true);
+        assert_eq!(leq(&1e-4, &0.0), false);
     }
 }

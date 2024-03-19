@@ -1,4 +1,3 @@
-use std::marker::Tuple;
 use std::ops::Sub;
 
 use crate::algebra::concept::*;
@@ -169,11 +168,11 @@ mod tests {
     #[test]
     fn test_eq_flt() {
         let eq = Equal::<f64>::new();
-        assert_eq!((&eq)(&0.0, &0.0), true);
-        assert_eq!((&eq)(&1e-6, &0.0), false);
+        assert_eq!(eq(&0.0, &0.0), true);
+        assert_eq!(eq(&1e-6, &0.0), false);
 
         let eq = Equal::<f64>::new_with(1e-5);
-        assert_eq!((&eq)(&0.0, &0.0), true);
-        assert_eq!((&eq)(&1e-6, &0.0), true);
+        assert_eq!(eq(&0.0, &0.0), true);
+        assert_eq!(eq(&1e-6, &0.0), true);
     }
 }
