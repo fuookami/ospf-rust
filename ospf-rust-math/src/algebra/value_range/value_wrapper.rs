@@ -190,7 +190,7 @@ impl<'a, T: Arithmetic> Add<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn add(self, rhs: &'a T) -> Self::Output {
+    fn add(self, rhs: &'a T) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => Ok(ValueWrapper::from(lhs_value + rhs)),
             ValueWrapper::Inf => Ok(ValueWrapper::Inf),
@@ -205,7 +205,7 @@ impl<'a, T: RealNumber> Add<&'a T> for ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn add(self, rhs: &'a T) -> Self::Output {
+    fn add(self, rhs: &'a T) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         if rhs.is_nan() {
             return Err(IllegalArgumentError {
                 msg: String::from("Illegal argument NaN for value range!!!"),
@@ -242,7 +242,7 @@ impl<'a, T: Arithmetic> Add for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn add(self, rhs: &'a ValueWrapper<T>) -> Self::Output {
+    fn add(self, rhs: &'a ValueWrapper<T>) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => match rhs {
                 ValueWrapper::Value(rhs_value) => Ok(ValueWrapper::from(lhs_value + rhs_value)),
@@ -271,7 +271,7 @@ impl<'a, T: Arithmetic> Sub<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn sub(self, rhs: &'a T) -> Self::Output {
+    fn sub(self, rhs: &'a T) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => Ok(ValueWrapper::from(lhs_value - rhs)),
             ValueWrapper::Inf => Ok(ValueWrapper::Inf),
@@ -286,7 +286,7 @@ impl<'a, T: RealNumber> Sub<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn sub(self, rhs: &'a T) -> Self::Output {
+    fn sub(self, rhs: &'a T) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         if rhs.is_nan() {
             return Err(IllegalArgumentError {
                 msg: String::from("Illegal argument NaN for value range!!!"),
@@ -323,7 +323,7 @@ impl<'a, T: Arithmetic> Sub for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn sub(self, rhs: &'a ValueWrapper<T>) -> Self::Output {
+    fn sub(self, rhs: &'a ValueWrapper<T>) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => match rhs {
                 ValueWrapper::Value(rhs_value) => Ok(ValueWrapper::from(lhs_value - rhs_value)),
@@ -352,7 +352,7 @@ impl<'a, T: Arithmetic> Mul<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn mul(self, rhs: &'a T) -> Self::Output {
+    fn mul(self, rhs: &'a T) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => Ok(ValueWrapper::from(lhs_value * rhs)),
             ValueWrapper::Inf => {
@@ -379,7 +379,7 @@ impl<'a, T: RealNumber> Mul<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn mul(self, rhs: &'a T) -> Self::Output {
+    fn mul(self, rhs: &'a T) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         if rhs.is_nan() {
             return Err(IllegalArgumentError {
                 msg: String::from("Illegal argument NaN for value range!!!"),
@@ -424,7 +424,7 @@ impl<'a, T: RealNumber> Mul for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn mul(self, rhs: &'a ValueWrapper<T>) -> Self::Output {
+    fn mul(self, rhs: &'a ValueWrapper<T>) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => match rhs {
                 ValueWrapper::Value(rhs_value) => Ok(ValueWrapper::from(lhs_value * rhs_value)),
@@ -475,7 +475,7 @@ impl<'a, T: Arithmetic> Div<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn div(self, rhs: &'a ValueWrapper<T>) -> Self::Output {
+    fn div(self, rhs: &'a ValueWrapper<T>) -> Result<ValueWrapper<T>, IllegalArgumentError>t {
         match self {
             ValueWrapper::Value(lhs_value) => Ok(ValueWrapper::from(lhs_value / rhs)),
             ValueWrapper::Inf => {
@@ -502,7 +502,7 @@ impl<'a, T: RealNumber> Div<&'a T> for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn div(self, rhs: &'a ValueWrapper<T>) -> Self::Output {
+    fn div(self, rhs: &'a ValueWrapper<T>) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         if rhs.is_nan() {
             return Err(IllegalArgumentError {
                 msg: String::from("Illegal argument NaN for value range!!!"),
@@ -557,7 +557,7 @@ impl<'a, T: Arithmetic> Div for &'a ValueWrapper<T>
 {
     type Output = Result<ValueWrapper<T>, IllegalArgumentError>;
 
-    fn div(self, rhs: &'a ValueWrapper<T>) -> Self::Output {
+    fn div(self, rhs: &'a ValueWrapper<T>) -> Result<ValueWrapper<T>, IllegalArgumentError> {
         match self {
             ValueWrapper::Value(lhs_value) => match rhs {
                 ValueWrapper::Value(rhs_value) => Ok(ValueWrapper::from(lhs_value / rhs_value)),

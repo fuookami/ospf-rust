@@ -1,6 +1,6 @@
 use ospf_rust_base::GeneratorIterator;
 
-pub fn permute<T>(input: &Vec<T>) -> Vec<Vec<&T>> {
+pub fn permute<T>(input: &[T]) -> Vec<Vec<&T>> {
     let mut a = input.iter().map(|x| x).collect::<Vec<_>>();
     let mut p = input.iter().map(|x| 0).collect::<Vec<_>>();
 
@@ -24,7 +24,7 @@ pub fn permute<T>(input: &Vec<T>) -> Vec<Vec<&T>> {
     perms
 }
 
-pub fn permute_async<T>(input: &Vec<T>) -> impl Iterator<Item=Vec<&T>> {
+pub fn permute_async<T>(input: &[T]) -> impl Iterator<Item=Vec<&T>> {
     GeneratorIterator(|| {
         let mut a = input.iter().map(|x| x).collect::<Vec<_>>();
         let mut p = input.iter().map(|_| 0).collect::<Vec<_>>();

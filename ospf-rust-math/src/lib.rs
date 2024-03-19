@@ -7,13 +7,14 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused, incomplete_features))]
 
 pub use algebra::*;
-// pub use combinatorics::*;
-// pub use functional::*;
+pub use combinatorics::*;
+pub use functional::*;
+
 // pub use geometry::*;
 // pub use symbol::*;
 
 pub mod algebra;
-// pub mod combinatorics;
-// pub mod functional;
+pub mod combinatorics;
+pub mod functional;
 // pub mod geometry;
 // pub mod symbol;

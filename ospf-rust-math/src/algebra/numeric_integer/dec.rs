@@ -37,73 +37,73 @@ impl From<uix> for dec {
 }
 
 impl Add for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn add(self, other: Self) -> Self::Output {
+    fn add(self, other: Self) -> dec {
         dec { value: self.value + other.value }
     }
 }
 
 impl Sub for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, other: Self) -> dec {
         dec { value: self.value - other.value }
     }
 }
 
 impl Mul for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn mul(self, other: Self) -> Self::Output {
+    fn mul(self, other: Self) -> dec {
         dec { value: self.value * other.value }
     }
 }
 
 impl Div for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn div(self, other: Self) -> Self::Output {
+    fn div(self, other: Self) -> dec {
         dec { value: self.value / other.value }
     }
 }
 
 impl Reciprocal for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn reciprocal(&self) -> Self::Output {
+    fn reciprocal(&self) -> dec {
         dec::ONE / self
     }
 }
 
 impl Pow for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn pow(self, index: i64) -> Self::Output {
+    fn pow(self, index: i64) -> dec {
         ordinary::pow_times_group(self, index)
     }
 }
 
 impl PowF for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn powf(self, index: Self) -> Option<Self::Output> {
+    fn powf(self, index: dec) -> Option<dec> {
         ordinary::powf(self, index)
     }
 
-    fn sqr(self) -> Option<Self::Output> {
+    fn sqr(self) -> Option<dec> {
         self.powf(Self::ONE / Self::TWO)
     }
 
-    fn cbr(self) -> Option<Self::Output> {
+    fn cbr(self) -> Option<dec> {
         self.powf(Self::ONE / Self::THREE)
     }
 }
 
 impl Exp for dec {
-    type Output = Self;
+    type Output = dec;
 
-    fn exp(self) -> Self::Output {
+    fn exp(self) -> dec {
         ordinary::exp(self)
     }
 }

@@ -17,7 +17,7 @@ macro_rules! int_reciprocal_template {
         impl Reciprocal for $type {
             type Output = $type;
 
-            fn reciprocal(self) -> Option<Self::Output> {
+            fn reciprocal(self) -> Option<$type> {
                 if (self == 0) {
                     <$type as RealNumber>::NAN.clone()
                 } else if (self == 1) {
@@ -33,7 +33,7 @@ macro_rules! int_reciprocal_template {
         impl Reciprocal for &$type {
             type Output = $type;
 
-            fn reciprocal(self) -> Option<Self::Output> {
+            fn reciprocal(self) -> Option<$type> {
                 if (self == &0) {
                     <$type as RealNumber>::NAN.clone()
                 } else if (self == &1) {
@@ -54,7 +54,7 @@ macro_rules! uint_reciprocal_template {
         impl Reciprocal for $type {
             type Output = $type;
 
-            fn reciprocal(self) -> Option<Self::Output> {
+            fn reciprocal(self) -> Option<$type> {
                 if (self == 0) {
                     <$type as RealNumber>::NAN.clone()
                 } else if (self == 1) {
@@ -68,7 +68,7 @@ macro_rules! uint_reciprocal_template {
         impl Reciprocal for &$type {
             type Output = $type;
 
-            fn reciprocal(self) -> Option<Self::Output> {
+            fn reciprocal(self) -> Option<$type> {
                 if (self == &0) {
                     <$type as RealNumber>::NAN.clone()
                 } else if (self == &1) {
@@ -87,7 +87,7 @@ macro_rules! flt_reciprocal_template {
         impl Reciprocal for $type {
             type Output = $type;
 
-            fn reciprocal(self) -> Option<Self::Output> {
+            fn reciprocal(self) -> Option<$type> {
                 if (self == 0.) {
                     return <$type as RealNumber>::NAN.clone();
                 } else {
@@ -99,7 +99,7 @@ macro_rules! flt_reciprocal_template {
         impl Reciprocal for &$type {
             type Output = $type;
 
-            fn reciprocal(self) -> Option<Self::Output> {
+            fn reciprocal(self) -> Option<$type> {
                 if (self == &0.) {
                     return <$type as RealNumber>::NAN.clone();
                 } else {
@@ -116,7 +116,8 @@ mod tests {
     use std::fmt::Debug;
     use std::ops::Neg;
 
-    use crate::algebra::concept::{Integer, IntegerNumber, UIntegerNumber, FloatingNumber};
+    use crate::algebra::concept::{FloatingNumber, Integer, IntegerNumber, UIntegerNumber};
+
     use super::*;
 
     fn test_integer<T: Integer + Reciprocal<Output=T> + Debug>()

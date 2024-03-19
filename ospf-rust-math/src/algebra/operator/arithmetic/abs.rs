@@ -17,7 +17,7 @@ macro_rules! unsigned_abs_template {
         impl Abs for $type {
             type Output = $type;
 
-            fn abs(self) -> Self::Output {
+            fn abs(self) -> $type {
                 self
             }
         }
@@ -25,7 +25,7 @@ macro_rules! unsigned_abs_template {
         impl Abs for &$type {
             type Output = $type;
 
-            fn abs(self) -> Self::Output {
+            fn abs(self) -> $type {
                 self.clone()
             }
         }
@@ -38,7 +38,7 @@ macro_rules! signed_abs_template {
         impl Abs for $type {
             type Output = $type;
 
-            fn abs(self) -> Self::Output {
+            fn abs(self) -> $type {
                 if &self < $type::ZERO { -self } else { self }
             }
         }
@@ -46,7 +46,7 @@ macro_rules! signed_abs_template {
         impl Abs for &$type {
             type Output = $type;
 
-            fn abs(self) -> Self::Output {
+            fn abs(self) -> $type {
                 if self < $type::ZERO { -self } else { *self }
             }
         }
@@ -56,12 +56,13 @@ signed_abs_template! { i8 i16 i32 i64 i128 isize f32 f64 }
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Add;
     use std::fmt::Debug;
-    use bigdecimal::num_traits::Unsigned;
+    use std::ops::Add;
+
     use num::traits::real::Real;
 
-    use crate::algebra::concept::{Bounded, IntegerNumber, UIntegerNumber, FloatingNumber};
+    use crate::algebra::concept::{Bounded, FloatingNumber, IntegerNumber, UIntegerNumber};
+
     use super::*;
 
     fn test_bounded<T: Arithmetic + Bounded + Abs<Output=T> + Debug>()

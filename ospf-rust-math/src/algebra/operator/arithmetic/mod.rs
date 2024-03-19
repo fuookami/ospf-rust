@@ -1,11 +1,11 @@
 pub use abs::*;
 pub use cross::*;
+pub use gcd_lcm::*;
 pub use int_div::*;
 pub use log::*;
 pub use pow::*;
 pub use range_to::*;
 pub use reciprocal::*;
-pub use gcd_lcm::*;
 pub use trailing_zeros::*;
 
 pub mod abs;

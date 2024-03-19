@@ -1,5 +1,3 @@
-use bigdecimal::num_bigint::ToBigInt;
-
 use crate::algebra::*;
 
 pub trait Log<Base: FloatingNumber = Self>: Sized {
@@ -41,7 +39,7 @@ macro_rules! int_log_template {
         impl Log<f64> for $type {
             type Output = f64;
 
-            fn log(self, base: &f64) -> Option<Self::Output> {
+            fn log(self, base: &f64) -> Option<f64> {
                 Some((self as f64).log(*base))
             }
         }
@@ -49,7 +47,7 @@ macro_rules! int_log_template {
         impl Log<f64> for &$type {
             type Output = f64;
 
-            fn log(self, base: &f64) -> Option<Self::Output> {
+            fn log(self, base: &f64) -> Option<f64> {
                 Some((*self as f64).log(*base))
             }
         }
@@ -62,7 +60,7 @@ macro_rules! floating_log_template {
         impl Log for $type {
             type Output = $type;
 
-            fn log(self, base: &Self) -> Option<Self::Output> {
+            fn log(self, base: &Self) -> Option<$type> {
                 Some(self.log(*base))
             }
         }
@@ -70,7 +68,7 @@ macro_rules! floating_log_template {
         impl Log<$type> for &$type {
             type Output = $type;
 
-            fn log(self, base: &$type) -> Option<Self::Output> {
+            fn log(self, base: &$type) -> Option<$type> {
                 Some((*self).log(*base))
             }
         }

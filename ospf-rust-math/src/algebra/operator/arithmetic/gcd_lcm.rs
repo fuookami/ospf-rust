@@ -1,6 +1,6 @@
-use std::ops::{ Mul, Div };
+use std::ops::{Div, Mul};
 
-use crate::algebra::ordinary::{ gcd_euclid, gcd_stein };
+use crate::algebra::ordinary::{gcd_euclid, gcd_stein};
 
 pub trait GcdLcm: Sized {
     type Output;
@@ -44,62 +44,70 @@ macro_rules! gcd_template {
         impl GcdLcm for $type {
             type Output = $type;
 
-            fn gcd(self, rhs: $type) -> Self::Output {
+            fn gcd(self, rhs: $type) -> $type {
                 $gcd(self.clone(), rhs.clone())
             }
 
-            fn gcd_list(values: &[$type]) -> Self::Output {
+            fn gcd_list(values: &[$type]) -> $type {
                 todo!()
             }
 
-            fn lcm(self, rhs: $type) -> Self::Output {
+            fn lcm(self, rhs: $type) -> $type {
                 let this_gcd = (&self).gcd(&rhs);
                 self * (rhs / this_gcd)
             }
 
-            fn lcm_list(values: &[$type]) -> Self::Output {
-                todo!()
+            fn lcm_list(values: &[$type]) -> $type {
+                let this_gcd = Self::gcd_list(values);
+                let this_lcm = values.iter().fold(this_gcd.clone(), |acc, x| acc * (x / &this_gcd));
+                this_lcm
             }
 
-            fn gcd_lcm(self, rhs: $type) -> (Self::Output, Self::Output) {
+            fn gcd_lcm(self, rhs: $type) -> ($type, $type) {
                 let this_gcd = (&self).gcd(&rhs);
                 let this_lcm = self * (rhs / &this_gcd);
                 (this_gcd, this_lcm)
             }
 
-            fn gcd_lcm_list(values: &[$type]) -> (Self::Output, Self::Output) {
-                todo!()
+            fn gcd_lcm_list(values: &[$type]) -> ($type, $type) {
+                let this_gcd = Self::gcd_list(values);
+                let this_lcm = values.iter().fold(this_gcd.clone(), |acc, x| acc * (x / &this_gcd));
+                (this_gcd, this_lcm)
             }
         }
 
         impl GcdLcm for &$type {
             type Output = $type;
 
-            fn gcd(self, rhs: &$type) -> Self::Output {
+            fn gcd(self, rhs: &$type) -> $type {
                 $gcd(self.clone(), rhs.clone())
             }
 
-            fn gcd_list(values: &[&$type]) -> Self::Output {
+            fn gcd_list(values: &[Self]) -> $type {
                 todo!()
             }
 
-            fn lcm(self, rhs: &$type) -> Self::Output {
+            fn lcm(self, rhs: &$type) -> $type {
                 let this_gcd = self.gcd(rhs);
                 self * (rhs / &this_gcd)
             }
 
-            fn lcm_list(values: &[&$type]) -> Self::Output {
-                todo!()
+            fn lcm_list(values: &[Self]) -> $type {
+                let this_gcd = Self::gcd_list(values);
+                let this_lcm = values.iter().fold(this_gcd.clone(), |acc, x| acc * (*x / &this_gcd));
+                this_lcm
             }
 
-            fn gcd_lcm(self, rhs: Self) -> (Self::Output, Self::Output) {
+            fn gcd_lcm(self, rhs: &$type) -> ($type, $type) {
                 let this_gcd = self.gcd(rhs);
                 let this_lcm = self * (rhs / &this_gcd);
                 (this_gcd, this_lcm)
             }
 
-            fn gcd_lcm_list(values: &[Self]) -> (Self::Output, Self::Output) {
-                todo!()
+            fn gcd_lcm_list(values: &[Self]) -> ($type, $type) {
+                let this_gcd = Self::gcd_list(values);
+                let this_lcm = values.iter().fold(this_gcd.clone(), |acc, x| acc * (*x / &this_gcd));
+                (this_gcd, this_lcm)
             }
         }
     };

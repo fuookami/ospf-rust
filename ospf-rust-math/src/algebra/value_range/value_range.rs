@@ -82,7 +82,7 @@ impl<'a, T: Arithmetic + Display> Add<&'a T> for &'a ValueRange<T>
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
-    fn add(self, rhs: &'a T) -> Self::Output {
+    fn add(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {
         if let (Some(lb), Some(ub)) = (&self.lb, &self.ub) {
             if let (Ok(lb_value), Ok(ub_value)) = (&lb.value + rhs, &ub.value + rhs) {
                 return Ok(ValueRange {
@@ -111,7 +111,7 @@ impl<'a, T: RealNumber> Add<&'a T> for &'a ValueRange<T>
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
-    fn add(self, rhs: &'a T) -> Self::Output {}
+    fn add(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
 }
 
 impl<'a, T: Arithmetic> Add<&'a ValueRange<T>> for &'a ValueRange<T>
@@ -120,7 +120,7 @@ impl<'a, T: Arithmetic> Add<&'a ValueRange<T>> for &'a ValueRange<T>
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
-    fn add(self, rhs: &'a T) -> Self::Output {}
+    fn add(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
 }
 
 impl<'a, T: Arithmetic> Sub<&'a T> for &'a ValueRange<T>
@@ -129,7 +129,7 @@ impl<'a, T: Arithmetic> Sub<&'a T> for &'a ValueRange<T>
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
-    fn sub(self, rhs: &'a T) -> Self::Output {}
+    fn sub(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
 }
 
 impl<'a, T: RealNumber> Sub<&'a T> for &'a ValueRange<T>
@@ -138,7 +138,7 @@ impl<'a, T: RealNumber> Sub<&'a T> for &'a ValueRange<T>
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
-    fn sub(self, rhs: &'a T) -> Self::Output {}
+    fn sub(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
 }
 
 impl<'a, T: Arithmetic> Sub<&'a ValueRange<T>> for &'a ValueRange<T>
@@ -147,5 +147,5 @@ impl<'a, T: Arithmetic> Sub<&'a ValueRange<T>> for &'a ValueRange<T>
 {
     type Output = Result<ValueRange<T>, IllegalArgumentError>;
 
-    fn sub(self, rhs: &'a T) -> Self::Output {}
+    fn sub(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
 }

@@ -54,7 +54,7 @@ impl<I: Integer> Ord for Rational<I>
 impl<I: Integer> Add<Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, rhs: Self) -> Rational<I> {
         Self::new(
             self.num.clone() * rhs.den.clone() + rhs.num.clone() * self.den.clone(),
             self.den.clone() * rhs.den.clone(),
@@ -65,7 +65,7 @@ impl<I: Integer> Add<Rational<I>> for Rational<I> {
 impl<'a, I: Integer> Add<Rational<I>> for &'a Rational<I> where &I: Add<Output=I>, &I: Mul<Output=I> {
     type Output = Rational<I>;
 
-    fn add(self, rhs: Rational<I>) -> Self::Output {
+    fn add(self, rhs: Rational<I>) -> Rational<I> {
         Self::new(
             &self.num * &rhs.den + &rhs.num * &self.den,
             &self.den * &rhs.den,
@@ -76,7 +76,7 @@ impl<'a, I: Integer> Add<Rational<I>> for &'a Rational<I> where &I: Add<Output=I
 impl<I: Integer> Add<&Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
-    fn add(self, rhs: &Rational<I>) -> Self::Output {
+    fn add(self, rhs: &Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
     }
 }
@@ -84,7 +84,7 @@ impl<I: Integer> Add<&Rational<I>> for Rational<I> {
 impl<I: Integer> Add<&Rational<I>> for &Rational<I> {
     type Output = Rational<I>;
 
-    fn add(self, rhs: &Rational<I>) -> Self::Output {
+    fn add(self, rhs: &Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
     }
 }
@@ -104,7 +104,7 @@ impl<I: Integer> AddAssign<&Self> for Rational<I> {
 impl<I: Integer> Sub<Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
-    fn sub(self, rhs: Rational<I>) -> Self::Output {
+    fn sub(self, rhs: Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.den - rhs.num * self.den, self.den * rhs.den)
     }
 }
@@ -112,7 +112,7 @@ impl<I: Integer> Sub<Rational<I>> for Rational<I> {
 impl<'a, I: Integer> Sub<Rational<I>> for &'a Rational<I> {
     type Output = Rational<I>;
 
-    fn sub(self, rhs: Rational<I>) -> Self::Output {
+    fn sub(self, rhs: Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.den - rhs.num * self.den, self.den * rhs.den)
     }
 }
@@ -120,7 +120,7 @@ impl<'a, I: Integer> Sub<Rational<I>> for &'a Rational<I> {
 impl<I: Integer> Sub<&Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
-    fn sub(self, rhs: &Rational<I>) -> Self::Output {
+    fn sub(self, rhs: &Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.den - rhs.num * self.den, self.den * rhs.den)
     }
 }
@@ -128,7 +128,7 @@ impl<I: Integer> Sub<&Rational<I>> for Rational<I> {
 impl<I: Integer> Sub<&Rational<I>> for &Rational<I> {
     type Output = Rational<I>;
 
-    fn sub(self, rhs: &Rational<I>) -> Self::Output {
+    fn sub(self, rhs: &Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.den - rhs.num * self.den, self.den * rhs.den)
     }
 }
@@ -148,7 +148,7 @@ impl<I: Integer> SubAssign<&Rational<I>> for Rational<I> {
 impl<I: Integer> Mul<Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
-    fn mul(self, rhs: Rational<I>) -> Self::Output {
+    fn mul(self, rhs: Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.num, self.den * rhs.den)
     }
 }
@@ -156,7 +156,7 @@ impl<I: Integer> Mul<Rational<I>> for Rational<I> {
 impl<'a, I: Integer> Mul<Rational<I>> for &'a Rational<I> {
     type Output = Rational<I>;
 
-    fn mul(self, rhs: Rational<I>) -> Self::Output {
+    fn mul(self, rhs: Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.num, self.den * rhs.den)
     }
 }
@@ -164,39 +164,39 @@ impl<'a, I: Integer> Mul<Rational<I>> for &'a Rational<I> {
 impl<I: Integer> Mul<&Rational<I>> for Rational<I> {
     type Output = Rational<I>;
 
-    fn mul(self, rhs: &Rational<I>) -> Self::Output {
+    fn mul(self, rhs: &Rational<I>) -> Rational<I> {
         Self::new(self.num * rhs.num, self.den * rhs.den)
     }
 }
 
 impl<I: Integer> Div for Rational<I> {
-    type Output = Self;
+    type Output = Rational<I>;
 
-    fn div(self, rhs: Self) -> Self::Output {
+    fn div(self, rhs: Self) -> Rational<I> {
         Self::new(self.num * rhs.den, rhs.num * rhs.den)
     }
 }
 
 impl<I: Integer> Abs for Rational<I> {
-    type Output = Self;
+    type Output = Rational<I>;
 
-    fn abs(&self) -> Self::Output {
+    fn abs(&self) -> Rational<I> {
         Self::new(self.num.abs(), self.den)
     }
 }
 
 impl<I: Integer> Cross for Rational<I> {
-    type Output = Self;
+    type Output = Rational<I>;
 
-    fn cross(self, rhs: Self) -> Self::Output {
+    fn cross(self, rhs: Self) -> Rational<I> {
         self.mul(rhs)
     }
 }
 
 impl<I: Integer> IntDiv for Rational<I> {
-    type Output = Self;
+    type Output = Rational<I>;
 
-    fn int_div(self, rhs: Self) -> Self::Output {
+    fn int_div(self, rhs: Self) -> Rational<I> {
         self.div(rhs)
     }
 }
@@ -204,17 +204,17 @@ impl<I: Integer> IntDiv for Rational<I> {
 impl<I: Integer> Log<f64> for Rational<I> {}
 
 impl<I: Integer> Neg for Rational<I> {
-    type Output = Self;
+    type Output = Rational<I>;
 
-    fn neg(&self) -> Self::Output {
+    fn neg(&self) -> Rational<I> {
         Self::new(self.num.neg(), self.den)
     }
 }
 
 impl<I: Integer> Reciprocal for Rational<I> {
-    type Output = Self;
+    type Output = Rational<I>;
 
-    fn reciprocal(&self) -> Self::Output {
+    fn reciprocal(&self) -> Rational<I> {
         Self {
             num: self.den,
             den: self.num,

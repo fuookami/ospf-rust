@@ -36,6 +36,7 @@ mod tests {
     use std::fmt::Debug;
 
     use crate::algebra::concept::RealNumber;
+
     use super::*;
 
     fn test_real<T: RealNumber + Cross<T, Output=T> + Debug>() where for<'a> &'a T: Cross<&'a T, Output=T> {

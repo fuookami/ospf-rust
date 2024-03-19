@@ -9,7 +9,7 @@ pub trait RangeTo: Sized {
 macro_rules! int_range_to_template {
     ($($type:ident)*) => ($(
         impl RangeTo for $type {
-            fn until(self, rhs: Self) -> Range<Self> {
+            fn until(self, rhs: Self) -> Range<$type> {
                 self..rhs
             }
         }

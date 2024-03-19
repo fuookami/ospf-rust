@@ -1,20 +1,16 @@
 use std::marker::Tuple;
-use std::ops::{Sub, Neg};
+use std::ops::{Neg, Sub};
 
-use crate::algebra::concept::{Arithmetic, Precision, Unsigned, Signed};
+use crate::algebra::concept::{Arithmetic, Precision, Signed, Unsigned};
 use crate::algebra::operator::Abs;
 
 struct LessUnsigned<T: Sized> {}
 
-struct LessSigned<T: Sized + Signed> {
+struct LessSigned<T: Sized + Signed> {}
 
-}
+pub struct Less<T: Sized> {}
 
-pub struct Less<T: Sized> {
-
-}
-
-impl <T: Signed> From<T> for Less<T> where for<'a> &'a T: Abs<Output=T> + Neg<Output=T>
+impl<T: Signed> From<T> for Less<T> where for<'a> &'a T: Abs<Output=T> + Neg<Output=T>
 
 impl<T: Arithmetic + Abs<Output=T> + Neg<Output=T>> Less<T> {
     pub fn new() -> Self

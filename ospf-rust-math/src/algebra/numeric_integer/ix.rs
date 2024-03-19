@@ -6,6 +6,7 @@ use crate::algebra::concept::*;
 use crate::algebra::operator::*;
 use crate::algebra::numeric_integer::*;
 use crate::algebra::ordinary::*;
+use super::dec;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ix {
@@ -46,97 +47,97 @@ impl Arithmetic for ix {
 }
 
 impl Add for ix {
-    type Output = Self;
+    type Output = ix;
 
-    fn add(self, other: Self) -> Self::Output {
+    fn add(self, other: ix) -> ix {
         ix { value: self.value + other.value }
     }
 }
 
 impl AddAssign for ix {
-    fn add_assign(&mut self, rhs: Self) {
+    fn add_assign(&mut self, rhs: ix) {
         self.value += rhs.value;
     }
 }
 
 impl Sub for ix {
-    type Output = Self;
+    type Output = ix;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, other: ix) -> ix {
         ix { value: self.value - other.value }
     }
 }
 
 impl SubAssign for ix {
-    fn sub_assign(&mut self, rhs: Self) {
+    fn sub_assign(&mut self, rhs: ix) {
         self.value -= rhs.value;
     }
 }
 
 impl Neg for ix {
-    type Output = Self;
+    type Output = ix;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, other: ix) -> ix {
         ix { value: -self.value }
     }
 }
 
 impl Mul for ix {
-    type Output = Self;
+    type Output = ix;
 
-    fn mul(self, other: Self) -> Self::Output {
+    fn mul(self, other: ix) -> ix {
         ix { value: self.value * other.value }
     }
 }
 
 impl MulAssign for ix {
-    fn mul_assign(&mut self, rhs: Self) {
+    fn mul_assign(&mut self, rhs: ix) {
         self.value *= rhs.value;
     }
 }
 
 impl Div for ix {
-    type Output = Self;
+    type Output = ix;
 
-    fn div(self, other: Self) -> Self::Output {
+    fn div(self, other: ix) -> ix {
         ix { value: self.value / other.value }
     }
 }
 
 impl DivAssign for ix {
-    fn div_assign(&mut self, rhs: Self) {
+    fn div_assign(&mut self, rhs: ix) {
         self.value /= rhs.value;
     }
 }
 
 impl Pow for ix {
-    type Output = Self;
+    type Output = ix;
 
-    fn pow(self, index: i64) -> Self::Output {
+    fn pow(self, index: i64) -> ix {
         pow_times_semi_group(self, index).unwrap()
     }
 }
 
-impl PowF<f64> for ix {
-    type Output = crate::algebra::numeric_integer::dec;
+impl PowF<dec> for ix {
+    type Output = dec;
 
-    fn powf(self, index: f64) -> Option<Self::Output> {
+    fn powf(self, index: dec) -> Option<dec> {
         dec::from(self).powf(index)
     }
 
-    fn sqr(self) -> Option<Self::Output> {
+    fn sqr(self) -> Option<dec> {
         dec::from(self).sqr()
     }
 
-    fn cbr(self) -> Option<Self::Output> {
+    fn cbr(self) -> Option<dec> {
         dec::from(self).cbr()
     }
 }
 
 impl Exp for ix {
-    type Output = crate::algebra::numeric_integer::dec;
+    type Output = dec;
 
-    fn exp(self) -> Self::Output {
+    fn exp(self) -> dec {
         dec::from(self).exp()
     }
 }

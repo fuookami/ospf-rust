@@ -70,7 +70,8 @@ floating_int_div_template! { f32 f64 }
 mod tests {
     use std::fmt::Debug;
 
-    use crate::algebra::concept::{ RealNumber };
+    use crate::algebra::concept::RealNumber;
+
     use super::*;
 
     fn test_real<T: RealNumber + IntDiv<Output=T> + Debug>() where for<'a> &'a T: IntDiv<&'a T, Output=T> {

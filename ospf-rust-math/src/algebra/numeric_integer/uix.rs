@@ -17,41 +17,41 @@ impl<T> From<T> for uix where BigUint: From<T> {
 }
 
 impl Add for uix {
-    type Output = Self;
+    type Output = uix;
 
-    fn add(self, other: Self) -> Self::Output {
+    fn add(self, other: uix) -> uix {
         uix { value: self.value + other.value }
     }
 }
 
 impl Sub for uix {
-    type Output = Self;
+    type Output = uix;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, other: uix) -> uix {
         uix { value: self.value - other.value }
     }
 }
 
 impl Mul for uix {
-    type Output = Self;
+    type Output = uix;
 
-    fn mul(self, other: Self) -> Self::Output {
+    fn mul(self, other: uix) -> uix {
         uix { value: self.value * other.value }
     }
 }
 
 impl Div for uix {
-    type Output = Self;
+    type Output = uix;
 
-    fn div(self, other: Self) -> Self::Output {
+    fn div(self, other: uix) -> uix {
         uix { value: self.value / other.value }
     }
 }
 
 impl Pow for uix {
-    type Output = Self;
+    type Output = uix;
 
-    fn pow(self, index: i64) -> Self::Output {
+    fn pow(self, index: i64) -> uix {
         ordinary::pow_times_semi_group(self, index).unwrap()
     }
 }
@@ -59,15 +59,15 @@ impl Pow for uix {
 impl PowF<f64> for uix {
     type Output = dec;
 
-    fn powf(self, index: f64) -> Option<Self::Output> {
+    fn powf(self, index: dec) -> Option<dec> {
         dec::from(self).powf(index)
     }
 
-    fn sqr(self) -> Option<Self::Output> {
+    fn sqr(self) -> Option<dec> {
         dec::from(self).sqr()
     }
 
-    fn cbr(self) -> Option<Self::Output> {
+    fn cbr(self) -> Option<dec> {
         dec::from(self).cbr()
     }
 }
@@ -75,7 +75,7 @@ impl PowF<f64> for uix {
 impl Exp for uix {
     type Output = dec;
 
-    fn exp(self) -> Self::Output {
+    fn exp(self) -> dec {
         dec::from(self).exp()
     }
 }

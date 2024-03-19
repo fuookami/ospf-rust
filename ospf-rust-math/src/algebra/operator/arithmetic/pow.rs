@@ -1,7 +1,8 @@
 use std::ops::Div;
+
+use crate::{RealNumber, Reciprocal};
 use crate::algebra::concept::FloatingNumber;
 use crate::algebra::ordinary;
-use crate::{RealNumber, Reciprocal};
 
 pub trait Pow: Sized {
     type Output;
@@ -71,9 +72,9 @@ pub fn exp<Lhs: Exp>(lhs: Lhs) -> Lhs::Output {
 macro_rules! int_pow_template {
     ($($type:ident)*) => ($(
         impl Pow for $type {
-            type Output = Self;
+            type Output = $type;
 
-            fn pow(self, index: i64) -> Self::Output {
+            fn pow(self, index: i64) -> $type {
                 ordinary::pow_times_semi_group(&self, index).unwrap()
             }
         }
@@ -81,15 +82,15 @@ macro_rules! int_pow_template {
         impl PowF<f64> for $type {
             type Output = f64;
 
-            fn powf(self, index: &f64) -> Option<Self::Output> {
+            fn powf(self, index: &f64) -> Option<f64> {
                 Some((self as f64).powf(*index))
             }
 
-            fn sqrt(self) -> Option<Self::Output> {
+            fn sqrt(self) -> Option<f64> {
                 Some((self as f64).sqrt())
             }
 
-            fn cbrt(self) -> Option<Self::Output> {
+            fn cbrt(self) -> Option<f64> {
                 Some((self as f64).cbrt())
             }
         }
@@ -97,7 +98,7 @@ macro_rules! int_pow_template {
         impl Exp for $type {
             type Output = f64;
 
-            fn exp(self) -> Self::Output {
+            fn exp(self) -> f64 {
                 (self as f64).exp()
             }
         }
@@ -108,33 +109,33 @@ int_pow_template! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 macro_rules! floating_pow_template {
     ($($type:ident)*) => ($(
         impl Pow for $type {
-            type Output = Self;
+            type Output = $type;
 
-            fn pow(self, index: i64) -> Self::Output {
+            fn pow(self, index: i64) -> $type {
                 ordinary::pow_times_group(&self, index)
             }
         }
 
         impl PowF for $type {
-            type Output = Self;
+            type Output = $type;
 
-            fn powf(self, index: &Self) -> Option<Self::Output> {
+            fn powf(self, index: &Self) -> Option<$type> {
                 Some(<$type>::powf(self, *index))
             }
 
-            fn sqrt(self) -> Option<Self::Output> {
+            fn sqrt(self) -> Option<$type> {
                 Some(<$type>::sqrt(self))
             }
 
-            fn cbrt(self) -> Option<Self::Output> {
+            fn cbrt(self) -> Option<$type> {
                 Some(<$type>::cbrt(self))
             }
         }
 
         impl Exp for $type {
-            type Output = Self;
+            type Output = $type;
 
-            fn exp(self) -> Self::Output {
+            fn exp(self) -> $type {
                 <$type>::exp(self)
             }
         }

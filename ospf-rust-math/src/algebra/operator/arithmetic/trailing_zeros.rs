@@ -11,7 +11,7 @@ default impl<T: Arithmetic + ShrAssign<usize>> TrailingZeros for T
     where for<'a> &'a T: BitOr<&'a T, Output=T> {
     fn trailing_zeros(mut self) -> usize {
         if (&self == Arithmetic::ZERO) {
-            return std::mem::size_of::<T>()
+            return std::mem::size_of::<T>();
         }
 
         let mut counter = 0;
@@ -38,14 +38,15 @@ macro_rules! int_trailing_zeros_impl {
         }
     )*);
 }
-int_trailing_zeros_impl!{ i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
+int_trailing_zeros_impl! { i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize }
 
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
     use std::ops::Mul;
 
-    use crate::algebra::concept::{ Integer };
+    use crate::algebra::concept::Integer;
+
     use super::*;
 
     fn test_int<T: Integer + TrailingZeros + Debug>() where for<'a> &'a T: Mul<&'a T, Output=T> {

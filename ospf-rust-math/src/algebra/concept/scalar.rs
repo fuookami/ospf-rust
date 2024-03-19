@@ -1,7 +1,6 @@
-use std::ops::*;
 use num::complex::ComplexFloat;
 
-use super::{Arithmetic, Bounded, Precision, Invariant, Bits, PlusSemiGroup, TimesGroup, NumberRing, NumberField, Signed, Unsigned};
+use super::{Arithmetic, Bits, Bounded, Invariant, NumberField, PlusSemiGroup, Precision, Signed, TimesGroup, Unsigned};
 
 pub trait Scalar: Arithmetic + Bounded {}
 
