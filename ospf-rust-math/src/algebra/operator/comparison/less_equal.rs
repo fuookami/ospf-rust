@@ -48,7 +48,7 @@ pub struct LessEqualFlt<T: Arithmetic> {
 }
 
 impl<T: Arithmetic> From<T> for LessEqualFlt<T> {
-    fn from(precision: T) -> Self {
+    default fn from(precision: T) -> Self {
         Self {
             precision
         }
@@ -57,6 +57,14 @@ impl<T: Arithmetic> From<T> for LessEqualFlt<T> {
 
 impl<T: Arithmetic + Signed> From<&T> for LessEqualFlt<T> where for<'a> &'a T: Abs<Output=T> {
     fn from(precision: &T) -> Self {
+        Self {
+            precision: precision.abs()
+        }
+    }
+}
+
+impl<T: Arithmetic + Signed + Copy> From<T> for LessEqualFlt<T> where T: Abs<Output=T> {
+    fn from(precision: T) -> Self {
         Self {
             precision: precision.abs()
         }
@@ -79,7 +87,7 @@ impl<T: Arithmetic> FnOnce<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Su
     type Output = bool;
 
     extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
-        if (x < y) {
+        if x < y {
             true
         } else {
             &(x - y) <= self.precision()
@@ -89,7 +97,7 @@ impl<T: Arithmetic> FnOnce<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Su
 
 impl<T: Arithmetic> FnMut<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
-        if (x < y) {
+        if x < y {
             true
         } else {
             &(x - y) <= self.precision()
@@ -99,7 +107,7 @@ impl<T: Arithmetic> FnMut<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Sub
 
 impl<T: Arithmetic> Fn<(&T, &T)> for LessEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
-        if (x < y) {
+        if x < y {
             true
         } else {
             &(x - y) <= self.precision()
@@ -114,8 +122,8 @@ impl<T: Arithmetic> LessEqualOpr<T> for LessEqualFlt<T> where for<'a> &'a T: Sub
 }
 
 pub trait LessEqualOprBuilder<T> {
-    fn new() -> Box<dyn LessEqualOpr<T, Output=bool>>;
-    fn new_with(precision: T) -> Box<dyn LessEqualOpr<T, Output=bool>>;
+    fn new() -> Box<dyn LessEqualOpr<T>>;
+    fn new_with(precision: T) -> Box<dyn LessEqualOpr<T>>;
 }
 
 pub struct LessEqual<T> {
@@ -123,21 +131,31 @@ pub struct LessEqual<T> {
 }
 
 impl<T: Arithmetic> LessEqualOprBuilder<T> for LessEqual<T> {
-    default fn new() -> Box<dyn LessEqualOpr<T, Output=bool>> {
+    default fn new() -> Box<dyn LessEqualOpr<T>> {
         Box::new(LessEqualInt::new())
     }
 
-    default fn new_with(precision: T) -> Box<dyn LessEqualOpr<T, Output=bool>> {
+    default fn new_with(precision: T) -> Box<dyn LessEqualOpr<T>> {
         Box::new(LessEqualInt::new())
     }
 }
 
+impl<T: Arithmetic> LessEqualOprBuilder<T> for LessEqual<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    default fn new() -> Box<dyn LessEqualOpr<T>> {
+        Box::new(LessEqualInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn LessEqualOpr<T>> where LessEqualFlt<T>: From<T> {
+        Box::new(LessEqualFlt::new_with(precision))
+    }
+}
+
 impl<T: Arithmetic + FloatingNumber> LessEqualOprBuilder<T> for LessEqual<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
-    fn new() -> Box<dyn LessEqualOpr<T, Output=bool>> where T: Precision {
+    fn new() -> Box<dyn LessEqualOpr<T>> where T: Precision {
         Box::new(LessEqualFlt::new())
     }
 
-    fn new_with(precision: T) -> Box<dyn LessEqualOpr<T, Output=bool>> where LessEqualFlt<T>: From<T> {
+    fn new_with(precision: T) -> Box<dyn LessEqualOpr<T>> where LessEqualFlt<T>: From<T> {
         Box::new(LessEqualFlt::new_with(precision))
     }
 }

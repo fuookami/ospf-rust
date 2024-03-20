@@ -1,2 +1,2 @@
 [workspace]
-members = ["ospf-rust-base", "ospf-rust-math", "ospf-rust-physics", "ospf-rust-multiarray", "ospf-rust-core", "ospf-rust-base-indexed-type"]
+members = ["ospf-rust-base", "ospf-rust-math", "ospf-rust-physics", "ospf-rust-multiarray", "ospf-rust-core"]

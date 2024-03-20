@@ -73,7 +73,7 @@ impl<T: Arithmetic> FnOnce<(&T, &T)> for EqualFlt<T> where for<'a> &'a T: Sub<&'
     type Output = bool;
     
     default extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
-        if (x > y) {
+        if x > y {
             self.zero.call_once((&(x - y), ))
         } else {
             self.zero.call_once((&(y - x), ))
@@ -89,7 +89,7 @@ impl<T: Arithmetic + Signed> FnOnce<(&T, &T)> for EqualFlt<T> where for<'a> &'a 
 
 impl<T: Arithmetic> FnMut<(&T, &T)> for EqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     default extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
-        if (x > y) {
+        if x > y {
             self.zero.call_mut((&(x - y), ))
         } else {
             self.zero.call_mut((&(y - x), ))
@@ -105,7 +105,7 @@ impl<T: Arithmetic + Signed> FnMut<(&T, &T)> for EqualFlt<T> where for<'a> &'a T
     
 impl<T: Arithmetic> Fn<(&T, &T)> for EqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     default extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
-        if (x > y) {
+        if x > y {
             self.zero.call((&(x - y), ))
         } else {
             self.zero.call((&(y - x), ))
@@ -126,8 +126,8 @@ impl<T: Arithmetic> EqualOpr<T> for EqualFlt<T> where for<'a> &'a T: Sub<&'a T, 
 }
 
 pub trait EqualOprBuilder<T> {
-    fn new() -> Box<dyn EqualOpr<T, Output=bool>>;
-    fn new_with(precision: T) -> Box<dyn EqualOpr<T, Output=bool>>;
+    fn new() -> Box<dyn EqualOpr<T>>;
+    fn new_with(precision: T) -> Box<dyn EqualOpr<T>>;
 }
 
 pub struct Equal<T> {
@@ -135,21 +135,31 @@ pub struct Equal<T> {
 }
 
 impl<T: Arithmetic> EqualOprBuilder<T> for Equal<T> {
-    default fn new() -> Box<dyn EqualOpr<T, Output=bool>> {
+    default fn new() -> Box<dyn EqualOpr<T>> {
         Box::new(EqualInt::new())
     }
 
-    default fn new_with(precision: T) -> Box<dyn EqualOpr<T, Output=bool>> {
+    default fn new_with(precision: T) -> Box<dyn EqualOpr<T>> {
         Box::new(EqualInt::new())
     }
 }
 
+impl<T: Arithmetic> EqualOprBuilder<T> for Equal<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    default fn new() -> Box<dyn EqualOpr<T>> {
+        Box::new(EqualInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn EqualOpr<T>> where EqualFlt<T>: From<T> {
+        Box::new(EqualFlt::new_with(precision))
+    }
+}
+
 impl <T: Arithmetic + FloatingNumber> EqualOprBuilder<T> for Equal<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
-    fn new() -> Box<dyn EqualOpr<T, Output=bool>> where T: Precision {
+    fn new() -> Box<dyn EqualOpr<T>> where T: Precision {
         Box::new(EqualFlt::new())
     }
 
-    fn new_with(precision: T) -> Box<dyn EqualOpr<T, Output=bool>> where EqualFlt<T>: From<T> {
+    fn new_with(precision: T) -> Box<dyn EqualOpr<T>> where EqualFlt<T>: From<T> {
         Box::new(EqualFlt::new_with(precision))
     }
 }
@@ -161,8 +171,8 @@ mod tests {
     #[test]
     fn test_eq_int() {
         let eq = Equal::<i64>::new();
-        assert_eq!((&eq)(&0, &0), true);
-        assert_eq!((&eq)(&1, &0), false);
+        assert_eq!(eq(&0, &0), true);
+        assert_eq!(eq(&1, &0), false);
     }
 
     #[test]

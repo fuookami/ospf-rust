@@ -73,8 +73,8 @@ impl<T: Arithmetic> UnequalFlt<T> {
 impl<T: Arithmetic> FnOnce<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     type Output = bool;
 
-    default extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> Self::Output {
-        if (x > y) {
+    default extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
+        if x > y {
             !self.zero.call_once((&(x - y), ))
         } else {
             !self.zero.call_once((&(y - x), ))
@@ -83,14 +83,14 @@ impl<T: Arithmetic> FnOnce<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<
 }
 
 impl<T: Arithmetic + Signed> FnOnce<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> + Abs<Output=T> {
-    extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> Self::Output {
+    extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
         !self.zero.call_once((&(x - y), ))
     }
 }
 
 impl<T: Arithmetic> FnMut<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
-    default extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> Self::Output {
-        if (x > y) {
+    default extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
+        if x > y {
             !self.zero.call_mut((&(x - y), ))
         } else {
             !self.zero.call_mut((&(y - x), ))
@@ -99,14 +99,14 @@ impl<T: Arithmetic> FnMut<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&
 }
 
 impl<T: Arithmetic + Signed> FnMut<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> + Abs<Output=T> {
-    extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> Self::Output {
+    extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
         !self.zero.call_mut((&(x - y), ))
     }
 }
 
 impl<T: Arithmetic> Fn<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
-    default extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> Self::Output {
-        if (x > y) {
+    default extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
+        if x > y {
             !self.zero.call((&(x - y), ))
         } else {
             !self.zero.call((&(y - x), ))
@@ -115,7 +115,7 @@ impl<T: Arithmetic> Fn<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a 
 }
 
 impl<T: Arithmetic + Signed> Fn<(&T, &T)> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> + Abs<Output=T> {
-    extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> Self::Output {
+    extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
         !self.zero.call((&(x - y), ))
     }
 }
@@ -127,8 +127,8 @@ impl<T: Arithmetic> UnequalOpr<T> for UnequalFlt<T> where for<'a> &'a T: Sub<&'a
 }
 
 pub trait UnequalOprBuilder<T> {
-    fn new() -> Box<dyn UnequalOpr<T, Output=bool>>;
-    fn new_with(precision: T) -> Box<dyn UnequalOpr<T, Output=bool>>;
+    fn new() -> Box<dyn UnequalOpr<T>>;
+    fn new_with(precision: T) -> Box<dyn UnequalOpr<T>>;
 }
 
 pub struct Unequal<T> {
@@ -136,21 +136,31 @@ pub struct Unequal<T> {
 }
 
 impl<T: Arithmetic> UnequalOprBuilder<T> for Unequal<T> {
-    default fn new() -> Box<dyn UnequalOpr<T, Output=bool>> {
+    default fn new() -> Box<dyn UnequalOpr<T>> {
         Box::new(UnequalInt::new())
     }
 
-    default fn new_with(precision: T) -> Box<dyn UnequalOpr<T, Output=bool>> {
+    default fn new_with(precision: T) -> Box<dyn UnequalOpr<T>> {
         Box::new(UnequalInt::new())
     }
 }
 
+impl<T: Arithmetic> UnequalOprBuilder<T> for Unequal<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    default fn new() -> Box<dyn UnequalOpr<T>> {
+        Box::new(UnequalInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn UnequalOpr<T>> where UnequalFlt<T>: From<T> {
+        Box::new(UnequalFlt::new_with(precision))
+    }
+}
+
 impl<T: Arithmetic + FloatingNumber> UnequalOprBuilder<T> for Unequal<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
-    fn new() -> Box<dyn UnequalOpr<T, Output=bool>> where T: Precision {
+    fn new() -> Box<dyn UnequalOpr<T>> where T: Precision {
         Box::new(UnequalFlt::new())
     }
 
-    fn new_with(precision: T) -> Box<dyn UnequalOpr<T, Output=bool>> where UnequalFlt<T>: From<T> {
+    fn new_with(precision: T) -> Box<dyn UnequalOpr<T>> where UnequalFlt<T>: From<T> {
         Box::new(UnequalFlt::new_with(precision))
     }
 }
@@ -177,4 +187,3 @@ mod tests {
         assert_eq!(neq(&1e-6, &0.0), false);
     }
 }
-

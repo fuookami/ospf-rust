@@ -48,7 +48,7 @@ pub struct LessFlt<T: Arithmetic> {
 }
 
 impl<T: Arithmetic> From<T> for LessFlt<T> {
-    fn from(precision: T) -> Self {
+    default fn from(precision: T) -> Self {
         Self {
             precision
         }
@@ -57,6 +57,14 @@ impl<T: Arithmetic> From<T> for LessFlt<T> {
 
 impl<T: Arithmetic + Signed> From<&T> for LessFlt<T> where for<'a> &'a T: Abs<Output=T> {
     fn from(precision: &T) -> Self {
+        Self {
+            precision: precision.abs()
+        }
+    }
+}
+
+impl<T: Arithmetic + Signed + Copy> From<T> for LessFlt<T> where T: Abs<Output=T> {
+    fn from(precision: T) -> Self {
         Self {
             precision: precision.abs()
         }
@@ -79,30 +87,30 @@ impl<T: Arithmetic> FnOnce<(&T, &T)> for LessFlt<T> where for<'a> &'a T: Sub<&'a
     type Output = bool;
 
     extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> bool {
-        if (x > y) {
+        if x > y {
             false
         } else {
-            &(y - x) >= self.precision()
+            &(y - x) > self.precision()
         }
     }
 }
 
 impl<T: Arithmetic> FnMut<(&T, &T)> for LessFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> bool {
-        if (x > y) {
+        if x > y {
             false
         } else {
-            &(y - x) >= self.precision()
+            &(y - x) > self.precision()
         }
     }
 }
 
 impl<T: Arithmetic> Fn<(&T, &T)> for LessFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
     extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> bool {
-        if (x > y) {
+        if x > y {
             false
         } else {
-            &(y - x) >= self.precision()
+            &(y - x) > self.precision()
         }
     }
 }
@@ -114,8 +122,8 @@ impl<T: Arithmetic> LessOpr<T> for LessFlt<T> where for<'a> &'a T: Sub<&'a T, Ou
 }
 
 pub trait LessOprBuilder<T> {
-    fn new() -> Box<dyn LessOpr<T, Output=bool>>;
-    fn new_with(precision: T) -> Box<dyn LessOpr<T, Output=bool>>;
+    fn new() -> Box<dyn LessOpr<T>>;
+    fn new_with(precision: T) -> Box<dyn LessOpr<T>>;
 }
 
 pub struct Less<T> {
@@ -123,21 +131,31 @@ pub struct Less<T> {
 }
 
 impl<T: Arithmetic> LessOprBuilder<T> for Less<T> {
-    default fn new() -> Box<dyn LessOpr<T, Output=bool>> {
+    default fn new() -> Box<dyn LessOpr<T>> {
         Box::new(LessInt::new())
     }
 
-    default fn new_with(precision: T) -> Box<dyn LessOpr<T, Output=bool>> {
+    default fn new_with(precision: T) -> Box<dyn LessOpr<T>> {
         Box::new(LessInt::new())
     }
 }
 
+impl<T: Arithmetic> LessOprBuilder<T> for Less<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    default fn new() -> Box<dyn LessOpr<T>> {
+        Box::new(LessInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn LessOpr<T>> where LessFlt<T>: From<T> {
+        Box::new(LessFlt::new_with(precision))
+    }
+}
+
 impl<T: Arithmetic + FloatingNumber> LessOprBuilder<T> for Less<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
-    fn new() -> Box<dyn LessOpr<T, Output=bool>> where T: Precision {
+    fn new() -> Box<dyn LessOpr<T>> where T: Precision {
         Box::new(LessFlt::new())
     }
 
-    fn new_with(precision: T) -> Box<dyn LessOpr<T, Output=bool>> where LessFlt<T>: From<T> {
+    fn new_with(precision: T) -> Box<dyn LessOpr<T>> where LessFlt<T>: From<T> {
         Box::new(LessFlt::new_with(precision))
     }
 }

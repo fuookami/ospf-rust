@@ -10,7 +10,7 @@ pub trait TrailingZeros {
 default impl<T: Arithmetic + ShrAssign<usize>> TrailingZeros for T
     where for<'a> &'a T: BitOr<&'a T, Output=T> {
     fn trailing_zeros(mut self) -> usize {
-        if (&self == Arithmetic::ZERO) {
+        if &self == Arithmetic::ZERO {
             return std::mem::size_of::<T>();
         }
 

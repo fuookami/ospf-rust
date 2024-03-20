@@ -1,83 +1,191 @@
-use std::ops::*;
+use std::ops::Sub;
 
-use crate::algebra::{Arithmetic, Precision};
-use crate::operator::Abs;
+use crate::algebra::concept::*;
+use crate::algebra::operator::Abs;
 
-pub struct GreaterEqual<T> {
-    pub(self) precision: T,
-    pub(self) neg_precision: T,
+pub trait GreaterEqualOpr<T: Sized>: for<'a> Fn<(&'a T, &'a T), Output=bool> {
+    fn precision(&self) -> &T;
 }
 
-impl<T: Arithmetic> GreaterEqual<T> where for <'a> &'a T: Abs<Output=T> + Neg<Output=T> {
-    pub fn new() -> Self where T: Precision {
-        Self::new_with(<T as Precision>::DECIMAL_PRECISION)
-    }
+#[derive(Clone, Copy, Debug)]
+pub struct GreaterEqualInt {}
 
-    pub fn new_with(precision: &T) -> Self {
-        let actual_precision = (&precision).abs();
-        let neg_precision = (&actual_precision).neg();
+impl GreaterEqualInt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl<T: Arithmetic> FnOnce<(&T, &T)> for GreaterEqualInt {
+    type Output = bool;
+
+    extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> Self::Output {
+        x >= y
+    }
+}
+
+impl<T: Arithmetic> FnMut<(&T, &T)> for GreaterEqualInt {
+    extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> Self::Output {
+        x >= y
+    }
+}
+
+impl<T: Arithmetic> Fn<(&T, &T)> for GreaterEqualInt {
+    extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> Self::Output {
+        x >= y
+    }
+}
+
+impl<T: Arithmetic> GreaterEqualOpr<T> for GreaterEqualInt {
+    fn precision(&self) -> &T {
+        T::ZERO
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct GreaterEqualFlt<T: Arithmetic> {
+    pub(self) precision: T
+}
+
+impl<T: Arithmetic> From<T> for GreaterEqualFlt<T> {
+    default fn from(precision: T) -> Self {
         Self {
-            precision: actual_precision,
-            neg_precision,
+            precision
+        }
+    }
+}
+
+impl<T: Arithmetic + Signed> From<&T> for GreaterEqualFlt<T> where for<'a> &'a T: Abs<Output=T> {
+    fn from(precision: &T) -> Self {
+        Self {
+            precision: precision.abs()
+        }
+    }
+}
+
+impl<T: Arithmetic + Signed + Copy> From<T> for GreaterEqualFlt<T> where T: Abs<Output=T> {
+    fn from(precision: T) -> Self {
+        Self {
+            precision: precision.abs()
+        }
+    }
+}
+
+impl<T: Arithmetic> GreaterEqualFlt<T> {
+    pub fn new() -> Self where T: Precision {
+        Self {
+            precision: <T as Precision>::DECIMAL_PRECISION.clone()
         }
     }
 
-    pub fn precision(&self) -> &T {
+    pub fn new_with(precision: T) -> Self where Self: From<T> {
+        Self::from(precision)
+    }
+}
+
+impl<T: Arithmetic> FnOnce<(&T, &T)> for GreaterEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    type Output = bool;
+
+    extern "rust-call" fn call_once(self, (x, y): (&T, &T)) -> Self::Output {
+        if x > y {
+            true
+        } else {
+            &(y - x) <= self.precision()
+        }
+    }
+}
+
+impl<T: Arithmetic> FnMut<(&T, &T)> for GreaterEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    extern "rust-call" fn call_mut(&mut self, (x, y): (&T, &T)) -> Self::Output {
+        if x > y {
+            true
+        } else {
+            &(y - x) <= self.precision()
+        }
+    }
+}
+
+impl<T: Arithmetic> Fn<(&T, &T)> for GreaterEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    extern "rust-call" fn call(&self, (x, y): (&T, &T)) -> Self::Output {
+        if x > y {
+            true
+        } else {
+            &(y - x) <= self.precision()
+        }
+    }
+}
+
+impl<T: Arithmetic> GreaterEqualOpr<T> for GreaterEqualFlt<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    fn precision(&self) -> &T {
         &self.precision
     }
 }
 
-impl<T: Arithmetic> FnOnce<(&T, &T)> for GreaterEqual<T>
-    where for <'a> &'a T: Sub<&'a T, Output=T> + Abs<Output=T> + Neg<Output=T> {
-    type Output = bool;
+pub trait GreaterEqualOprBuilder<T> {
+    fn new() -> Box<dyn GreaterEqualOpr<T>>;
+    fn new_with(precision: T) -> Box<dyn GreaterEqualOpr<T>>;
+}
 
-    extern "rust-call" fn call_once(self, args: (&T, &T)) -> Self::Output {
-        (args.0 - args.1) >= self.neg_precision
+pub struct GreaterEqual<T> {
+    _marker: std::marker::PhantomData<T>
+}
+
+impl<T: Arithmetic> GreaterEqualOprBuilder<T> for GreaterEqual<T> {
+    default fn new() -> Box<dyn GreaterEqualOpr<T>> {
+        Box::new(GreaterEqualInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn GreaterEqualOpr<T>> {
+        Box::new(GreaterEqualInt::new())
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> FnMut<(T, T)> for GreaterEqual<T>
-{
-    extern "rust-call" fn call_mut(&mut self, args: (T, T)) -> Self::Output {
-        return self.call_once(args);
+impl<T: Arithmetic> GreaterEqualOprBuilder<T> for GreaterEqual<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    default fn new() -> Box<dyn GreaterEqualOpr<T>> {
+        Box::new(GreaterEqualInt::new())
+    }
+
+    default fn new_with(precision: T) -> Box<dyn GreaterEqualOpr<T>> where GreaterEqualFlt<T>: From<T> {
+        Box::new(GreaterEqualFlt::new_with(precision))
     }
 }
 
-impl<T: Arithmetic + Sub<Output=T> + Abs<Output=T> + Neg<Output=T>> Fn<(T, T)>
-for GreaterEqual<T>
-{
-    extern "rust-call" fn call(&self, args: (T, T)) -> Self::Output {
-        return self.call_once(args);
+impl<T: Arithmetic + FloatingNumber> GreaterEqualOprBuilder<T> for GreaterEqual<T> where for<'a> &'a T: Sub<&'a T, Output=T> {
+    fn new() -> Box<dyn GreaterEqualOpr<T>> {
+        Box::new(GreaterEqualFlt::new())
+    }
+
+    fn new_with(precision: T) -> Box<dyn GreaterEqualOpr<T>> where GreaterEqualFlt<T>: From<T> {
+        Box::new(GreaterEqualFlt::new_with(precision))
     }
 }
 
-impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> FnOnce<(&'a T, &'a T)>
-for GreaterEqual<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    type Output = bool;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    extern "rust-call" fn call_once(self, args: (&'a T, &'a T)) -> Self::Output {
-        (args.0 - args.1) >= self.neg_precision
+    #[test]
+    fn test_geq_int() {
+        let geq = GreaterEqual::<i64>::new();
+        assert_eq!(geq(&1, &2), false);
+        assert_eq!(geq(&2, &1), true);
+        assert_eq!(geq(&1, &1), true);
     }
-}
 
-impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> FnMut<(&'a T, &'a T)>
-for GreaterEqual<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (&'a T, &'a T)) -> Self::Output {
-        return self.call_once(args);
-    }
-}
+    #[test]
+    fn test_geq_flt() {
+        let geq = GreaterEqual::<f64>::new();
+        assert_eq!(geq(&0.0, &0.0), true);
+        assert_eq!(geq(&0.0, &1e-6), false);
+        assert_eq!(geq(&1e-6, &0.0), true);
+        assert_eq!(geq(&0.0, &1e-4), false);
+        assert_eq!(geq(&1e-4, &0.0), true);
 
-impl<'a, T: Arithmetic + Abs<Output=T> + Neg<Output=T>> Fn<(&'a T, &'a T)> for GreaterEqual<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    extern "rust-call" fn call(&self, args: (&'a T, &'a T)) -> Self::Output {
-        return self.call_once(args);
+        let geq = GreaterEqual::<f64>::new_with(1e-5);
+        assert_eq!(geq(&0.0, &0.0), true);
+        assert_eq!(geq(&0.0, &1e-6), true);
+        assert_eq!(geq(&1e-6, &0.0), true);
+        assert_eq!(geq(&0.0, &1e-4), false);
+        assert_eq!(geq(&1e-4, &0.0), true);
     }
 }

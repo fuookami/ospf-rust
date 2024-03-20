@@ -18,11 +18,11 @@ macro_rules! int_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(self) -> Option<$type> {
-                if (self == 0) {
+                if self == 0 {
                     <$type as RealNumber>::NAN.clone()
-                } else if (self == 1) {
+                } else if self == 1 {
                     Some(1)
-                } else if (self == -1) {
+                } else if self == -1 {
                     Some(-1)
                 } else {
                     Some(0)
@@ -34,11 +34,11 @@ macro_rules! int_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(self) -> Option<$type> {
-                if (self == &0) {
+                if self == &0 {
                     <$type as RealNumber>::NAN.clone()
-                } else if (self == &1) {
+                } else if self == &1 {
                     Some(1)
-                } else if (self == &-1) {
+                } else if self == &-1 {
                     Some(-1)
                 } else {
                     Some(0)
@@ -55,9 +55,9 @@ macro_rules! uint_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(self) -> Option<$type> {
-                if (self == 0) {
+                if self == 0 {
                     <$type as RealNumber>::NAN.clone()
-                } else if (self == 1) {
+                } else if self == 1 {
                     Some(1)
                 } else {
                     Some(0)
@@ -69,9 +69,9 @@ macro_rules! uint_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(self) -> Option<$type> {
-                if (self == &0) {
+                if self == &0 {
                     <$type as RealNumber>::NAN.clone()
-                } else if (self == &1) {
+                } else if self == &1 {
                     Some(1)
                 } else {
                     Some(0)
@@ -88,7 +88,7 @@ macro_rules! flt_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(self) -> Option<$type> {
-                if (self == 0.) {
+                if self == 0. {
                     return <$type as RealNumber>::NAN.clone();
                 } else {
                     return Some(1. / self);
@@ -100,7 +100,7 @@ macro_rules! flt_reciprocal_template {
             type Output = $type;
 
             fn reciprocal(self) -> Option<$type> {
-                if (self == &0.) {
+                if self == &0. {
                     return <$type as RealNumber>::NAN.clone();
                 } else {
                     return Some(1. / self);

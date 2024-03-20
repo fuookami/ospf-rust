@@ -46,7 +46,7 @@ pub struct ZeroFlt<T: Sized> {
 }
 
 impl<T: Arithmetic> From<T> for ZeroFlt<T> {
-    fn from(precision: T) -> Self {
+    default fn from(precision: T) -> Self {
         Self {
             precision
         }
@@ -55,6 +55,14 @@ impl<T: Arithmetic> From<T> for ZeroFlt<T> {
 
 impl<T: Arithmetic + Signed> From<&T> for ZeroFlt<T> where for<'a> &'a T: Abs<Output=T> {
     fn from(precision: &T) -> Self {
+        Self {
+            precision: precision.abs()
+        }
+    }
+}
+
+impl<T: Arithmetic + Signed + Copy> From<T> for ZeroFlt<T> where T: Abs<Output=T> {
+    fn from(precision: T) -> Self {
         Self {
             precision: precision.abs()
         }
@@ -118,8 +126,8 @@ impl<T: Arithmetic> ZeroOpr<T> for ZeroFlt<T> {
 }
 
 pub trait ZeroOprBuilder<T> {
-    fn new() -> Box<dyn ZeroOpr<T, Output=bool>>;
-    fn new_with(precision: T) -> Box<dyn ZeroOpr<T, Output=bool>>;
+    fn new() -> Box<dyn ZeroOpr<T>>;
+    fn new_with(precision: T) -> Box<dyn ZeroOpr<T>>;
 }
 
 pub struct Zero<T> {
@@ -127,21 +135,21 @@ pub struct Zero<T> {
 }
 
 impl<T: Arithmetic> ZeroOprBuilder<T> for Zero<T> {
-    default fn new() -> Box<dyn ZeroOpr<T, Output=bool>> {
+    default fn new() -> Box<dyn ZeroOpr<T>> {
         Box::new(ZeroInt::new())
     }
 
-    default fn new_with(precision: T) -> Box<dyn ZeroOpr<T, Output=bool>> {
-        Box::new(ZeroInt::new())
+    default fn new_with(precision: T) -> Box<dyn ZeroOpr<T>> where ZeroFlt<T>: From<T> {
+        Box::new(ZeroFlt::new_with(precision))
     }
 }
 
 impl<T: Arithmetic + FloatingNumber> ZeroOprBuilder<T> for Zero<T> {
-    fn new() -> Box<dyn ZeroOpr<T, Output=bool>> where T: Precision {
+    fn new() -> Box<dyn ZeroOpr<T>> where T: Precision {
         Box::new(ZeroFlt::new())
     }
 
-    fn new_with(precision: T) -> Box<dyn ZeroOpr<T, Output=bool>> where ZeroFlt<T>: From<T> {
+    fn new_with(precision: T) -> Box<dyn ZeroOpr<T>> where ZeroFlt<T>: From<T> {
         Box::new(ZeroFlt::new_with(precision))
     }
 }
