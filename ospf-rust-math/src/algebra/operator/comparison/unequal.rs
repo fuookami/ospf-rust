@@ -6,7 +6,7 @@ use crate::{Equal, EqualFlt, EqualInt};
 
 use super::zero::*;
 
-pub trait UnequalOpr<T: Sized>: for <'a> Fn<(&'a T, &'a T), Output=bool> {
+pub trait UnequalOpr<T: Sized>: for <'a, 'b> Fn<(&'a T, &'b T), Output=bool> {
     fn precision(&self) -> &T;
 }
 

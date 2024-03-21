@@ -1,11 +1,11 @@
 // pub use compare::*;
-pub use equal::{Equal, EqualFlt, EqualInt};
-pub use greater::{Greater, GreaterFlt, GreaterInt};
-pub use greater_equal::{GreaterEqual, GreaterEqualFlt, GreaterEqualInt};
-pub use less::{Less, LessFlt, LessInt};
-pub use less_equal::{LessEqual, LessEqualFlt, LessEqualInt};
-pub use unequal::{Unequal, UnequalFlt, UnequalInt};
-pub use zero::{Zero, ZeroFlt, ZeroInt};
+pub use equal::*;
+pub use greater::*;
+pub use greater_equal::*;
+pub use less::*;
+pub use less_equal::*;
+pub use unequal::*;
+pub use zero::*;
 
 // pub mod compare;
 pub mod equal;

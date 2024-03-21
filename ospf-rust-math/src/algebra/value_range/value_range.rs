@@ -18,12 +18,12 @@ pub struct ValueRange<T: Arithmetic> {
 impl<T: Arithmetic> ValueRange<T> {
     pub fn new() -> Self {
         Self {
-            lb: Option::Some(Bound {
+            lb: Some(Bound {
                 value: ValueWrapper::NegInf,
                 interval: Interval::Closed,
                 side: BoundSide::Lower,
             }),
-            ub: Option::Some(Bound {
+            ub: Some(Bound {
                 value: ValueWrapper::Inf,
                 interval: Interval::Closed,
                 side: BoundSide::Upper,
@@ -34,12 +34,12 @@ impl<T: Arithmetic> ValueRange<T> {
     pub fn new_with(lb: T, ub: T, lb_interval: Interval, ub_interval: Interval) -> Self {
         assert!(!empty(&lb, &ub, lb_interval, ub_interval));
         Self {
-            lb: Option::Some(Bound {
+            lb: Some(Bound {
                 value: ValueWrapper::Value(lb),
                 interval: lb_interval,
                 side: BoundSide::Lower,
             }),
-            ub: Option::Some(Bound {
+            ub: Some(Bound {
                 value: ValueWrapper::Value(ub),
                 interval: ub_interval,
                 side: BoundSide::Upper,
@@ -103,49 +103,4 @@ impl<'a, T: Arithmetic + Display> Add<&'a T> for &'a ValueRange<T>
             msg: format!("Invalid add between {} and {}", self, rhs),
         })
     }
-}
-
-impl<'a, T: RealNumber> Add<&'a T> for &'a ValueRange<T>
-    where
-        &'a T: Add<&'a T, Output=T>,
-{
-    type Output = Result<ValueRange<T>, IllegalArgumentError>;
-
-    fn add(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
-}
-
-impl<'a, T: Arithmetic> Add<&'a ValueRange<T>> for &'a ValueRange<T>
-    where
-        &'a T: Add<&'a T, Output=T>,
-{
-    type Output = Result<ValueRange<T>, IllegalArgumentError>;
-
-    fn add(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
-}
-
-impl<'a, T: Arithmetic> Sub<&'a T> for &'a ValueRange<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    type Output = Result<ValueRange<T>, IllegalArgumentError>;
-
-    fn sub(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
-}
-
-impl<'a, T: RealNumber> Sub<&'a T> for &'a ValueRange<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    type Output = Result<ValueRange<T>, IllegalArgumentError>;
-
-    fn sub(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
-}
-
-impl<'a, T: Arithmetic> Sub<&'a ValueRange<T>> for &'a ValueRange<T>
-    where
-        &'a T: Sub<&'a T, Output=T>,
-{
-    type Output = Result<ValueRange<T>, IllegalArgumentError>;
-
-    fn sub(self, rhs: &'a T) -> Result<ValueRange<T>, IllegalArgumentError> {}
 }

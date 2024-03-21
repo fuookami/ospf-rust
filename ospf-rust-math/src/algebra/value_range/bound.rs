@@ -1,6 +1,7 @@
-use crate::algebra::concept::*;
+use crate::algebra::concept::Arithmetic;
 
-use super::*;
+use super::interval::{Interval, IntervalType, Closed};
+use super::value_wrapper::ValueWrapper;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum BoundSide {
@@ -32,8 +33,8 @@ impl<T: Arithmetic, I: IntervalType> Copy for BoundStc<T, I> where ValueWrapper<
 impl<T: Arithmetic, I: IntervalType> std::fmt::Display for BoundStc<T, I> where ValueWrapper<T>: std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.side {
-            Lower => write!(f, "{}{}", I::to_lb_sign(), self.value),
-            Upper => write!(f, "{}{}", self.value, I::to_ub_sign())
+            BoundSide::Lower => write!(f, "{}{}", I::LB_SIGN, self.value),
+            BoundSide::Upper => write!(f, "{}{}", self.value, I::UB_SIGN)
         }
     }
 }
@@ -41,8 +42,8 @@ impl<T: Arithmetic, I: IntervalType> std::fmt::Display for BoundStc<T, I> where 
 impl<T: Arithmetic, I: IntervalType> std::fmt::Debug for BoundStc<T, I> where ValueWrapper<T>: std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.side {
-            Lower => write!(f, "{}{}", I::to_lb_sign(), self.value),
-            Upper => write!(f, "{}{}", self.value, I::to_ub_sign())
+            BoundSide::Lower => write!(f, "{}{}", I::LB_SIGN, self.value),
+            BoundSide::Upper => write!(f, "{}{}", self.value, I::UB_SIGN)
         }
     }
 }
@@ -53,10 +54,7 @@ pub struct Bound<T: Arithmetic> {
     pub side: BoundSide,
 }
 
-impl<T: Arithmetic> Clone for Bound<T>
-    where
-        ValueWrapper<T>: Clone,
-{
+impl<T: Arithmetic> Clone for Bound<T> where ValueWrapper<T>: Clone {
     fn clone(&self) -> Self {
         Self {
             value: self.value.clone(),
@@ -71,8 +69,8 @@ impl<T: Arithmetic> Copy for Bound<T> where ValueWrapper<T>: Copy {}
 impl<T: Arithmetic> std::fmt::Display for Bound<T> where ValueWrapper<T>: std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.side {
-            Lower => write!(f, "{}{}", self.interval.to_lb_sign(), self.value),
-            Upper => write!(f, "{}{}", self.value, self.interval.to_ub_sign())
+            BoundSide::Lower => write!(f, "{}{}", self.interval.lb_sign(), self.value),
+            BoundSide::Upper => write!(f, "{}{}", self.value, self.interval.ub_sign())
         }
     }
 }
@@ -80,8 +78,8 @@ impl<T: Arithmetic> std::fmt::Display for Bound<T> where ValueWrapper<T>: std::f
 impl<T: Arithmetic> std::fmt::Debug for Bound<T> where ValueWrapper<T>: std::fmt::Display {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.side {
-            Lower => write!(f, "{}{}", self.interval.to_lb_sign(), self.value),
-            Upper => write!(f, "{}{}", self.value, self.interval.to_ub_sign())
+            BoundSide::Lower => write!(f, "{}{}", self.interval.lb_sign(), self.value),
+            BoundSide::Upper => write!(f, "{}{}", self.value, self.interval.ub_sign())
         }
     }
 }

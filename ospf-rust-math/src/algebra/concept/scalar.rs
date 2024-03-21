@@ -81,7 +81,7 @@ macro_rules! int_real_number_template {
         impl RealNumber for $type {
             const TWO: &'static Self = &2;
             const THREE: &'static Self = &3;
-            const FIVE: &'static Self = &3;
+            const FIVE: &'static Self = &5;
             const TEN: &'static Self = &10;
         }
     )*)

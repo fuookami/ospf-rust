@@ -3,7 +3,7 @@ use std::ops::Sub;
 use crate::algebra::concept::*;
 use crate::algebra::operator::Abs;
 
-pub trait LessOpr<T: Sized>: for<'a> Fn<(&'a T, &'a T), Output=bool> {
+pub trait LessOpr<T: Sized>: for<'a, 'b> Fn<(&'a T, &'b T), Output=bool> {
     fn precision(&self) -> &T;
 }
 

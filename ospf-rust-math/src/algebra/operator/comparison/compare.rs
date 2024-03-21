@@ -6,7 +6,7 @@ use crate::algebra::operator::Abs;
 
 use super::equal::*;
 
-pub trait CompareOpr<T: Sized>: for<'a> Fn<(&'a T, &'a T), Output=Option<Ordering>> {
+pub trait CompareOpr<T: Sized>: for<'a, 'b> Fn<(&'a T, &'b T), Output=Option<Ordering>> {
     fn precision(&self) -> &T;
 }
 

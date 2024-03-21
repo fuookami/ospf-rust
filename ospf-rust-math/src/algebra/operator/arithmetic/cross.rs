@@ -51,7 +51,7 @@ mod tests {
         assert_eq!(&cross(T::ONE, T::TWO), T::TWO);
 
         assert_eq!(&(T::TWO.clone().cross(T::ONE.clone())), T::TWO);
-        assert_eq!(&(T::TWO.cross(T::ONE)), T::ONE);
+        assert_eq!(&(T::TWO.cross(T::ONE)), T::TWO);
         assert_eq!(&cross(T::TWO.clone(), T::ONE.clone()), T::TWO);
         assert_eq!(&cross(T::TWO, T::ONE), T::TWO);
 
