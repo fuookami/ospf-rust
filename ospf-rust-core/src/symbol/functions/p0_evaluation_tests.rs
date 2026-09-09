@@ -1,10 +1,10 @@
 //! P0 评估测试模块 / P0 evaluation tests module.
 
 use crate::model::BasicModel;
-use crate::symbol::flatten::{Linear, LinearMonomial};
+use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic, QuadraticMonomial};
 use crate::symbol::function::*;
 use crate::symbol::{FunctionSymbol, LinearExpressionSymbol};
-use crate::token::{MutableTokenList, Token, VecTokenList};
+use crate::token::{MutableTokenList, Token, TokenList, VecTokenList};
 use crate::variable::{BinaryVariableItem, ContinuousVariableItem, VariableId};
 use std::f64::consts::PI;
 use std::sync::Arc;
@@ -392,4 +392,141 @@ fn trigonometric_rounding_and_mod_support_f32_values() {
             .unwrap();
     assert_close_f32(sin_value, 1.0_f32);
     assert_close_f32(cos_value, 0.0_f32);
+}
+
+#[test]
+fn univariate_piecewise_sorts_interpolates_and_clamps_boundaries() {
+    let mut tokens = VecTokenList::new();
+    add_continuous_token(&mut tokens, 9800, 0, "ulp_x", 0.5);
+    let function = UnivariateLinearPiecewiseFunction::new(
+        9801,
+        "ulp_boundary",
+        linear_of(0, 1.0, 0.0),
+        vec![
+            Point2::new(2.0, 4.0),
+            Point2::new(0.0, 0.0),
+            Point2::new(1.0, 2.0),
+        ],
+    );
+
+    assert_eq!(function.points()[0].x, 0.0);
+    assert_eq!(function.points()[1].x, 1.0);
+    assert_eq!(function.points()[2].x, 2.0);
+    assert_close(function.calculate_value(&tokens, false).unwrap(), 1.0);
+
+    tokens.find_by_index(0).unwrap().set_result(-1.0);
+    assert_close(function.calculate_value(&tokens, false).unwrap(), 0.0);
+
+    tokens.find_by_index(0).unwrap().set_result(3.0);
+    assert_close(function.calculate_value(&tokens, false).unwrap(), 4.0);
+
+    let missing = VecTokenList::<f64>::new();
+    assert_eq!(function.calculate_value(&missing, false), None);
+    assert_eq!(function.calculate_value(&missing, true), Some(0.0));
+
+    let single = UnivariateLinearPiecewiseFunction::new(
+        9802,
+        "ulp_single",
+        linear_of(0, 1.0, 0.0),
+        vec![Point2::new(7.0, 11.0)],
+    );
+    assert_eq!(single.calculate_value(&missing, false), Some(11.0));
+}
+
+#[test]
+#[should_panic(expected = "univariate piecewise function requires at least one point")]
+fn univariate_piecewise_rejects_empty_points() {
+    let _ = UnivariateLinearPiecewiseFunction::<f64>::new(
+        9810,
+        "ulp_empty",
+        Linear::new(vec![], 0.0),
+        vec![],
+    );
+}
+
+#[test]
+fn bivariate_piecewise_uses_lambda_values_and_handles_missing_tokens() {
+    let function = BivariateLinearPiecewiseFunction::new(
+        9820,
+        "blp_value",
+        Linear::new(vec![], 0.0),
+        Linear::new(vec![], 0.0),
+        vec![
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(1.0, 0.0, 10.0),
+            Point3::new(0.0, 1.0, 20.0),
+        ],
+    );
+    let mut registered = Vec::new();
+    function.register_tokens(&mut registered).unwrap();
+    assert_eq!(registered.len(), 4, "result plus one lambda per point");
+
+    let mut tokens = VecTokenList::new();
+    for (index, (lambda, value)) in function
+        .lambda_variables()
+        .iter()
+        .zip([0.25, 0.5, 0.25])
+        .enumerate()
+    {
+        let token = Token::from_generic(lambda.clone(), 100 + index);
+        token.set_result(value);
+        tokens.add_token(token);
+    }
+    assert_close(function.calculate_value(&tokens, false).unwrap(), 10.0);
+
+    let mut incomplete = VecTokenList::new();
+    let first = Token::from_generic(function.lambda_variables()[0].clone(), 200);
+    first.set_result(1.0);
+    incomplete.add_token(first);
+    assert_eq!(function.calculate_value(&incomplete, false), None);
+    assert_eq!(function.calculate_value(&incomplete, true), Some(0.0));
+}
+
+#[test]
+#[should_panic(expected = "bivariate piecewise function requires at least one point")]
+fn bivariate_piecewise_rejects_empty_points() {
+    let _ = BivariateLinearPiecewiseFunction::<f64>::new(
+        9830,
+        "blp_empty",
+        Linear::new(vec![], 0.0),
+        Linear::new(vec![], 0.0),
+        vec![],
+    );
+}
+
+#[test]
+fn quadratic_bridge_and_min_cover_mixed_terms_missing_values_and_negative_candidates() {
+    let mut tokens = VecTokenList::new();
+    add_continuous_token(&mut tokens, 9840, 0, "qx", 2.0);
+    add_continuous_token(&mut tokens, 9841, 1, "qy", -3.0);
+
+    let mixed = Quadratic::new(
+        vec![
+            QuadraticMonomial::new_quadratic(2.0, 0, 1),
+            QuadraticMonomial::new_linear(3.0, 0),
+        ],
+        4.0,
+    );
+    let bridge = QuadraticLinearFunction::new(9842, "qlinear_value", mixed.clone());
+    assert_eq!(bridge.calculate_value(&tokens, false), Some(-2.0));
+    let mut bridge_tokens = Vec::new();
+    bridge.register_tokens(&mut bridge_tokens).unwrap();
+    assert_eq!(bridge_tokens.len(), 1);
+
+    let mut missing_y = VecTokenList::new();
+    add_continuous_token(&mut missing_y, 9843, 0, "only_x", 2.0);
+    assert_eq!(bridge.calculate_value(&missing_y, false), None);
+    assert_eq!(bridge.calculate_value(&missing_y, true), Some(10.0));
+
+    let square = Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0);
+    let tied_negative = Quadratic::new(vec![], -2.0);
+    let minimum = QuadraticMinFunction::new(
+        9844,
+        "qmin_boundaries",
+        vec![square, mixed, tied_negative],
+        true,
+    );
+    assert_eq!(minimum.calculate_value(&tokens, false), Some(-2.0));
+    assert_eq!(minimum.calculate_value(&missing_y, false), None);
+    assert_eq!(minimum.calculate_value(&missing_y, true), Some(-2.0));
 }
