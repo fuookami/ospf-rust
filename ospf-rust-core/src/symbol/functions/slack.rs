@@ -3,15 +3,15 @@
 //! - `SlackFunction`: 两个表达式之间的绝对偏差 / Absolute deviation between two expressions
 
 use super::super::{
-    Category, FunctionSymbol, IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
-    auto_intermediate_symbol_name, next_auto_intermediate_symbol_id,
+    auto_intermediate_symbol_name, next_auto_intermediate_symbol_id, Category, FunctionSymbol,
+    IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
 };
 use super::big_m::infer_linear_difference_abs_bound_from_tokens;
 use crate::error::{ModelError, Result};
 use crate::model::{ConstraintRelation, LinearConstraint, LinearInequality};
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
-use crate::variable::{BinaryVariableItem, ContinuousVariableItem, VariableId, new_group_id};
+use crate::variable::{new_group_id, BinaryVariableItem, ContinuousVariableItem, VariableId};
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
@@ -21,7 +21,10 @@ use std::ops::{Add, Mul};
 use std::sync::Arc;
 
 /// 默认 Big-M 值 / Default Big-M value
-const DEFAULT_BIG_M: f64 = 1_000_000.0;
+// The exact absolute-value formulation needs twice the maximum |left-right|
+// when a branch is inactive. Keep the unbounded fallback aligned with Kotlin.
+// 精确绝对值模型在分支未激活时需要覆盖两倍的 |left-right|，无界回退值与 Kotlin 保持一致。
+const DEFAULT_BIG_M: f64 = 2_000_000.0;
 /// 最小 Big-M 值 / Minimum Big-M value
 const MIN_BIG_M: f64 = 1.0;
 

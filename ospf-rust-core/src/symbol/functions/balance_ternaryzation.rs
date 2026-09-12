@@ -3,17 +3,44 @@
 use super::super::{
     Category, FunctionSymbol, IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
 };
+use super::big_m::{infer_linear_abs_bound_from_tokens, MIN_BIG_M};
 use crate::error::{ModelError, Result};
 use crate::model::{ConstraintRelation, LinearConstraint, LinearInequality};
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
-use crate::variable::{BinaryVariableItem, ContinuousVariableItem, VariableId, new_group_id};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::variable::{new_group_id, BinaryVariableItem, ContinuousVariableItem, VariableId};
+use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::{Add, Mul};
 use std::sync::Arc;
+
+const DEFAULT_STRICT_BOUNDARY: f64 = 1e-10;
+
+fn evaluate_linear<V>(
+    poly: &Linear<V>,
+    token_table: &dyn TokenList<V>,
+    zero_if_none: bool,
+) -> Option<V>
+where
+    V: Clone + Debug + Send + Sync + 'static + Add<Output = V> + Mul<Output = V> + Zero,
+{
+    let mut value = poly.constant_term().clone();
+    for monomial in poly.monomials() {
+        let term_value = match token_table
+            .find_by_index(monomial.var_index())
+            .and_then(|token| token.get_result())
+        {
+            Some(value) => value,
+            None if zero_if_none => V::zero(),
+            None => return None,
+        };
+        value = value + monomial.coefficient().clone() * term_value;
+    }
+    Some(value)
+}
 
 fn to_f64<V>(value: &V) -> Option<f64>
 where
@@ -42,26 +69,53 @@ where
     })
 }
 
-/// Represents a balanced ternary variable: values in {-1, 0, 1}.
+/// Maps a linear expression to `-1`, `0`, or `1` using a symmetric zero band.
 #[derive(Debug, Clone)]
 pub struct BalanceTernaryzationFunction<V = f64>
 where
     V: Clone + Debug + Send + Sync + 'static,
 {
     id: IntermediateSymbolId,
+    input: Linear<V>,
+    epsilon: V,
+    fallback_big_m: V,
+    strict_boundary: V,
     result_var: ContinuousVariableItem,
     positive_var: BinaryVariableItem,
     negative_var: BinaryVariableItem,
     declared_dependency_ids: Vec<u64>,
-    _marker: std::marker::PhantomData<V>,
 }
 
 impl<V> BalanceTernaryzationFunction<V>
 where
-    V: Clone + Debug + Send + Sync + 'static,
+    V: Clone
+        + Debug
+        + PartialOrd
+        + Send
+        + Sync
+        + 'static
+        + Add<Output = V>
+        + Mul<Output = V>
+        + Zero
+        + ToPrimitive
+        + FromPrimitive,
 {
-    /// 创建三值平衡函数 / Create a ternary-balancing function.
-    pub fn new(id: u64, name: &str) -> Self {
+    /// 创建平衡三值化函数。`epsilon` 定义零带，`fallback_big_m` 仅在无法从变量界推断时使用。
+    /// Create a balanced ternary function. `epsilon` defines the zero band and
+    /// `fallback_big_m` is used only when variable bounds cannot provide a tighter value.
+    pub fn new(id: u64, name: &str, input: Linear<V>, epsilon: V, fallback_big_m: V) -> Self {
+        let epsilon_f64 = to_f64(&epsilon).expect("balance ternary epsilon must convert to f64");
+        let fallback_big_m_f64 =
+            to_f64(&fallback_big_m).expect("balance ternary fallback big-M must convert to f64");
+        assert!(
+            epsilon_f64.is_finite() && epsilon_f64 >= 0.0,
+            "balance ternary epsilon must be finite and non-negative"
+        );
+        assert!(
+            fallback_big_m_f64.is_finite()
+                && fallback_big_m_f64 > epsilon_f64 + DEFAULT_STRICT_BOUNDARY,
+            "balance ternary fallback big-M must be finite and exceed epsilon plus the strict boundary"
+        );
         let group_id = new_group_id();
         let result_var = ContinuousVariableItem::create(VariableId::new(group_id, 0), name);
 
@@ -73,11 +127,15 @@ where
 
         Self {
             id: IntermediateSymbolId::new(id, name),
+            input,
+            epsilon,
+            fallback_big_m,
+            strict_boundary: from_f64(DEFAULT_STRICT_BOUNDARY)
+                .expect("convert balance ternary strict boundary"),
             result_var,
             positive_var,
             negative_var,
             declared_dependency_ids: Vec::new(),
-            _marker: std::marker::PhantomData,
         }
     }
 
@@ -85,6 +143,21 @@ where
     pub fn with_declared_dependencies(mut self, dependency_ids: Vec<u64>) -> Self {
         self.declared_dependency_ids = dependency_ids;
         self
+    }
+
+    /// 获取输入多项式 / Get the input polynomial.
+    pub fn input_polynomial(&self) -> &Linear<V> {
+        &self.input
+    }
+
+    /// 获取零带阈值 / Get the zero-band threshold.
+    pub fn epsilon(&self) -> &V {
+        &self.epsilon
+    }
+
+    /// 获取回退 Big-M / Get the fallback Big-M value.
+    pub fn fallback_big_m(&self) -> &V {
+        &self.fallback_big_m
     }
 
     /// 获取结果变量 / Get the result variable.
@@ -100,6 +173,181 @@ where
     /// 获取负方向指示变量 / Get the negative-direction indicator variable.
     pub fn negative_variable(&self) -> &BinaryVariableItem {
         &self.negative_var
+    }
+
+    fn configured_big_m(&self) -> Result<f64> {
+        let epsilon = to_f64(&self.epsilon).ok_or_else(|| {
+            ModelError::InvalidConstraint(format!(
+                "balance ternary `{}` epsilon cannot be converted to f64",
+                self.id.name
+            ))
+        })?;
+        let strict_boundary = to_f64(&self.strict_boundary).ok_or_else(|| {
+            ModelError::InvalidConstraint(format!(
+                "balance ternary `{}` strict boundary cannot be converted to f64",
+                self.id.name
+            ))
+        })?;
+        let fallback = to_f64(&self.fallback_big_m).ok_or_else(|| {
+            ModelError::InvalidConstraint(format!(
+                "balance ternary `{}` fallback big-M cannot be converted to f64",
+                self.id.name
+            ))
+        })?;
+        if !fallback.is_finite() || fallback <= 0.0 {
+            return Err(ModelError::InvalidConstraint(format!(
+                "balance ternary `{}` fallback big-M must be finite and positive",
+                self.id.name
+            ))
+            .into());
+        }
+        Ok(fallback.max(epsilon + strict_boundary).max(MIN_BIG_M))
+    }
+
+    fn build_mechanism_constraints(
+        &self,
+        symbol_to_index: &std::collections::HashMap<usize, usize>,
+        big_m: f64,
+    ) -> Result<Vec<LinearConstraint<V>>> {
+        let result_index = symbol_to_index
+            .get(&(self.result_var.id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "balance ternary result variable id {}",
+                    self.result_var.id().unique_id()
+                ))
+            })?;
+        let positive_index = symbol_to_index
+            .get(&(self.positive_var.id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "balance ternary positive variable id {}",
+                    self.positive_var.id().unique_id()
+                ))
+            })?;
+        let negative_index = symbol_to_index
+            .get(&(self.negative_var.id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "balance ternary negative variable id {}",
+                    self.negative_var.id().unique_id()
+                ))
+            })?;
+
+        let epsilon = to_f64(&self.epsilon).ok_or_else(|| {
+            ModelError::InvalidConstraint(format!(
+                "balance ternary `{}` epsilon cannot be converted to f64",
+                self.id.name
+            ))
+        })?;
+        let strict_boundary = to_f64(&self.strict_boundary).ok_or_else(|| {
+            ModelError::InvalidConstraint(format!(
+                "balance ternary `{}` strict boundary cannot be converted to f64",
+                self.id.name
+            ))
+        })?;
+
+        let make_input =
+            |indicator_index: usize, indicator_coefficient: f64| -> Result<Linear<V>> {
+                let mut monomials = self.input.monomials().to_vec();
+                monomials.push(LinearMonomial::new(
+                    convert_f64_to_v(indicator_coefficient, "balance indicator coefficient")?,
+                    indicator_index,
+                ));
+                Ok(Linear::new(monomials, self.input.constant_term().clone()))
+            };
+        let make_constraint = |polynomial: Linear<V>,
+                               relation,
+                               rhs: f64,
+                               suffix: &str|
+         -> Result<LinearConstraint<V>> {
+            Ok(LinearConstraint::from_symbol(
+                LinearInequality::new(
+                    polynomial,
+                    relation,
+                    convert_f64_to_v(rhs, "balance constraint rhs")?,
+                ),
+                &format!("{}_{}", self.id.name, suffix),
+                Arc::new(self.clone()),
+            ))
+        };
+
+        let relation = make_constraint(
+            Linear::new(
+                vec![
+                    LinearMonomial::new(
+                        convert_f64_to_v(1.0, "balance result coefficient")?,
+                        result_index,
+                    ),
+                    LinearMonomial::new(
+                        convert_f64_to_v(-1.0, "balance positive coefficient")?,
+                        positive_index,
+                    ),
+                    LinearMonomial::new(
+                        convert_f64_to_v(1.0, "balance negative coefficient")?,
+                        negative_index,
+                    ),
+                ],
+                convert_f64_to_v(0.0, "balance result constant")?,
+            ),
+            ConstraintRelation::Equal,
+            0.0,
+            "bter_result",
+        )?;
+        let exclusivity = make_constraint(
+            Linear::new(
+                vec![
+                    LinearMonomial::new(
+                        convert_f64_to_v(1.0, "balance positive coefficient")?,
+                        positive_index,
+                    ),
+                    LinearMonomial::new(
+                        convert_f64_to_v(1.0, "balance negative coefficient")?,
+                        negative_index,
+                    ),
+                ],
+                convert_f64_to_v(0.0, "balance exclusivity constant")?,
+            ),
+            ConstraintRelation::LessEqual,
+            1.0,
+            "bter_exclusive",
+        )?;
+        let positive_lower = make_constraint(
+            make_input(positive_index, -big_m)?,
+            ConstraintRelation::GreaterEqual,
+            epsilon + strict_boundary - big_m,
+            "bter_positive_lb",
+        )?;
+        let positive_upper = make_constraint(
+            make_input(positive_index, -big_m)?,
+            ConstraintRelation::LessEqual,
+            epsilon,
+            "bter_positive_ub",
+        )?;
+        let negative_upper = make_constraint(
+            make_input(negative_index, big_m)?,
+            ConstraintRelation::LessEqual,
+            big_m - epsilon - strict_boundary,
+            "bter_negative_ub",
+        )?;
+        let negative_lower = make_constraint(
+            make_input(negative_index, big_m)?,
+            ConstraintRelation::GreaterEqual,
+            -epsilon,
+            "bter_negative_lb",
+        )?;
+
+        Ok(vec![
+            relation,
+            exclusivity,
+            positive_lower,
+            positive_upper,
+            negative_upper,
+            negative_lower,
+        ])
     }
 }
 
@@ -146,7 +394,17 @@ where
 
 impl<V> IntermediateSymbol<V> for BalanceTernaryzationFunction<V>
 where
-    V: Clone + Debug + Send + Sync + 'static + ToPrimitive + FromPrimitive,
+    V: Clone
+        + Debug
+        + PartialOrd
+        + Send
+        + Sync
+        + 'static
+        + Add<Output = V>
+        + Mul<Output = V>
+        + Zero
+        + ToPrimitive
+        + FromPrimitive,
     f64: IntoValue<V>,
 {
     fn category(&self) -> Category {
@@ -175,83 +433,20 @@ where
         &self,
         symbol_to_index: &std::collections::HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let result_index = symbol_to_index
-            .get(&(self.result_var.id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "balance ternary result variable id {}",
-                    self.result_var.id().unique_id()
-                ))
-            })?;
-        let positive_index = symbol_to_index
-            .get(&(self.positive_var.id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "balance ternary positive variable id {}",
-                    self.positive_var.id().unique_id()
-                ))
-            })?;
-        let negative_index = symbol_to_index
-            .get(&(self.negative_var.id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "balance ternary negative variable id {}",
-                    self.negative_var.id().unique_id()
-                ))
-            })?;
+        self.build_mechanism_constraints(symbol_to_index, self.configured_big_m()?)
+    }
 
-        let relation = LinearConstraint::from_symbol(
-            LinearInequality::new(
-                Linear::new(
-                    vec![
-                        LinearMonomial::new(
-                            convert_f64_to_v::<V>(1.0, "balance result coefficient")?,
-                            result_index,
-                        ),
-                        LinearMonomial::new(
-                            convert_f64_to_v::<V>(-1.0, "balance positive coefficient")?,
-                            positive_index,
-                        ),
-                        LinearMonomial::new(
-                            convert_f64_to_v::<V>(1.0, "balance negative coefficient")?,
-                            negative_index,
-                        ),
-                    ],
-                    convert_f64_to_v::<V>(0.0, "balance relation constant")?,
-                ),
-                ConstraintRelation::Equal,
-                convert_f64_to_v::<V>(0.0, "balance relation rhs")?,
-            ),
-            &format!("{}_bal_relation", self.id.name),
-            Arc::new(self.clone()),
-        );
-
-        let exclusivity = LinearConstraint::from_symbol(
-            LinearInequality::new(
-                Linear::new(
-                    vec![
-                        LinearMonomial::new(
-                            convert_f64_to_v::<V>(1.0, "balance positive exclusivity coefficient")?,
-                            positive_index,
-                        ),
-                        LinearMonomial::new(
-                            convert_f64_to_v::<V>(1.0, "balance negative exclusivity coefficient")?,
-                            negative_index,
-                        ),
-                    ],
-                    convert_f64_to_v::<V>(0.0, "balance exclusivity constant")?,
-                ),
-                ConstraintRelation::LessEqual,
-                convert_f64_to_v::<V>(1.0, "balance exclusivity rhs")?,
-            ),
-            &format!("{}_bal_exclusive", self.id.name),
-            Arc::new(self.clone()),
-        );
-
-        Ok(vec![relation, exclusivity])
+    fn mechanism_constraints_with_tokens(
+        &self,
+        symbol_to_index: &std::collections::HashMap<usize, usize>,
+        tokens: &[Token<V>],
+    ) -> Result<Vec<LinearConstraint<V>>> {
+        let epsilon = to_f64(&self.epsilon).unwrap_or(0.0);
+        let strict_boundary = to_f64(&self.strict_boundary).unwrap_or(DEFAULT_STRICT_BOUNDARY);
+        let big_m = infer_linear_abs_bound_from_tokens(&self.input, tokens)
+            .map(|bound| (bound + epsilon + strict_boundary).max(MIN_BIG_M))
+            .unwrap_or(self.configured_big_m()?);
+        self.build_mechanism_constraints(symbol_to_index, big_m)
     }
 
     fn evaluate_from_tokens(
@@ -273,7 +468,17 @@ where
 
 impl<V> FunctionSymbol<V> for BalanceTernaryzationFunction<V>
 where
-    V: Clone + Debug + Send + Sync + 'static + ToPrimitive + FromPrimitive,
+    V: Clone
+        + Debug
+        + PartialOrd
+        + Send
+        + Sync
+        + 'static
+        + Add<Output = V>
+        + Mul<Output = V>
+        + Zero
+        + ToPrimitive
+        + FromPrimitive,
     f64: IntoValue<V>,
 {
     fn register_tokens(&self, tokens: &mut Vec<Token<V>>) -> Result<()> {
@@ -293,54 +498,44 @@ where
     }
 
     fn calculate_value(&self, token_table: &dyn TokenList<V>, zero_if_none: bool) -> Option<V> {
-        let positive = match token_table
-            .find_by_id(self.positive_var.id())
-            .and_then(|token| token.get_result())
-        {
-            Some(v) => v,
-            None if zero_if_none => from_f64(0.0)?,
-            None => return None,
-        };
-        let negative = match token_table
-            .find_by_id(self.negative_var.id())
-            .and_then(|token| token.get_result())
-        {
-            Some(v) => v,
-            None if zero_if_none => from_f64(0.0)?,
-            None => return None,
-        };
-
-        let pos = if to_f64(&positive)?.abs() > f64::EPSILON {
-            1.0
+        let input = to_f64(&evaluate_linear(&self.input, token_table, zero_if_none)?)?;
+        let epsilon = to_f64(&self.epsilon)?;
+        let strict_boundary = to_f64(&self.strict_boundary)?;
+        if input >= epsilon + strict_boundary {
+            from_f64(1.0)
+        } else if input > epsilon {
+            None
+        } else if input <= -epsilon - strict_boundary {
+            from_f64(-1.0)
+        } else if input < -epsilon {
+            None
         } else {
-            0.0
-        };
-        let neg = if to_f64(&negative)?.abs() > f64::EPSILON {
-            1.0
-        } else {
-            0.0
-        };
-        from_f64(pos - neg)
+            from_f64(0.0)
+        }
     }
 }
 
 impl<V> LinearIntermediateSymbol<V> for BalanceTernaryzationFunction<V>
 where
-    V: Clone + Debug + Send + Sync + 'static + ToPrimitive + FromPrimitive,
+    V: Clone
+        + Debug
+        + PartialOrd
+        + Send
+        + Sync
+        + 'static
+        + Add<Output = V>
+        + Mul<Output = V>
+        + Zero
+        + ToPrimitive
+        + FromPrimitive,
     f64: IntoValue<V>,
 {
     fn to_linear_polynomial(&self) -> Linear<V> {
         Linear::new(
-            vec![
-                LinearMonomial::new(
-                    from_f64(1.0).expect("convert 1.0"),
-                    self.positive_var.index(),
-                ),
-                LinearMonomial::new(
-                    from_f64(-1.0).expect("convert -1.0"),
-                    self.negative_var.index(),
-                ),
-            ],
+            vec![LinearMonomial::new(
+                from_f64(1.0).expect("convert 1.0"),
+                self.result_var.index(),
+            )],
             from_f64(0.0).expect("convert 0.0"),
         )
     }

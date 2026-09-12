@@ -7,7 +7,7 @@ use crate::error::{ModelError, Result};
 use crate::model::{ConstraintRelation, LinearConstraint, LinearInequality};
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
-use crate::variable::{BinaryVariableItem, ContinuousVariableItem, VariableId, new_group_id};
+use crate::variable::{new_group_id, BinaryVariableItem, ContinuousVariableItem, VariableId};
 use num_traits::{FromPrimitive, ToPrimitive};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
@@ -70,7 +70,20 @@ where
     V: Clone + Debug + Send + Sync + 'static,
 {
     /// 创建新的半连续函数 / Create a new semi-continuous function
-    pub fn new(id: u64, name: &str, lower: V, upper: V) -> Self {
+    pub fn new(id: u64, name: &str, lower: V, upper: V) -> Self
+    where
+        V: ToPrimitive,
+    {
+        let lower_f64 = to_f64(&lower).expect("convert semi lower bound to f64");
+        let upper_f64 = to_f64(&upper).expect("convert semi upper bound to f64");
+        assert!(
+            lower_f64.is_finite() && upper_f64.is_finite(),
+            "SemiFunction requires finite bounds"
+        );
+        assert!(
+            lower_f64 <= upper_f64,
+            "SemiFunction requires lower <= upper"
+        );
         let group_id = new_group_id();
         let result_var = ContinuousVariableItem::create(VariableId::new(group_id, 0), name);
 
@@ -85,6 +98,20 @@ where
             upper,
             declared_dependency_ids: Vec::new(),
         }
+    }
+
+    /// 创建使用统一默认上下界的半连续函数：`[0, 1e6]`。
+    /// Create a semi-continuous function with the shared default bounds `[0, 1e6]`.
+    pub fn with_default_bounds(id: u64, name: &str) -> Self
+    where
+        V: ToPrimitive + FromPrimitive,
+    {
+        Self::new(
+            id,
+            name,
+            from_f64(0.0).expect("convert default semi lower bound"),
+            from_f64(1_000_000.0).expect("convert default semi upper bound"),
+        )
     }
 
     /// 从连续变量有限边界推导半连续激活区间。

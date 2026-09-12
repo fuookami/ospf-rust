@@ -6,7 +6,7 @@ use super::super::{
     Category, FunctionSymbol, IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
 };
 use super::max::MaxFunction;
-use crate::error::Result;
+use crate::error::{ModelError, Result};
 use crate::model::LinearConstraint;
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
@@ -78,6 +78,10 @@ where
     upper: V,
     /// 内部最大值函数 / Inner maximum function
     inner: MaxFunction<V>,
+    /// Optional explicit Big-M value. `None` delegates to the shared default
+    /// or token-derived policy, while `Some` is used verbatim after validation.
+    /// 显式 Big-M 值；为空时使用共享默认/令牌推导策略。
+    big_m: Option<V>,
     /// 声明的依赖 ID / Declared dependency IDs
     declared_dependency_ids: Vec<u64>,
 }
@@ -86,10 +90,60 @@ impl<V> SlackRangeFunction<V>
 where
     V: Clone + Debug + Send + Sync + 'static + ToPrimitive + FromPrimitive,
 {
-    /// 创建新的范围松弛函数 / Create a new slack-range function
-    pub fn new(id: u64, name: &str, input: Linear<V>, lower: V, upper: V) -> Self {
-        let lower_f64 = to_f64(&lower).expect("convert lower to f64");
-        let upper_f64 = to_f64(&upper).expect("convert upper to f64");
+    fn validate_bounds(lower: &V, upper: &V, name: &str) {
+        let lower_f64 = to_f64(lower).expect("convert lower to f64");
+        let upper_f64 = to_f64(upper).expect("convert upper to f64");
+        assert!(
+            lower_f64.is_finite() && upper_f64.is_finite(),
+            "SlackRangeFunction `{name}` requires finite bounds"
+        );
+        assert!(
+            lower_f64 <= upper_f64,
+            "SlackRangeFunction `{name}` requires lower <= upper"
+        );
+    }
+
+    fn validate_big_m(big_m: &V) {
+        let value = to_f64(big_m).expect("convert slack-range big-M to f64");
+        assert!(
+            value.is_finite() && value > 0.0,
+            "SlackRangeFunction requires a positive finite big-M"
+        );
+    }
+
+    fn validate_input(input: &Linear<V>) {
+        assert!(
+            to_f64(input.constant_term())
+                .map(|value| value.is_finite())
+                .unwrap_or(false)
+                && input.monomials().iter().all(|monomial| {
+                    to_f64(monomial.coefficient())
+                        .map(|value| value.is_finite())
+                        .unwrap_or(false)
+                }),
+            "SlackRangeFunction input polynomial must contain finite values"
+        );
+    }
+
+    fn validate_derived_candidates(input: &Linear<V>, lower: &V, upper: &V) {
+        let lower_f64 = to_f64(lower).expect("convert lower to f64");
+        let upper_f64 = to_f64(upper).expect("convert upper to f64");
+        let input_constant = to_f64(input.constant_term()).expect("convert input constant to f64");
+        assert!(
+            (lower_f64 - input_constant).is_finite()
+                && (input_constant - upper_f64).is_finite()
+                && input.monomials().iter().all(|monomial| {
+                    to_f64(monomial.coefficient())
+                        .map(|coefficient| (-coefficient).is_finite())
+                        .unwrap_or(false)
+                }),
+            "SlackRangeFunction derived candidates must contain finite values"
+        );
+    }
+
+    fn build_polynomials(input: &Linear<V>, lower: &V, upper: &V) -> Vec<Linear<V>> {
+        let lower_f64 = to_f64(lower).expect("convert lower to f64");
+        let upper_f64 = to_f64(upper).expect("convert upper to f64");
         let input_constant = to_f64(input.constant_term()).expect("convert input constant to f64");
 
         let mut lower_minus_input_terms = Vec::with_capacity(input.monomials().len());
@@ -117,18 +171,45 @@ where
         );
         let zero_poly = Linear::new(vec![], from_f64(0.0).expect("convert zero"));
 
-        let inner = MaxFunction::new(
-            id,
-            name,
-            vec![lower_minus_input, input_minus_upper, zero_poly],
-            true,
-        );
+        vec![lower_minus_input, input_minus_upper, zero_poly]
+    }
+
+    fn build_inner(id: u64, name: &str, input: &Linear<V>, lower: &V, upper: &V) -> MaxFunction<V> {
+        MaxFunction::new(id, name, Self::build_polynomials(input, lower, upper), true)
+    }
+
+    /// 创建新的范围松弛函数 / Create a new slack-range function
+    pub fn new(id: u64, name: &str, input: Linear<V>, lower: V, upper: V) -> Self {
+        Self::validate_bounds(&lower, &upper, name);
+        Self::validate_input(&input);
+        Self::validate_derived_candidates(&input, &lower, &upper);
+        let inner = Self::build_inner(id, name, &input, &lower, &upper);
         Self {
             id: IntermediateSymbolId::new(id, name),
             input,
             lower,
             upper,
             inner,
+            big_m: None,
+            declared_dependency_ids: Vec::new(),
+        }
+    }
+
+    /// 创建使用显式 Big-M 的范围松弛函数。
+    /// Create a range-slack function with an explicit Big-M value.
+    pub fn with_big_m(id: u64, name: &str, input: Linear<V>, lower: V, upper: V, big_m: V) -> Self {
+        Self::validate_bounds(&lower, &upper, name);
+        Self::validate_input(&input);
+        Self::validate_derived_candidates(&input, &lower, &upper);
+        Self::validate_big_m(&big_m);
+        let inner = Self::build_inner(id, name, &input, &lower, &upper);
+        Self {
+            id: IntermediateSymbolId::new(id, name),
+            input,
+            lower,
+            upper,
+            inner,
+            big_m: Some(big_m),
             declared_dependency_ids: Vec::new(),
         }
     }
@@ -140,40 +221,23 @@ where
     }
 
     pub(crate) fn with_input_polynomial(&self, input: Linear<V>) -> Self {
-        let lower_f64 = to_f64(&self.lower).expect("convert lower to f64");
-        let upper_f64 = to_f64(&self.upper).expect("convert upper to f64");
-        let input_constant = to_f64(input.constant_term()).expect("convert input constant to f64");
-
-        let mut lower_minus_input_terms = Vec::with_capacity(input.monomials().len());
-        let mut input_minus_upper_terms = Vec::with_capacity(input.monomials().len());
-        for monomial in input.monomials() {
-            let coefficient =
-                to_f64(monomial.coefficient()).expect("convert input coefficient to f64");
-            lower_minus_input_terms.push(LinearMonomial::new(
-                from_f64(-coefficient).expect("convert lower-input coefficient"),
-                monomial.var_index(),
-            ));
-            input_minus_upper_terms.push(LinearMonomial::new(
-                from_f64(coefficient).expect("convert input-upper coefficient"),
-                monomial.var_index(),
-            ));
-        }
-
-        let lower_minus_input = Linear::new(
-            lower_minus_input_terms,
-            from_f64(lower_f64 - input_constant).expect("convert lower-input constant"),
-        );
-        let input_minus_upper = Linear::new(
-            input_minus_upper_terms,
-            from_f64(input_constant - upper_f64).expect("convert input-upper constant"),
-        );
-        let zero_poly = Linear::new(vec![], from_f64(0.0).expect("convert zero"));
-
+        Self::validate_input(&input);
+        Self::validate_derived_candidates(&input, &self.lower, &self.upper);
         let mut cloned = self.clone();
         cloned.input = input;
-        cloned.inner =
-            self.inner
-                .with_polynomials(vec![lower_minus_input, input_minus_upper, zero_poly]);
+        cloned.inner = self.inner.with_polynomials(Self::build_polynomials(
+            &cloned.input,
+            &self.lower,
+            &self.upper,
+        ));
+        cloned
+    }
+
+    /// 在保持结果/选择器变量 ID 不变的前提下覆盖 Big-M。
+    /// Override Big-M while preserving result/selector variable IDs.
+    pub(crate) fn with_big_m_value(&self, big_m: V) -> Self {
+        let mut cloned = self.clone();
+        cloned.big_m = Some(big_m);
         cloned
     }
 
@@ -190,6 +254,12 @@ where
     /// 获取上界 / Get the upper bound
     pub fn upper_bound(&self) -> &V {
         &self.upper
+    }
+
+    /// 获取显式 Big-M；未指定时返回 `None`。
+    /// Return the explicit Big-M, or `None` when the shared policy is used.
+    pub fn big_m(&self) -> Option<&V> {
+        self.big_m.as_ref()
     }
 
     /// 获取结果变量 / Get the result variable
@@ -279,7 +349,55 @@ where
         &self,
         symbol_to_index: &std::collections::HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        self.inner.mechanism_constraints(symbol_to_index)
+        match self.big_m.as_ref() {
+            Some(big_m) => {
+                let value = to_f64(big_m).ok_or_else(|| {
+                    ModelError::InvalidConstraint(format!(
+                        "slack-range `{}` big-M cannot be converted to f64",
+                        self.id.name
+                    ))
+                })?;
+                if !value.is_finite() || value <= 0.0 {
+                    return Err(ModelError::InvalidConstraint(format!(
+                        "slack-range `{}` requires positive finite big-M",
+                        self.id.name
+                    ))
+                    .into());
+                }
+                self.inner
+                    .mechanism_constraints_with_big_m(symbol_to_index, value)
+            }
+            None => self.inner.mechanism_constraints(symbol_to_index),
+        }
+    }
+
+    fn mechanism_constraints_with_tokens(
+        &self,
+        symbol_to_index: &std::collections::HashMap<usize, usize>,
+        tokens: &[Token<V>],
+    ) -> Result<Vec<LinearConstraint<V>>> {
+        match self.big_m.as_ref() {
+            Some(big_m) => {
+                let value = to_f64(big_m).ok_or_else(|| {
+                    ModelError::InvalidConstraint(format!(
+                        "slack-range `{}` big-M cannot be converted to f64",
+                        self.id.name
+                    ))
+                })?;
+                if !value.is_finite() || value <= 0.0 {
+                    return Err(ModelError::InvalidConstraint(format!(
+                        "slack-range `{}` requires positive finite big-M",
+                        self.id.name
+                    ))
+                    .into());
+                }
+                self.inner
+                    .mechanism_constraints_with_big_m(symbol_to_index, value)
+            }
+            None => self
+                .inner
+                .mechanism_constraints_with_tokens(symbol_to_index, tokens),
+        }
     }
 
     fn evaluate_from_tokens(

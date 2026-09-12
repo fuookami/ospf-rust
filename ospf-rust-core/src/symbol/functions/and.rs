@@ -1,15 +1,15 @@
 //! 逻辑函数符号 / Logic function symbols
 
 use super::super::{
-    Category, FunctionSymbol, IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
-    LogicFunctionSymbol, auto_intermediate_symbol_name, next_auto_intermediate_symbol_id,
+    auto_intermediate_symbol_name, next_auto_intermediate_symbol_id, Category, FunctionSymbol,
+    IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol, LogicFunctionSymbol,
 };
-use super::big_m::{BigMPolicy, infer_big_m_for_polynomials, infer_linear_abs_bound_from_tokens};
+use super::big_m::{infer_big_m_for_polynomials, infer_linear_abs_bound_from_tokens, BigMPolicy};
 use crate::error::{ModelError, Result};
 use crate::model::{ConstraintRelation, LinearConstraint, LinearInequality};
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
-use crate::variable::{BinaryVariableItem, VariableId, new_group_id};
+use crate::variable::{new_group_id, BinaryVariableItem, VariableId};
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
@@ -78,8 +78,10 @@ fn as_binary(value: f64) -> f64 {
 
 const DEFAULT_BIG_M: f64 = 1_000_000.0;
 const BIG_M_POLICY: BigMPolicy = BigMPolicy::new(DEFAULT_BIG_M, 1.0);
-const NONZERO_TOLERANCE: f64 = f64::EPSILON * 16.0;
-const STRICT_NONZERO_BOUNDARY: f64 = NONZERO_TOLERANCE + f64::EPSILON * 16.0;
+/// Shared zero-band width used by Kotlin and Rust nonzero indicators.
+pub(crate) const NONZERO_TOLERANCE: f64 = 1e-10;
+/// Shared strict boundary used by Kotlin and Rust nonzero indicators.
+pub(crate) const STRICT_NONZERO_BOUNDARY: f64 = NONZERO_TOLERANCE * 16.0 + f64::EPSILON * 16.0;
 
 fn nonzero_indicator_inequalities<V>(
     polynomial: &Linear<V>,
@@ -91,6 +93,62 @@ fn nonzero_indicator_inequalities<V>(
 where
     V: Clone + Debug + Send + Sync + 'static + ToPrimitive + FromPrimitive,
 {
+    nonzero_indicator_inequalities_with_policy(
+        polynomial,
+        indicator_index,
+        side_index,
+        big_m,
+        NONZERO_TOLERANCE,
+        STRICT_NONZERO_BOUNDARY,
+        name_prefix,
+    )
+}
+
+fn nonzero_indicator_inequalities_with_policy<V>(
+    polynomial: &Linear<V>,
+    indicator_index: usize,
+    side_index: usize,
+    big_m: f64,
+    tolerance: f64,
+    strict_boundary: f64,
+    name_prefix: &str,
+) -> Result<Vec<(LinearInequality<V>, String)>>
+where
+    V: Clone + Debug + Send + Sync + 'static + ToPrimitive + FromPrimitive,
+{
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        return Err(ModelError::InvalidConstraint(format!(
+            "logic `{}` tolerance must be finite and non-negative",
+            name_prefix
+        ))
+        .into());
+    }
+    if !strict_boundary.is_finite() || strict_boundary <= 0.0 {
+        return Err(ModelError::InvalidConstraint(format!(
+            "logic `{}` strict boundary must be finite and positive",
+            name_prefix
+        ))
+        .into());
+    }
+    if !big_m.is_finite() || big_m <= 0.0 {
+        return Err(ModelError::InvalidConstraint(format!(
+            "logic `{}` Big-M must be finite and positive",
+            name_prefix
+        ))
+        .into());
+    }
+    // The input bound is the base magnitude.  Add the corresponding
+    // transition margin to both branches so an exactly inferred bound still
+    // admits the strict boundary (for example, |x| = 1 with M = 1).
+    let band_m = big_m + tolerance;
+    let out_m = big_m + strict_boundary;
+    if !band_m.is_finite() || !out_m.is_finite() {
+        return Err(ModelError::InvalidConstraint(format!(
+            "logic `{}` Big-M is too large for the configured margins",
+            name_prefix
+        ))
+        .into());
+    }
     let mut constraints = Vec::with_capacity(4);
     let mut base_monomials = Vec::with_capacity(polynomial.monomials().len());
     for monomial in polynomial.monomials() {
@@ -117,7 +175,7 @@ where
         ));
     }
     ub_monomials.push(LinearMonomial::new(
-        convert_f64_to_v::<V>(-big_m, "logic indicator coefficient")?,
+        convert_f64_to_v::<V>(-band_m, "logic indicator coefficient")?,
         indicator_index,
     ));
     constraints.push((
@@ -127,7 +185,7 @@ where
                 convert_f64_to_v::<V>(constant, "logic input constant")?,
             ),
             ConstraintRelation::LessEqual,
-            convert_f64_to_v::<V>(NONZERO_TOLERANCE, "logic rhs")?,
+            convert_f64_to_v::<V>(tolerance, "logic rhs")?,
         ),
         format!("{}_band_ub", name_prefix),
     ));
@@ -140,7 +198,7 @@ where
         ));
     }
     lb_monomials.push(LinearMonomial::new(
-        convert_f64_to_v::<V>(big_m, "logic indicator coefficient")?,
+        convert_f64_to_v::<V>(band_m, "logic indicator coefficient")?,
         indicator_index,
     ));
     constraints.push((
@@ -150,7 +208,7 @@ where
                 convert_f64_to_v::<V>(constant, "logic input constant")?,
             ),
             ConstraintRelation::GreaterEqual,
-            convert_f64_to_v::<V>(-NONZERO_TOLERANCE, "logic rhs")?,
+            convert_f64_to_v::<V>(-tolerance, "logic rhs")?,
         ),
         format!("{}_band_lb", name_prefix),
     ));
@@ -163,11 +221,11 @@ where
         ));
     }
     out_lb_monomials.push(LinearMonomial::new(
-        convert_f64_to_v::<V>(-big_m, "logic indicator coefficient")?,
+        convert_f64_to_v::<V>(-out_m, "logic indicator coefficient")?,
         indicator_index,
     ));
     out_lb_monomials.push(LinearMonomial::new(
-        convert_f64_to_v::<V>(-big_m, "logic side coefficient")?,
+        convert_f64_to_v::<V>(-out_m, "logic side coefficient")?,
         side_index,
     ));
     constraints.push((
@@ -177,7 +235,7 @@ where
                 convert_f64_to_v::<V>(constant, "logic input constant")?,
             ),
             ConstraintRelation::GreaterEqual,
-            convert_f64_to_v::<V>(STRICT_NONZERO_BOUNDARY - 2.0 * big_m, "logic rhs")?,
+            convert_f64_to_v::<V>(strict_boundary - 2.0 * out_m, "logic rhs")?,
         ),
         format!("{}_out_lb", name_prefix),
     ));
@@ -190,11 +248,11 @@ where
         ));
     }
     out_ub_monomials.push(LinearMonomial::new(
-        convert_f64_to_v::<V>(big_m, "logic indicator coefficient")?,
+        convert_f64_to_v::<V>(out_m, "logic indicator coefficient")?,
         indicator_index,
     ));
     out_ub_monomials.push(LinearMonomial::new(
-        convert_f64_to_v::<V>(-big_m, "logic side coefficient")?,
+        convert_f64_to_v::<V>(-out_m, "logic side coefficient")?,
         side_index,
     ));
     constraints.push((
@@ -204,7 +262,7 @@ where
                 convert_f64_to_v::<V>(constant, "logic input constant")?,
             ),
             ConstraintRelation::LessEqual,
-            convert_f64_to_v::<V>(-STRICT_NONZERO_BOUNDARY + big_m, "logic rhs")?,
+            convert_f64_to_v::<V>(-strict_boundary + out_m, "logic rhs")?,
         ),
         format!("{}_out_ub", name_prefix),
     ));
@@ -1467,6 +1525,9 @@ where
     result_var: BinaryVariableItem,
     indicator_vars: Vec<BinaryVariableItem>,
     side_vars: Vec<BinaryVariableItem>,
+    explicit_big_m: Option<f64>,
+    tolerance: f64,
+    strict_boundary: f64,
 }
 
 impl<V> XorFunction<V>
@@ -1476,8 +1537,8 @@ where
     /// 创建逻辑异或函数 / Create a logical XOR function.
     pub fn new(id: u64, name: &str, polynomials: Vec<Linear<V>>) -> Self {
         assert!(
-            polynomials.len() >= 2,
-            "XorFunction requires at least two input polynomials.",
+            !polynomials.is_empty(),
+            "XorFunction requires at least one input polynomial.",
         );
         let n = polynomials.len();
         let group_id = new_group_id();
@@ -1506,7 +1567,62 @@ where
             result_var,
             indicator_vars,
             side_vars,
+            explicit_big_m: None,
+            tolerance: NONZERO_TOLERANCE,
+            strict_boundary: STRICT_NONZERO_BOUNDARY,
         }
+    }
+
+    /// Set an explicit Big-M value for all input indicators.
+    pub fn with_big_m(mut self, big_m: f64) -> Self {
+        assert!(
+            big_m.is_finite() && big_m > 0.0,
+            "xor Big-M must be finite and positive"
+        );
+        self.explicit_big_m = Some(big_m);
+        self
+    }
+
+    /// Set the shared zero-band tolerance used by input indicators.
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
+        assert!(
+            tolerance.is_finite() && tolerance >= 0.0 && tolerance < self.strict_boundary,
+            "xor tolerance must be finite, non-negative, and below the strict boundary"
+        );
+        self.tolerance = tolerance;
+        self
+    }
+
+    /// Set the strict nonzero boundary used by input indicators.
+    pub fn with_strict_boundary(mut self, strict_boundary: f64) -> Self {
+        assert!(
+            strict_boundary.is_finite() && strict_boundary > self.tolerance,
+            "xor strict boundary must be finite and exceed the tolerance"
+        );
+        self.strict_boundary = strict_boundary;
+        self
+    }
+
+    /// Configure Big-M, zero-band tolerance, and strict boundary together.
+    pub fn with_parameters(
+        mut self,
+        big_m: Option<f64>,
+        tolerance: f64,
+        strict_boundary: f64,
+    ) -> Self {
+        if let Some(big_m) = big_m {
+            self = self.with_big_m(big_m);
+        }
+        assert!(
+            tolerance.is_finite()
+                && tolerance >= 0.0
+                && strict_boundary.is_finite()
+                && strict_boundary > tolerance,
+            "xor strict boundary must be finite and exceed the finite non-negative tolerance"
+        );
+        self.tolerance = tolerance;
+        self.strict_boundary = strict_boundary;
+        self
     }
 
     /// 使用自动 ID 与调用方提供的名称创建 xor 函数。
@@ -1546,6 +1662,21 @@ where
     pub fn side_variables(&self) -> &[BinaryVariableItem] {
         &self.side_vars
     }
+
+    /// Get the explicit Big-M override, if configured.
+    pub fn big_m(&self) -> Option<f64> {
+        self.explicit_big_m
+    }
+
+    /// Get the zero-band tolerance.
+    pub fn tolerance(&self) -> f64 {
+        self.tolerance
+    }
+
+    /// Get the strict nonzero boundary.
+    pub fn strict_boundary(&self) -> f64 {
+        self.strict_boundary
+    }
 }
 
 impl<V> XorFunction<V>
@@ -1554,6 +1685,10 @@ where
 {
     fn infer_big_m_from_tokens(&self, tokens: &[Token<V>]) -> Option<f64> {
         infer_big_m_for_polynomials(&self.polynomials, tokens, BIG_M_POLICY.min())
+    }
+
+    fn resolve_big_m(&self, inferred: Option<f64>) -> f64 {
+        BIG_M_POLICY.resolve(self.explicit_big_m.or(inferred))
     }
 }
 
@@ -1620,12 +1755,13 @@ where
                     ))
                 })?;
             indicator_indices.push(indicator_index);
-
-            for (inequality, name) in nonzero_indicator_inequalities(
+            for (inequality, name) in nonzero_indicator_inequalities_with_policy(
                 polynomial,
                 indicator_index,
                 side_index,
                 big_m,
+                self.tolerance,
+                self.strict_boundary,
                 &format!("{}_xor_nz_{}", self.id.name, i),
             )? {
                 constraints.push(LinearConstraint::from_symbol(
@@ -1657,57 +1793,39 @@ where
             source.clone(),
         ));
 
-        let mut all_one_monomials = Vec::with_capacity(indicator_indices.len() + 1);
-        all_one_monomials.push(LinearMonomial::new(
-            convert_f64_to_v::<V>(1.0, "xor result coefficient")?,
-            result_index,
-        ));
-        for indicator_index in &indicator_indices {
-            all_one_monomials.push(LinearMonomial::new(
-                convert_f64_to_v::<V>(1.0, "xor indicator coefficient")?,
-                *indicator_index,
+        // y >= a_i - sum_{j != i}(a_j).  Exactly one selected indicator forces y = 1.
+        for i in 0..indicator_indices.len() {
+            let mut single_monomials = Vec::with_capacity(indicator_indices.len() + 1);
+            single_monomials.push(LinearMonomial::new(
+                convert_f64_to_v::<V>(1.0, "xor result coefficient")?,
+                result_index,
+            ));
+            for (j, indicator_index) in indicator_indices.iter().enumerate() {
+                single_monomials.push(LinearMonomial::new(
+                    convert_f64_to_v::<V>(
+                        if i == j { -1.0 } else { 1.0 },
+                        "xor single-indicator coefficient",
+                    )?,
+                    *indicator_index,
+                ));
+            }
+            constraints.push(LinearConstraint::from_symbol(
+                LinearInequality::new(
+                    Linear::new(
+                        single_monomials,
+                        convert_f64_to_v::<V>(0.0, "xor constant")?,
+                    ),
+                    ConstraintRelation::GreaterEqual,
+                    convert_f64_to_v::<V>(0.0, "xor rhs")?,
+                ),
+                &format!("{}_xor_single_{}", self.id.name, i),
+                source.clone(),
             ));
         }
-        constraints.push(LinearConstraint::from_symbol(
-            LinearInequality::new(
-                Linear::new(
-                    all_one_monomials,
-                    convert_f64_to_v::<V>(0.0, "xor constant")?,
-                ),
-                ConstraintRelation::LessEqual,
-                convert_f64_to_v::<V>(indicator_indices.len() as f64, "xor rhs")?,
-            ),
-            &format!("{}_xor_all_one_ub", self.id.name),
-            source.clone(),
-        ));
 
+        // Any selected pair forces y = 0: y + a_i + a_j <= 2.
         for i in 0..indicator_indices.len() {
             for j in (i + 1)..indicator_indices.len() {
-                constraints.push(LinearConstraint::from_symbol(
-                    LinearInequality::new(
-                        Linear::new(
-                            vec![
-                                LinearMonomial::new(
-                                    convert_f64_to_v::<V>(1.0, "xor result coefficient")?,
-                                    result_index,
-                                ),
-                                LinearMonomial::new(
-                                    convert_f64_to_v::<V>(-1.0, "xor left indicator coefficient")?,
-                                    indicator_indices[i],
-                                ),
-                                LinearMonomial::new(
-                                    convert_f64_to_v::<V>(1.0, "xor right indicator coefficient")?,
-                                    indicator_indices[j],
-                                ),
-                            ],
-                            convert_f64_to_v::<V>(0.0, "xor constant")?,
-                        ),
-                        ConstraintRelation::GreaterEqual,
-                        convert_f64_to_v::<V>(0.0, "xor rhs")?,
-                    ),
-                    &format!("{}_xor_diff_lb_{}_{}", self.id.name, i, j),
-                    source.clone(),
-                ));
                 constraints.push(LinearConstraint::from_symbol(
                     LinearInequality::new(
                         Linear::new(
@@ -1721,16 +1839,16 @@ where
                                     indicator_indices[i],
                                 ),
                                 LinearMonomial::new(
-                                    convert_f64_to_v::<V>(-1.0, "xor right indicator coefficient")?,
+                                    convert_f64_to_v::<V>(1.0, "xor right indicator coefficient")?,
                                     indicator_indices[j],
                                 ),
                             ],
                             convert_f64_to_v::<V>(0.0, "xor constant")?,
                         ),
-                        ConstraintRelation::GreaterEqual,
-                        convert_f64_to_v::<V>(0.0, "xor rhs")?,
+                        ConstraintRelation::LessEqual,
+                        convert_f64_to_v::<V>(2.0, "xor rhs")?,
                     ),
-                    &format!("{}_xor_diff_lb_{}_{}_rev", self.id.name, i, j),
+                    &format!("{}_xor_pair_{}_{}", self.id.name, i, j),
                     source.clone(),
                 ));
             }
@@ -1817,7 +1935,7 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        self.build_mechanism_constraints(symbol_to_index, BIG_M_POLICY.fallback())
+        self.build_mechanism_constraints(symbol_to_index, self.resolve_big_m(None))
     }
 
     fn mechanism_constraints_with_tokens(
@@ -1825,7 +1943,7 @@ where
         symbol_to_index: &HashMap<usize, usize>,
         tokens: &[Token<V>],
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let big_m = BIG_M_POLICY.resolve(self.infer_big_m_from_tokens(tokens));
+        let big_m = self.resolve_big_m(self.infer_big_m_from_tokens(tokens));
         self.build_mechanism_constraints(symbol_to_index, big_m)
     }
 
@@ -1878,22 +1996,20 @@ where
     }
 
     fn calculate_value(&self, token_table: &dyn TokenList<V>, zero_if_none: bool) -> Option<V> {
-        let mut has_zero = false;
-        let mut has_non_zero = false;
+        let mut non_zero_count = 0usize;
 
         for polynomial in &self.polynomials {
             let value = evaluate_linear(polynomial, token_table, zero_if_none)?;
-            if as_binary(to_f64(&value)?) == 0.0 {
-                has_zero = true;
-            } else {
-                has_non_zero = true;
+            let magnitude = to_f64(&value)?.abs();
+            if magnitude > self.tolerance && magnitude < self.strict_boundary {
+                return None;
             }
-            if has_zero && has_non_zero {
-                return from_f64(1.0);
+            if magnitude >= self.strict_boundary {
+                non_zero_count += 1;
             }
         }
 
-        from_f64(0.0)
+        from_f64(if non_zero_count == 1 { 1.0 } else { 0.0 })
     }
 }
 
@@ -2100,6 +2216,82 @@ mod tests {
             .expect("indicator term should exist");
 
         assert!((*indicator_term.coefficient() + 7.0).abs() <= 1e-9);
+    }
+
+    #[test]
+    fn and_function_keeps_exact_inferred_bound_feasible_at_strict_boundary() {
+        let and_fn = AndFunction::new(
+            2002,
+            "and_exact_bound",
+            vec![Linear::new(vec![], 1.0), Linear::new(vec![], 0.0)],
+        );
+
+        let mut aux_tokens = Vec::new();
+        <AndFunction as FunctionSymbol>::register_tokens(&and_fn, &mut aux_tokens)
+            .expect("and tokens should be registered");
+        let symbol_to_index = aux_tokens
+            .iter()
+            .map(|token| (token.id().unique_id() as usize, token.solver_index))
+            .collect::<HashMap<_, _>>();
+        let constraints = and_fn
+            .mechanism_constraints_with_tokens(&symbol_to_index, &[])
+            .expect("and constraints should be generated");
+        let feasible = HashMap::from([
+            (
+                *symbol_to_index
+                    .get(&(and_fn.result_variable().id().unique_id() as usize))
+                    .expect("result index should exist"),
+                0.0,
+            ),
+            (
+                *symbol_to_index
+                    .get(&(and_fn.indicator_variables()[0].id().unique_id() as usize))
+                    .expect("first indicator index should exist"),
+                1.0,
+            ),
+            (
+                *symbol_to_index
+                    .get(&(and_fn.indicator_variables()[1].id().unique_id() as usize))
+                    .expect("second indicator index should exist"),
+                0.0,
+            ),
+            (
+                *symbol_to_index
+                    .get(&(and_fn.side_variables()[0].id().unique_id() as usize))
+                    .expect("first side index should exist"),
+                1.0,
+            ),
+            (
+                *symbol_to_index
+                    .get(&(and_fn.side_variables()[1].id().unique_id() as usize))
+                    .expect("second side index should exist"),
+                0.0,
+            ),
+        ]);
+
+        for constraint in &constraints {
+            let polynomial = &constraint.inequality.polynomial;
+            let lhs = *polynomial.constant_term()
+                + polynomial
+                    .monomials()
+                    .iter()
+                    .map(|monomial| {
+                        *monomial.coefficient()
+                            * feasible.get(&monomial.var_index()).copied().unwrap_or(0.0)
+                    })
+                    .sum::<f64>();
+            let rhs = constraint.inequality.rhs;
+            let satisfied = match constraint.inequality.relation {
+                ConstraintRelation::LessEqual => lhs <= rhs + 1e-12,
+                ConstraintRelation::Equal => (lhs - rhs).abs() <= 1e-12,
+                ConstraintRelation::GreaterEqual => lhs + 1e-12 >= rhs,
+            };
+            assert!(
+                satisfied,
+                "{} is not satisfied by the exact-bound fixture: lhs={}, rhs={}",
+                constraint.name, lhs, rhs
+            );
+        }
     }
 
     #[test]

@@ -13,7 +13,7 @@ use ospf_rust_core::symbol::function::{
     BivariateLinearPiecewiseFunction, IfElseFunction, IfThenFunction, InequalityFunction,
     InequalityKind, MaskingFunction, MaskingRangeFunction, MaxFunction, MaxMinFunction,
     MinFunction, MinMaxFunction, ModFunction, NotFunction, OneOfFunction, OrFunction, Point2,
-    Point3, RoundingFunction, SigmoidFunction, SlackFunction, SlackRangeFunction,
+    Point3, Triangle3, RoundingFunction, SigmoidFunction, SlackFunction, SlackRangeFunction,
     UnivariateLinearPiecewiseFunction, XorFunction,
 };
 use ospf_rust_core::variable::{
@@ -243,7 +243,7 @@ fn and_or_not_xor_parity() {
         ObjectiveCategory::Maximum,
     );
     expect_feasible(&xor_output);
-    assert_close(xor_output.objective_value.unwrap(), 2.0);
+    assert_close(xor_output.objective_value.unwrap(), 1.0);
 }
 
 #[test]
@@ -306,43 +306,18 @@ fn bin_and_bter_parity() {
         VariableRange::bounded(-2.0, 2.0),
     );
     let sx_index = bter_model.register_variable(sx).unwrap();
-    let pos_flag = BinaryzationFunction::with_big_m(1111, "pos_flag", var_poly(sx_index), 10.0);
-    let neg_flag = BinaryzationFunction::with_big_m(
-        1112,
-        "neg_flag",
-        Linear::new(vec![LinearMonomial::new(-1.0, sx_index)], 0.0),
+    let bter = BalanceTernaryzationFunction::new(
+        1113,
+        "bter",
+        var_poly(sx_index),
+        1e-6,
         10.0,
     );
-    let pos_id = pos_flag.result_variable().id();
-    let neg_id = neg_flag.result_variable().id();
-    bter_model.add_symbol(Arc::new(pos_flag)).unwrap();
-    bter_model.add_symbol(Arc::new(neg_flag)).unwrap();
-
-    let bter = BalanceTernaryzationFunction::new(1113, "bter");
     let bter_id = bter.result_variable().id();
-    let bter_pos_id = bter.positive_variable().id();
-    let bter_neg_id = bter.negative_variable().id();
     bter_model.add_symbol(Arc::new(bter)).unwrap();
 
-    let mut bter_mechanism = bter_model.try_into_mechanism_model().unwrap();
-    let pos_index = bter_mechanism.find_token(pos_id).unwrap().solver_index;
-    let neg_index = bter_mechanism.find_token(neg_id).unwrap().solver_index;
-    let bter_pos_index = bter_mechanism.find_token(bter_pos_id).unwrap().solver_index;
-    let bter_neg_index = bter_mechanism.find_token(bter_neg_id).unwrap().solver_index;
+    let bter_mechanism = bter_model.try_into_mechanism_model().unwrap();
     let bter_index = bter_mechanism.find_token(bter_id).unwrap().solver_index;
-
-    bter_mechanism.add_constraint(linear_constraint(
-        &[(bter_pos_index, 1.0), (pos_index, -1.0)],
-        ConstraintRelation::Equal,
-        0.0,
-        "bter_link_pos",
-    ));
-    bter_mechanism.add_constraint(linear_constraint(
-        &[(bter_neg_index, 1.0), (neg_index, -1.0)],
-        ConstraintRelation::Equal,
-        0.0,
-        "bter_link_neg",
-    ));
 
     let bter_min = solve_linear_model(
         bter_mechanism.clone().into_linear_triad_model(),
@@ -911,11 +886,26 @@ fn masking_slack_piecewise_parity() {
         var_poly(bx_index),
         var_poly(by_index),
         vec![
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(2.0, 0.0, 0.0),
-            Point3::new(0.0, 2.0, 0.0),
-            Point3::new(2.0, 2.0, 0.0),
-            Point3::new(1.0, 1.0, 1.0),
+            Triangle3::new(
+                Point3::new(1.0, 1.0, 1.0),
+                Point3::new(0.0, 0.0, 0.0),
+                Point3::new(2.0, 0.0, 0.0),
+            ),
+            Triangle3::new(
+                Point3::new(1.0, 1.0, 1.0),
+                Point3::new(2.0, 0.0, 0.0),
+                Point3::new(2.0, 2.0, 0.0),
+            ),
+            Triangle3::new(
+                Point3::new(1.0, 1.0, 1.0),
+                Point3::new(2.0, 2.0, 0.0),
+                Point3::new(0.0, 2.0, 0.0),
+            ),
+            Triangle3::new(
+                Point3::new(1.0, 1.0, 1.0),
+                Point3::new(0.0, 2.0, 0.0),
+                Point3::new(0.0, 0.0, 0.0),
+            ),
         ],
     );
     let blp_id = blp.result_variable().id();
@@ -1233,43 +1223,18 @@ fn integer_bter_smoke() {
     );
     let x_index = model.register_variable(x).unwrap();
 
-    let pos_flag = BinaryzationFunction::with_big_m(1701, "pos", var_poly(x_index), 10.0);
-    let neg_flag = BinaryzationFunction::with_big_m(
-        1702,
-        "neg",
-        Linear::new(vec![LinearMonomial::new(-1.0, x_index)], 0.0),
+    let bter = BalanceTernaryzationFunction::new(
+        1703,
+        "bter",
+        var_poly(x_index),
+        1e-6,
         10.0,
     );
-    let pos_id = pos_flag.result_variable().id();
-    let neg_id = neg_flag.result_variable().id();
-    model.add_symbol(Arc::new(pos_flag)).unwrap();
-    model.add_symbol(Arc::new(neg_flag)).unwrap();
-
-    let bter = BalanceTernaryzationFunction::new(1703, "bter");
     let bter_id = bter.result_variable().id();
-    let bter_pos_id = bter.positive_variable().id();
-    let bter_neg_id = bter.negative_variable().id();
     model.add_symbol(Arc::new(bter)).unwrap();
 
     let mut mechanism = model.try_into_mechanism_model().unwrap();
-    let pos_index = mechanism.find_token(pos_id).unwrap().solver_index;
-    let neg_index = mechanism.find_token(neg_id).unwrap().solver_index;
-    let bter_pos_index = mechanism.find_token(bter_pos_id).unwrap().solver_index;
-    let bter_neg_index = mechanism.find_token(bter_neg_id).unwrap().solver_index;
     let bter_index = mechanism.find_token(bter_id).unwrap().solver_index;
-
-    mechanism.add_constraint(linear_constraint(
-        &[(bter_pos_index, 1.0), (pos_index, -1.0)],
-        ConstraintRelation::Equal,
-        0.0,
-        "link_pos",
-    ));
-    mechanism.add_constraint(linear_constraint(
-        &[(bter_neg_index, 1.0), (neg_index, -1.0)],
-        ConstraintRelation::Equal,
-        0.0,
-        "link_neg",
-    ));
     mechanism.add_constraint(linear_constraint(
         &[(x_index, 1.0)],
         ConstraintRelation::Equal,

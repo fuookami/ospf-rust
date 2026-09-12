@@ -6,12 +6,11 @@ use super::super::{
 };
 use crate::error::{ModelError, Result};
 use crate::model::{
-    ConstraintRelation, LinearConstraint, LinearInequality, QuadraticConstraint,
-    QuadraticInequality,
+    ConstraintRelation, LinearConstraint, QuadraticConstraint, QuadraticInequality,
 };
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic, QuadraticMonomial};
 use crate::token::{IntoValue, Token, TokenList};
-use crate::variable::{ContinuousVariableItem, new_standalone_id};
+use crate::variable::{new_standalone_id, ContinuousVariableItem};
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
@@ -177,6 +176,24 @@ where
     pub fn result_variable(&self) -> &ContinuousVariableItem {
         &self.result_var
     }
+
+    /// 返回输入是否包含真正的二次项。
+    /// Return whether the input contains a genuine quadratic monomial.
+    pub fn has_quadratic_terms(&self) -> bool {
+        quadratic_has_square_terms(&self.input)
+    }
+
+    /// 返回原始二次表达式。
+    /// Return the original quadratic expression.
+    pub fn input_polynomial(&self) -> &Quadratic<V> {
+        &self.input
+    }
+
+    /// 将不含二次项的输入视为线性表达式。
+    /// View an input without quadratic terms as a linear expression.
+    pub fn input_linear_polynomial(&self) -> Option<Linear<V>> {
+        try_quadratic_to_linear(&self.input)
+    }
 }
 
 impl<V> Display for QuadraticLinearFunction<V>
@@ -234,11 +251,15 @@ where
     f64: IntoValue<V>,
 {
     fn category(&self) -> Category {
-        Category::Linear
+        if self.has_quadratic_terms() {
+            Category::Quadratic
+        } else {
+            Category::Linear
+        }
     }
 
     fn operation_category(&self) -> Category {
-        Category::Quadratic
+        self.category()
     }
 
     fn cached(&self) -> bool {
@@ -261,37 +282,14 @@ where
 
     fn mechanism_constraints(
         &self,
-        symbol_to_index: &HashMap<usize, usize>,
+        _symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let result_symbol_id = self.result_var.id().unique_id() as usize;
-        let result_index = symbol_to_index
-            .get(&result_symbol_id)
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic linear bridge result variable id {}",
-                    result_symbol_id
-                ))
-            })?;
-        let Some(input_linear) = try_quadratic_to_linear(&self.input) else {
-            return Ok(Vec::new());
-        };
-
-        let mut monomials = input_linear.monomials().to_vec();
-        monomials.push(LinearMonomial::new(
-            from_f64(-1.0).expect("convert -1.0"),
-            result_index,
-        ));
-        let eq = LinearConstraint::from_symbol(
-            LinearInequality::new(
-                Linear::new(monomials, input_linear.constant_term().clone()),
-                ConstraintRelation::Equal,
-                from_f64(0.0).expect("convert 0.0"),
-            ),
-            &format!("{}_lin_eq", self.id.name),
-            Arc::new(self.clone()),
-        );
-        Ok(vec![eq])
+        // Consumers must use `to_linear_polynomial`: a linear input is returned
+        // directly and a genuine quadratic input is emitted through the quadratic
+        // mechanism path. There is no standalone linear bridge row.
+        // 消费者应使用 `to_linear_polynomial`：线性输入直接返回，真正的二次输入
+        // 通过二次机制路径输出，不注册独立的线性桥接行。
+        Ok(Vec::new())
     }
 
     fn quadratic_mechanism_constraints(
@@ -339,10 +337,10 @@ where
     }
 
     fn prepare(&self, values: &HashMap<usize, V>) -> Option<V> {
-        values
-            .get(&self.result_var.index())
-            .cloned()
-            .or_else(|| evaluate_quadratic_from_values(&self.input, values))
+        // The helper token is a solver-side representation and must never override the
+        // mathematical expression during pre-evaluation. Recompute from source values.
+        // 辅助令牌只是求解器侧表示，预计算时不能覆盖数学表达式；始终从原始输入重算。
+        evaluate_quadratic_from_values(&self.input, values)
     }
 
     fn to_raw_string(&self, _unfold: u64) -> String {
@@ -364,6 +362,9 @@ where
     f64: IntoValue<V>,
 {
     fn register_tokens(&self, tokens: &mut Vec<Token<V>>) -> Result<()> {
+        if !self.has_quadratic_terms() {
+            return Ok(());
+        }
         tokens.push(Token::from_generic(
             self.result_var.clone(),
             self.result_var.index(),
@@ -390,17 +391,23 @@ where
     f64: IntoValue<V>,
 {
     fn to_linear_polynomial(&self) -> Linear<V> {
-        Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                self.result_var.index(),
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        )
+        self.input_linear_polynomial().unwrap_or_else(|| {
+            Linear::new(
+                vec![LinearMonomial::new(
+                    from_f64(1.0).expect("convert 1.0"),
+                    self.result_var.index(),
+                )],
+                from_f64(0.0).expect("convert 0.0"),
+            )
+        })
     }
 
     fn to_quadratic_polynomial(&self) -> Quadratic<V> {
-        Quadratic::from_linear(&self.to_linear_polynomial())
+        if self.has_quadratic_terms() {
+            Quadratic::from_linear(&self.to_linear_polynomial())
+        } else {
+            self.input.clone()
+        }
     }
 }
 

@@ -41,9 +41,9 @@ use super::big_m::{
 use super::quadratic_linear::*;
 use super::{
     BinaryzationFunction, BinaryzationMethod, BivariateLinearPiecewiseFunction, CosFunction,
-    InequalityFunction, InequalityKind, MaskingFunction, MaxFunction, ModFunction, Point2, Point3,
+    InequalityFunction, InequalityKind, MaskingFunction, MaxFunction, ModFunction, Point2,
     RoundingFunction, RoundingKind, SigmoidFunction, SigmoidPrecision, SinFunction, SlackFunction,
-    SlackRangeFunction, UnivariateLinearPiecewiseFunction,
+    SlackRangeFunction, Triangle3, UnivariateLinearPiecewiseFunction,
 };
 
 /// 二次输入的二值化函数符号 / Quadratic-input binaryzation function symbol
@@ -77,13 +77,18 @@ where
             &format!("{}_bridge", name),
             input.clone(),
         );
-        let bridge_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge.result_variable().index(),
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        // QuadraticLinearFunction registers a helper only for genuine
+        // quadratic inputs.  Keep a pure-linear/constant input direct so the
+        // inner binaryization never references an unregistered bridge token.
+        let bridge_input = bridge.input_linear_polynomial().unwrap_or_else(|| {
+            Linear::new(
+                vec![LinearMonomial::new(
+                    from_f64(1.0).expect("convert 1.0"),
+                    bridge.result_variable().index(),
+                )],
+                from_f64(0.0).expect("convert 0.0"),
+            )
+        });
         let inner = BinaryzationFunction::new(id, name, bridge_input, threshold, big_m, method);
 
         Self {
@@ -128,6 +133,34 @@ where
     /// 获取结果变量 / Get the result variable
     pub fn result_variable(&self) -> &BinaryVariableItem {
         self.inner.result_variable()
+    }
+
+    fn mapped_input(&self, symbol_to_index: &HashMap<usize, usize>) -> Result<Linear<V>> {
+        if !self.bridge.has_quadratic_terms() {
+            return self.bridge.input_linear_polynomial().ok_or_else(|| {
+                ModelError::InvalidConstraint(
+                    "quadratic binaryzation input cannot be represented as linear".to_string(),
+                )
+                .into()
+            });
+        }
+
+        let bridge_index = symbol_to_index
+            .get(&(self.bridge.result_variable().id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "quadratic binaryzation bridge variable id {}",
+                    self.bridge.result_variable().id().unique_id()
+                ))
+            })?;
+        Ok(Linear::new(
+            vec![LinearMonomial::new(
+                from_f64(1.0).expect("convert 1.0"),
+                bridge_index,
+            )],
+            from_f64(0.0).expect("convert 0.0"),
+        ))
     }
 }
 
@@ -216,23 +249,8 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.bridge.mechanism_constraints(symbol_to_index)?;
-        let bridge_index = symbol_to_index
-            .get(&(self.bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic binaryzation bridge variable id {}",
-                    self.bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mut constraints = Vec::new();
+        let mapped_input = self.mapped_input(symbol_to_index)?;
         let mapped_inner = self.inner.with_input_polynomial(mapped_input);
         constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
         Ok(constraints)
@@ -243,23 +261,8 @@ where
         symbol_to_index: &HashMap<usize, usize>,
         tokens: &[Token<V>],
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.bridge.mechanism_constraints(symbol_to_index)?;
-        let bridge_index = symbol_to_index
-            .get(&(self.bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic binaryzation bridge variable id {}",
-                    self.bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mut constraints = Vec::new();
+        let mapped_input = self.mapped_input(symbol_to_index)?;
         let mut mapped_inner = self.inner.with_input_polynomial(mapped_input);
         if let Some(big_m) = infer_quadratic_shifted_abs_bound_from_tokens(
             &self.input,
@@ -883,7 +886,8 @@ where
     }
 
     fn prepare(&self, values: &HashMap<usize, V>) -> Option<V> {
-        values.get(&self.result_variable().index()).cloned()
+        let value = to_f64(&evaluate_quadratic_from_values(&self.input, values)?)?;
+        from_f64(value.max(0.0))
     }
 
     fn to_raw_string(&self, _unfold: u64) -> String {
@@ -1233,16 +1237,20 @@ where
                 )
             })
             .collect();
+        // Keep pure-linear candidates expression-only.  QuadraticLinearFunction
+        // registers a helper token only for genuine quadratic inputs.
         let linear_inputs: Vec<Linear<V>> = bridges
             .iter()
             .map(|bridge| {
-                Linear::new(
-                    vec![LinearMonomial::new(
-                        from_f64(1.0).expect("convert 1.0"),
-                        bridge.result_variable().index(),
-                    )],
-                    from_f64(0.0).expect("convert 0.0"),
-                )
+                bridge.input_linear_polynomial().unwrap_or_else(|| {
+                    Linear::new(
+                        vec![LinearMonomial::new(
+                            from_f64(1.0).expect("convert 1.0"),
+                            bridge.result_variable().index(),
+                        )],
+                        from_f64(0.0).expect("convert 0.0"),
+                    )
+                })
             })
             .collect();
         let inner = MaxFunction::new(id, name, linear_inputs, exact);
@@ -1265,6 +1273,40 @@ where
     /// 获取结果变量 / Get the result variable
     pub fn result_variable(&self) -> &ContinuousVariableItem {
         self.inner.result_variable()
+    }
+
+    fn mapped_inputs(&self, symbol_to_index: &HashMap<usize, usize>) -> Result<Vec<Linear<V>>> {
+        self.bridges
+            .iter()
+            .map(|bridge| {
+                if !bridge.has_quadratic_terms() {
+                    return bridge.input_linear_polynomial().ok_or_else(|| {
+                        ModelError::InvalidConstraint(
+                            "quadratic max linear candidate cannot be represented as linear"
+                                .to_string(),
+                        )
+                        .into()
+                    });
+                }
+
+                let bridge_index = symbol_to_index
+                    .get(&(bridge.result_variable().id().unique_id() as usize))
+                    .copied()
+                    .ok_or_else(|| {
+                        ModelError::SymbolNotRegistered(format!(
+                            "quadratic max bridge variable id {}",
+                            bridge.result_variable().id().unique_id()
+                        ))
+                    })?;
+                Ok(Linear::new(
+                    vec![LinearMonomial::new(
+                        from_f64(1.0).expect("convert 1.0"),
+                        bridge_index,
+                    )],
+                    from_f64(0.0).expect("convert 0.0"),
+                ))
+            })
+            .collect()
     }
 }
 
@@ -1354,28 +1396,7 @@ where
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
         let mut constraints = Vec::new();
-        for bridge in &self.bridges {
-            constraints.extend(bridge.mechanism_constraints(symbol_to_index)?);
-        }
-        let mut mapped_inputs = Vec::with_capacity(self.bridges.len());
-        for bridge in &self.bridges {
-            let bridge_index = symbol_to_index
-                .get(&(bridge.result_variable().id().unique_id() as usize))
-                .copied()
-                .ok_or_else(|| {
-                    ModelError::SymbolNotRegistered(format!(
-                        "quadratic max bridge variable id {}",
-                        bridge.result_variable().id().unique_id()
-                    ))
-                })?;
-            mapped_inputs.push(Linear::new(
-                vec![LinearMonomial::new(
-                    from_f64(1.0).expect("convert 1.0"),
-                    bridge_index,
-                )],
-                from_f64(0.0).expect("convert 0.0"),
-            ));
-        }
+        let mapped_inputs = self.mapped_inputs(symbol_to_index)?;
         let mapped_inner = self.inner.with_polynomials(mapped_inputs);
         constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
         Ok(constraints)
@@ -1387,28 +1408,7 @@ where
         tokens: &[Token<V>],
     ) -> Result<Vec<LinearConstraint<V>>> {
         let mut constraints = Vec::new();
-        for bridge in &self.bridges {
-            constraints.extend(bridge.mechanism_constraints(symbol_to_index)?);
-        }
-        let mut mapped_inputs = Vec::with_capacity(self.bridges.len());
-        for bridge in &self.bridges {
-            let bridge_index = symbol_to_index
-                .get(&(bridge.result_variable().id().unique_id() as usize))
-                .copied()
-                .ok_or_else(|| {
-                    ModelError::SymbolNotRegistered(format!(
-                        "quadratic max bridge variable id {}",
-                        bridge.result_variable().id().unique_id()
-                    ))
-                })?;
-            mapped_inputs.push(Linear::new(
-                vec![LinearMonomial::new(
-                    from_f64(1.0).expect("convert 1.0"),
-                    bridge_index,
-                )],
-                from_f64(0.0).expect("convert 0.0"),
-            ));
-        }
+        let mapped_inputs = self.mapped_inputs(symbol_to_index)?;
         let mapped_inner = self.inner.with_polynomials(mapped_inputs);
         let big_m = infer_big_m_for_quadratic_polynomials(&self.inputs, tokens, MIN_BIG_M);
         match big_m {
@@ -1521,6 +1521,7 @@ where
     left_bridge: QuadraticLinearFunction<V>,
     right_bridge: QuadraticLinearFunction<V>,
     inner: SlackFunction<V>,
+    explicit_big_m: Option<V>,
     declared_dependency_ids: Vec<u64>,
 }
 
@@ -1530,13 +1531,7 @@ where
 {
     /// 创建新的二次输入松弛函数 / Create a new quadratic-input slack function
     pub fn new(id: u64, name: &str, left: Quadratic<V>, right: Quadratic<V>) -> Self {
-        Self::with_big_m(
-            id,
-            name,
-            left,
-            right,
-            from_f64(1_000_000.0).expect("convert default big-M"),
-        )
+        Self::with_optional_big_m(id, name, left, right, None)
     }
 
     /// 使用指定目标值创建 / Create with specified target value
@@ -1552,6 +1547,16 @@ where
         right: Quadratic<V>,
         big_m: V,
     ) -> Self {
+        Self::with_optional_big_m(id, name, left, right, Some(big_m))
+    }
+
+    fn with_optional_big_m(
+        id: u64,
+        name: &str,
+        left: Quadratic<V>,
+        right: Quadratic<V>,
+        big_m: Option<V>,
+    ) -> Self {
         let left_bridge = QuadraticLinearFunction::new(
             auxiliary_id(id, 701),
             &format!("{}_lbridge", name),
@@ -1562,21 +1567,28 @@ where
             &format!("{}_rbridge", name),
             right.clone(),
         );
-        let left_linear = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                left_bridge.result_variable().index(),
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
-        let right_linear = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                right_bridge.result_variable().index(),
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
-        let inner = SlackFunction::with_big_m(id, name, left_linear, right_linear, big_m);
+        let left_linear = left_bridge.input_linear_polynomial().unwrap_or_else(|| {
+            Linear::new(
+                vec![LinearMonomial::new(
+                    from_f64(1.0).expect("convert 1.0"),
+                    left_bridge.result_variable().index(),
+                )],
+                from_f64(0.0).expect("convert 0.0"),
+            )
+        });
+        let right_linear = right_bridge.input_linear_polynomial().unwrap_or_else(|| {
+            Linear::new(
+                vec![LinearMonomial::new(
+                    from_f64(1.0).expect("convert 1.0"),
+                    right_bridge.result_variable().index(),
+                )],
+                from_f64(0.0).expect("convert 0.0"),
+            )
+        });
+        let inner = match big_m.clone() {
+            Some(big_m) => SlackFunction::with_big_m(id, name, left_linear, right_linear, big_m),
+            None => SlackFunction::new(id, name, left_linear, right_linear),
+        };
 
         Self {
             id: IntermediateSymbolId::new(id, name),
@@ -1585,6 +1597,7 @@ where
             left_bridge,
             right_bridge,
             inner,
+            explicit_big_m: big_m,
             declared_dependency_ids: Vec::new(),
         }
     }
@@ -1598,6 +1611,45 @@ where
     /// 获取结果变量 / Get the result variable
     pub fn result_variable(&self) -> &ContinuousVariableItem {
         self.inner.result_variable()
+    }
+
+    /// 返回原始左右二次表达式。
+    /// Return the original left and right quadratic expressions.
+    pub fn input_polynomials(&self) -> (&Quadratic<V>, &Quadratic<V>) {
+        (&self.left, &self.right)
+    }
+
+    /// 返回显式 Big-M；默认构造时为 `None`，约束生成会从令牌边界推导。
+    /// Return the explicit Big-M; `None` means constraint generation derives it from token bounds.
+    pub fn big_m(&self) -> Option<&V> {
+        self.explicit_big_m.as_ref()
+    }
+
+    fn mapped_input(
+        bridge: &QuadraticLinearFunction<V>,
+        symbol_to_index: &HashMap<usize, usize>,
+        description: &str,
+    ) -> Result<Linear<V>> {
+        if let Some(input) = bridge.input_linear_polynomial() {
+            return Ok(input);
+        }
+        let bridge_index = symbol_to_index
+            .get(&(bridge.result_variable().id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "quadratic slack {} bridge variable id {}",
+                    description,
+                    bridge.result_variable().id().unique_id()
+                ))
+            })?;
+        Ok(Linear::new(
+            vec![LinearMonomial::new(
+                from_f64(1.0).expect("convert 1.0"),
+                bridge_index,
+            )],
+            from_f64(0.0).expect("convert 0.0"),
+        ))
     }
 }
 
@@ -1686,40 +1738,15 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.left_bridge.mechanism_constraints(symbol_to_index)?;
-        constraints.extend(self.right_bridge.mechanism_constraints(symbol_to_index)?);
-        let left_index = symbol_to_index
-            .get(&(self.left_bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic slack left bridge variable id {}",
-                    self.left_bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let right_index = symbol_to_index
-            .get(&(self.right_bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic slack right bridge variable id {}",
-                    self.right_bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_left = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                left_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
-        let mapped_right = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                right_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mapped_left = Self::mapped_input(&self.left_bridge, symbol_to_index, "left")?;
+        let mapped_right = Self::mapped_input(&self.right_bridge, symbol_to_index, "right")?;
+        let mut constraints = Vec::new();
+        if self.left_bridge.has_quadratic_terms() {
+            constraints.extend(self.left_bridge.mechanism_constraints(symbol_to_index)?);
+        }
+        if self.right_bridge.has_quadratic_terms() {
+            constraints.extend(self.right_bridge.mechanism_constraints(symbol_to_index)?);
+        }
         let mapped_inner = self.inner.with_polynomials(mapped_left, mapped_right);
         constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
         Ok(constraints)
@@ -1730,48 +1757,25 @@ where
         symbol_to_index: &HashMap<usize, usize>,
         tokens: &[Token<V>],
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.left_bridge.mechanism_constraints(symbol_to_index)?;
-        constraints.extend(self.right_bridge.mechanism_constraints(symbol_to_index)?);
-        let left_index = symbol_to_index
-            .get(&(self.left_bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic slack left bridge variable id {}",
-                    self.left_bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let right_index = symbol_to_index
-            .get(&(self.right_bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic slack right bridge variable id {}",
-                    self.right_bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_left = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                left_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
-        let mapped_right = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                right_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mapped_left = Self::mapped_input(&self.left_bridge, symbol_to_index, "left")?;
+        let mapped_right = Self::mapped_input(&self.right_bridge, symbol_to_index, "right")?;
+        let mut constraints = Vec::new();
+        if self.left_bridge.has_quadratic_terms() {
+            constraints.extend(self.left_bridge.mechanism_constraints(symbol_to_index)?);
+        }
+        if self.right_bridge.has_quadratic_terms() {
+            constraints.extend(self.right_bridge.mechanism_constraints(symbol_to_index)?);
+        }
         let mut mapped_inner = self.inner.with_polynomials(mapped_left, mapped_right);
-        if let Some(big_m) =
-            infer_quadratic_difference_abs_bound_from_tokens(&self.left, &self.right, tokens)
-        {
-            mapped_inner = mapped_inner.with_big_m_value(convert_f64_to_v(
-                big_m.max(MIN_BIG_M),
-                "quadratic slack inferred big-M",
-            )?);
+        if self.explicit_big_m.is_none() {
+            if let Some(big_m) =
+                infer_quadratic_difference_abs_bound_from_tokens(&self.left, &self.right, tokens)
+            {
+                mapped_inner = mapped_inner.with_big_m_value(convert_f64_to_v(
+                    big_m.max(MIN_BIG_M),
+                    "quadratic slack inferred big-M",
+                )?);
+            }
         }
         constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
         Ok(constraints)
@@ -1781,13 +1785,19 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<QuadraticConstraint<V>>> {
-        let mut constraints = self
-            .left_bridge
-            .quadratic_mechanism_constraints(symbol_to_index)?;
-        constraints.extend(
-            self.right_bridge
-                .quadratic_mechanism_constraints(symbol_to_index)?,
-        );
+        let mut constraints = Vec::new();
+        if self.left_bridge.has_quadratic_terms() {
+            constraints.extend(
+                self.left_bridge
+                    .quadratic_mechanism_constraints(symbol_to_index)?,
+            );
+        }
+        if self.right_bridge.has_quadratic_terms() {
+            constraints.extend(
+                self.right_bridge
+                    .quadratic_mechanism_constraints(symbol_to_index)?,
+            );
+        }
         Ok(constraints)
     }
 
@@ -1800,7 +1810,9 @@ where
     }
 
     fn prepare(&self, values: &HashMap<usize, V>) -> Option<V> {
-        values.get(&self.result_variable().index()).cloned()
+        let left = to_f64(&evaluate_quadratic_from_values(&self.left, values)?)?;
+        let right = to_f64(&evaluate_quadratic_from_values(&self.right, values)?)?;
+        from_f64((left - right).abs())
     }
 
     fn to_raw_string(&self, _unfold: u64) -> String {
@@ -1823,8 +1835,12 @@ where
     f64: IntoValue<V>,
 {
     fn register_tokens(&self, tokens: &mut Vec<Token<V>>) -> Result<()> {
-        self.left_bridge.register_tokens(tokens)?;
-        self.right_bridge.register_tokens(tokens)?;
+        if self.left_bridge.has_quadratic_terms() {
+            self.left_bridge.register_tokens(tokens)?;
+        }
+        if self.right_bridge.has_quadratic_terms() {
+            self.right_bridge.register_tokens(tokens)?;
+        }
         self.inner.register_tokens(tokens)?;
         Ok(())
     }
@@ -1880,19 +1896,55 @@ where
 {
     /// 创建新的二次输入区间松弛函数 / Create a new quadratic-input range slack function
     pub fn new(id: u64, name: &str, input: Quadratic<V>, lower: V, upper: V) -> Self {
+        Self::with_optional_big_m(id, name, input, lower, upper, None)
+    }
+
+    /// 使用显式 Big-M 创建二次输入区间松弛函数。
+    /// Create a quadratic range-slack function with an explicit Big-M.
+    pub fn with_big_m(
+        id: u64,
+        name: &str,
+        input: Quadratic<V>,
+        lower: V,
+        upper: V,
+        big_m: V,
+    ) -> Self {
+        Self::with_optional_big_m(id, name, input, lower, upper, Some(big_m))
+    }
+
+    fn with_optional_big_m(
+        id: u64,
+        name: &str,
+        input: Quadratic<V>,
+        lower: V,
+        upper: V,
+        big_m: Option<V>,
+    ) -> Self {
         let bridge = QuadraticLinearFunction::new(
             auxiliary_id(id, 801),
             &format!("{}_bridge", name),
             input.clone(),
         );
-        let bridge_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge.result_variable().index(),
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
-        let inner = SlackRangeFunction::new(id, name, bridge_input, lower.clone(), upper.clone());
+        let bridge_input = bridge.input_linear_polynomial().unwrap_or_else(|| {
+            Linear::new(
+                vec![LinearMonomial::new(
+                    from_f64(1.0).expect("convert 1.0"),
+                    bridge.result_variable().index(),
+                )],
+                from_f64(0.0).expect("convert 0.0"),
+            )
+        });
+        let inner = match big_m {
+            Some(big_m) => SlackRangeFunction::with_big_m(
+                id,
+                name,
+                bridge_input,
+                lower.clone(),
+                upper.clone(),
+                big_m,
+            ),
+            None => SlackRangeFunction::new(id, name, bridge_input, lower.clone(), upper.clone()),
+        };
 
         Self {
             id: IntermediateSymbolId::new(id, name),
@@ -1914,6 +1966,44 @@ where
     /// 获取结果变量 / Get the result variable
     pub fn result_variable(&self) -> &ContinuousVariableItem {
         self.inner.result_variable()
+    }
+
+    pub fn input_polynomial(&self) -> &Quadratic<V> {
+        &self.input
+    }
+
+    pub fn lower_bound(&self) -> &V {
+        &self.lower
+    }
+
+    pub fn upper_bound(&self) -> &V {
+        &self.upper
+    }
+
+    pub fn big_m(&self) -> Option<&V> {
+        self.inner.big_m()
+    }
+
+    fn mapped_input(&self, symbol_to_index: &HashMap<usize, usize>) -> Result<Linear<V>> {
+        if let Some(input) = self.bridge.input_linear_polynomial() {
+            return Ok(input);
+        }
+        let bridge_index = symbol_to_index
+            .get(&(self.bridge.result_variable().id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "quadratic slack-range bridge variable id {}",
+                    self.bridge.result_variable().id().unique_id()
+                ))
+            })?;
+        Ok(Linear::new(
+            vec![LinearMonomial::new(
+                from_f64(1.0).expect("convert 1.0"),
+                bridge_index,
+            )],
+            from_f64(0.0).expect("convert 0.0"),
+        ))
     }
 }
 
@@ -2002,25 +2092,41 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.bridge.mechanism_constraints(symbol_to_index)?;
-        let bridge_index = symbol_to_index
-            .get(&(self.bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic slack-range bridge variable id {}",
-                    self.bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mapped_input = self.mapped_input(symbol_to_index)?;
+        let mut constraints = Vec::new();
+        if self.bridge.has_quadratic_terms() {
+            constraints.extend(self.bridge.mechanism_constraints(symbol_to_index)?);
+        }
         let mapped_inner = self.inner.with_input_polynomial(mapped_input);
         constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
+        Ok(constraints)
+    }
+
+    fn mechanism_constraints_with_tokens(
+        &self,
+        symbol_to_index: &HashMap<usize, usize>,
+        tokens: &[Token<V>],
+    ) -> Result<Vec<LinearConstraint<V>>> {
+        let mapped_input = self.mapped_input(symbol_to_index)?;
+        let mut constraints = Vec::new();
+        if self.bridge.has_quadratic_terms() {
+            constraints.extend(self.bridge.mechanism_constraints(symbol_to_index)?);
+        }
+        let mut mapped_inner = self.inner.with_input_polynomial(mapped_input);
+        if self.inner.big_m().is_none() {
+            let lower_bound =
+                infer_quadratic_shifted_abs_bound_from_tokens(&self.input, &self.lower, tokens);
+            let upper_bound =
+                infer_quadratic_shifted_abs_bound_from_tokens(&self.input, &self.upper, tokens);
+            if let Some(big_m) = lower_bound.into_iter().chain(upper_bound).reduce(f64::max) {
+                mapped_inner = mapped_inner.with_big_m_value(convert_f64_to_v(
+                    big_m.max(MIN_BIG_M),
+                    "quadratic slack-range inferred big-M",
+                )?);
+            }
+        }
+        constraints
+            .extend(mapped_inner.mechanism_constraints_with_tokens(symbol_to_index, tokens)?);
         Ok(constraints)
     }
 
@@ -2028,7 +2134,11 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<QuadraticConstraint<V>>> {
-        self.bridge.quadratic_mechanism_constraints(symbol_to_index)
+        if self.bridge.has_quadratic_terms() {
+            self.bridge.quadratic_mechanism_constraints(symbol_to_index)
+        } else {
+            Ok(Vec::new())
+        }
     }
 
     fn evaluate_from_tokens(
@@ -2040,7 +2150,16 @@ where
     }
 
     fn prepare(&self, values: &HashMap<usize, V>) -> Option<V> {
-        values.get(&self.result_variable().index()).cloned()
+        let value = to_f64(&evaluate_quadratic_from_values(&self.input, values)?)?;
+        let lower = to_f64(&self.lower)?;
+        let upper = to_f64(&self.upper)?;
+        if value < lower {
+            from_f64(lower - value)
+        } else if value > upper {
+            from_f64(value - upper)
+        } else {
+            from_f64(0.0)
+        }
     }
 
     fn to_raw_string(&self, _unfold: u64) -> String {
@@ -2063,7 +2182,9 @@ where
     f64: IntoValue<V>,
 {
     fn register_tokens(&self, tokens: &mut Vec<Token<V>>) -> Result<()> {
-        self.bridge.register_tokens(tokens)?;
+        if self.bridge.has_quadratic_terms() {
+            self.bridge.register_tokens(tokens)?;
+        }
         self.inner.register_tokens(tokens)?;
         Ok(())
     }
@@ -2351,7 +2472,8 @@ where
     }
 
     fn prepare(&self, values: &HashMap<usize, V>) -> Option<V> {
-        values.get(&self.result_variable().index()).cloned()
+        let value = to_f64(&evaluate_quadratic_from_values(&self.input, values)?)?;
+        from_f64(value.max(0.0))
     }
 
     fn to_raw_string(&self, _unfold: u64) -> String {
@@ -3179,7 +3301,7 @@ where
         name: &str,
         x_input: Quadratic<V>,
         y_input: Quadratic<V>,
-        points: Vec<Point3<V>>,
+        triangles: Vec<Triangle3<V>>,
     ) -> Self {
         let x_bridge = QuadraticLinearFunction::new(
             auxiliary_id(id, 1201),
@@ -3205,7 +3327,7 @@ where
             )],
             from_f64(0.0).expect("convert 0.0"),
         );
-        let inner = BivariateLinearPiecewiseFunction::new(id, name, x_linear, y_linear, points);
+        let inner = BivariateLinearPiecewiseFunction::new(id, name, x_linear, y_linear, triangles);
 
         Self {
             id: IntermediateSymbolId::new(id, name),
@@ -3432,9 +3554,9 @@ where
     }
 }
 
-/// 二次输入的半正定函数符号（max(f, 0））/ Quadratic-input semi-definite function symbol (max(f, 0))
+/// 二次输入的正部函数符号（max(f, 0)）/ Quadratic-input positive-part function symbol (max(f, 0))
 #[derive(Debug, Clone)]
-pub struct QuadraticSemiFunction<V = f64>
+pub struct QuadraticPositivePartFunction<V = f64>
 where
     V: Clone + Debug + Send + Sync + 'static,
 {
@@ -3442,27 +3564,45 @@ where
     input: Quadratic<V>,
     bridge: QuadraticLinearFunction<V>,
     inner: MaxFunction<V>,
+    explicit_big_m: Option<V>,
     declared_dependency_ids: Vec<u64>,
 }
 
-impl<V> QuadraticSemiFunction<V>
+impl<V> QuadraticPositivePartFunction<V>
 where
-    V: Clone + Debug + Send + Sync + 'static + FromPrimitive,
+    V: Clone + Debug + Send + Sync + 'static + FromPrimitive + ToPrimitive,
 {
-    /// 创建新的二次输入半正定函数 / Create a new quadratic-input semi-definite function
+    /// 创建新的二次输入正部函数 / Create a new quadratic-input positive-part function
     pub fn new(id: u64, name: &str, input: Quadratic<V>) -> Self {
+        Self::with_optional_big_m(id, name, input, None)
+    }
+
+    /// 使用显式 Big-M 创建二次输入正部函数。
+    /// Create a quadratic positive-part function with an explicit Big-M.
+    pub fn with_big_m(id: u64, name: &str, input: Quadratic<V>, big_m: V) -> Self {
+        Self::with_optional_big_m(id, name, input, Some(big_m))
+    }
+
+    fn with_optional_big_m(
+        id: u64,
+        name: &str,
+        input: Quadratic<V>,
+        explicit_big_m: Option<V>,
+    ) -> Self {
         let bridge = QuadraticLinearFunction::new(
             auxiliary_id(id, 1401),
             &format!("{}_bridge", name),
             input.clone(),
         );
-        let bridge_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge.result_variable().index(),
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let bridge_input = bridge.input_linear_polynomial().unwrap_or_else(|| {
+            Linear::new(
+                vec![LinearMonomial::new(
+                    from_f64(1.0).expect("convert 1.0"),
+                    bridge.result_variable().index(),
+                )],
+                from_f64(0.0).expect("convert 0.0"),
+            )
+        });
         let zero_input = Linear::new(vec![], from_f64(0.0).expect("convert 0.0"));
         let inner = MaxFunction::new(id, name, vec![bridge_input, zero_input], true);
         Self {
@@ -3470,6 +3610,7 @@ where
             input,
             bridge,
             inner,
+            explicit_big_m,
             declared_dependency_ids: Vec::new(),
         }
     }
@@ -3484,18 +3625,74 @@ where
     pub fn result_variable(&self) -> &ContinuousVariableItem {
         self.inner.result_variable()
     }
+
+    /// 返回原始二次输入。
+    /// Return the original quadratic input.
+    pub fn input_polynomial(&self) -> &Quadratic<V> {
+        &self.input
+    }
+
+    /// 返回显式 Big-M；默认构造时为 `None`，约束生成会从令牌边界推导。
+    /// Return the explicit Big-M; `None` means constraint generation derives it from token bounds.
+    pub fn big_m(&self) -> Option<&V> {
+        self.explicit_big_m.as_ref()
+    }
+
+    fn mapped_input(&self, symbol_to_index: &HashMap<usize, usize>) -> Result<Linear<V>> {
+        if let Some(input) = self.bridge.input_linear_polynomial() {
+            return Ok(input);
+        }
+        let bridge_index = symbol_to_index
+            .get(&(self.bridge.result_variable().id().unique_id() as usize))
+            .copied()
+            .ok_or_else(|| {
+                ModelError::SymbolNotRegistered(format!(
+                    "quadratic positive-part bridge variable id {}",
+                    self.bridge.result_variable().id().unique_id()
+                ))
+            })?;
+        Ok(Linear::new(
+            vec![LinearMonomial::new(
+                from_f64(1.0).expect("convert 1.0"),
+                bridge_index,
+            )],
+            from_f64(0.0).expect("convert 0.0"),
+        ))
+    }
+
+    fn explicit_big_m_f64(&self) -> Result<Option<f64>> {
+        self.explicit_big_m
+            .as_ref()
+            .map(|value| {
+                let big_m = to_f64(value).ok_or_else(|| {
+                    ModelError::InvalidConstraint(format!(
+                        "quadratic positive-part `{}` Big-M cannot be converted to f64",
+                        self.id.name
+                    ))
+                })?;
+                if !big_m.is_finite() || big_m <= 0.0 {
+                    return Err(ModelError::InvalidConstraint(format!(
+                        "quadratic positive-part `{}` requires a positive finite Big-M",
+                        self.id.name
+                    ))
+                    .into());
+                }
+                Ok(big_m)
+            })
+            .transpose()
+    }
 }
 
-impl<V> Display for QuadraticSemiFunction<V>
+impl<V> Display for QuadraticPositivePartFunction<V>
 where
     V: Clone + Debug + Send + Sync + 'static,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "qsemi({})", self.id.name)
+        write!(f, "quadratic_positive_part({})", self.id.name)
     }
 }
 
-impl<V> DynSymbol for QuadraticSemiFunction<V>
+impl<V> DynSymbol for QuadraticPositivePartFunction<V>
 where
     V: Clone + Debug + Send + Sync + 'static,
 {
@@ -3516,7 +3713,7 @@ where
     }
 }
 
-impl<V> Symbol for QuadraticSemiFunction<V>
+impl<V> Symbol for QuadraticPositivePartFunction<V>
 where
     V: Clone + Debug + Send + Sync + 'static,
 {
@@ -3527,7 +3724,7 @@ where
     }
 }
 
-impl<V> IntermediateSymbol<V> for QuadraticSemiFunction<V>
+impl<V> IntermediateSymbol<V> for QuadraticPositivePartFunction<V>
 where
     V: Clone
         + Debug
@@ -3571,26 +3768,20 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.bridge.mechanism_constraints(symbol_to_index)?;
-        let bridge_index = symbol_to_index
-            .get(&(self.bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic semi bridge variable id {}",
-                    self.bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mapped_input = self.mapped_input(symbol_to_index)?;
+        let mut constraints = if self.bridge.has_quadratic_terms() {
+            self.bridge.mechanism_constraints(symbol_to_index)?
+        } else {
+            Vec::new()
+        };
         let zero_input = Linear::new(vec![], from_f64(0.0).expect("convert 0.0"));
         let mapped_inner = self.inner.with_polynomials(vec![mapped_input, zero_input]);
-        constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
+        if let Some(big_m) = self.explicit_big_m_f64()? {
+            constraints
+                .extend(mapped_inner.mechanism_constraints_with_big_m(symbol_to_index, big_m)?);
+        } else {
+            constraints.extend(mapped_inner.mechanism_constraints(symbol_to_index)?);
+        }
         Ok(constraints)
     }
 
@@ -3599,26 +3790,16 @@ where
         symbol_to_index: &HashMap<usize, usize>,
         tokens: &[Token<V>],
     ) -> Result<Vec<LinearConstraint<V>>> {
-        let mut constraints = self.bridge.mechanism_constraints(symbol_to_index)?;
-        let bridge_index = symbol_to_index
-            .get(&(self.bridge.result_variable().id().unique_id() as usize))
-            .copied()
-            .ok_or_else(|| {
-                ModelError::SymbolNotRegistered(format!(
-                    "quadratic semi bridge variable id {}",
-                    self.bridge.result_variable().id().unique_id()
-                ))
-            })?;
-        let mapped_input = Linear::new(
-            vec![LinearMonomial::new(
-                from_f64(1.0).expect("convert 1.0"),
-                bridge_index,
-            )],
-            from_f64(0.0).expect("convert 0.0"),
-        );
+        let mapped_input = self.mapped_input(symbol_to_index)?;
+        let mut constraints = if self.bridge.has_quadratic_terms() {
+            self.bridge.mechanism_constraints(symbol_to_index)?
+        } else {
+            Vec::new()
+        };
         let zero_input = Linear::new(vec![], from_f64(0.0).expect("convert 0.0"));
         let mapped_inner = self.inner.with_polynomials(vec![mapped_input, zero_input]);
-        match infer_quadratic_abs_bound_from_tokens(&self.input, tokens) {
+        let inferred = infer_quadratic_abs_bound_from_tokens(&self.input, tokens);
+        match self.explicit_big_m_f64()?.or(inferred) {
             Some(big_m) => constraints.extend(
                 mapped_inner
                     .mechanism_constraints_with_big_m(symbol_to_index, big_m.max(MIN_BIG_M))?,
@@ -3632,7 +3813,11 @@ where
         &self,
         symbol_to_index: &HashMap<usize, usize>,
     ) -> Result<Vec<QuadraticConstraint<V>>> {
-        self.bridge.quadratic_mechanism_constraints(symbol_to_index)
+        if self.bridge.has_quadratic_terms() {
+            self.bridge.quadratic_mechanism_constraints(symbol_to_index)
+        } else {
+            Ok(Vec::new())
+        }
     }
 
     fn evaluate_from_tokens(
@@ -3644,15 +3829,16 @@ where
     }
 
     fn prepare(&self, values: &HashMap<usize, V>) -> Option<V> {
-        values.get(&self.result_variable().index()).cloned()
+        let value = to_f64(&evaluate_quadratic_from_values(&self.input, values)?)?;
+        from_f64(value.max(0.0))
     }
 
     fn to_raw_string(&self, _unfold: u64) -> String {
-        format!("qsemi({})", self.id.name)
+        format!("quadratic_positive_part({})", self.id.name)
     }
 }
 
-impl<V> FunctionSymbol<V> for QuadraticSemiFunction<V>
+impl<V> FunctionSymbol<V> for QuadraticPositivePartFunction<V>
 where
     V: Clone
         + Debug
@@ -3667,7 +3853,9 @@ where
     f64: IntoValue<V>,
 {
     fn register_tokens(&self, tokens: &mut Vec<Token<V>>) -> Result<()> {
-        self.bridge.register_tokens(tokens)?;
+        if self.bridge.has_quadratic_terms() {
+            self.bridge.register_tokens(tokens)?;
+        }
         self.inner.register_tokens(tokens)?;
         Ok(())
     }
@@ -3678,7 +3866,7 @@ where
     }
 }
 
-impl<V> LinearIntermediateSymbol<V> for QuadraticSemiFunction<V>
+impl<V> LinearIntermediateSymbol<V> for QuadraticPositivePartFunction<V>
 where
     V: Clone
         + Debug
@@ -3998,7 +4186,7 @@ impl_quadratic_function_symbol!(
     QuadraticCosFunction,
     QuadraticUnivariateLinearPiecewiseFunction,
     QuadraticBivariateLinearPiecewiseFunction,
-    QuadraticSemiFunction,
+    QuadraticPositivePartFunction,
     QuadraticSigmoidFunction,
 );
 
@@ -4352,7 +4540,7 @@ mod tests {
         let left = Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0);
         let right = Quadratic::new(vec![], 1.0);
         let qslack: QuadraticSlackFunction<f64> =
-            QuadraticSlackFunction::with_big_m(20053, "qslack_bound", left, right, 100.0);
+            QuadraticSlackFunction::new(20053, "qslack_bound", left, right);
 
         let mut aux_tokens = Vec::new();
         qslack
@@ -4472,76 +4660,39 @@ mod tests {
 
     #[test]
     fn quadratic_masking_range_calculate_value() {
-        let mask = ContinuousVariableItem::create(VariableId::standalone(0), "m");
+        let mask = BinaryVariableItem::create(VariableId::standalone(0), "m");
         let mut tokens = VecTokenList::<f64>::new();
-        let tm = Token::from_generic(mask, 0);
+        let tm = Token::from_generic(mask.clone(), 0);
         tm.set_result(1.0);
         tokens.add_token(tm);
 
-        let qmask = Quadratic::new(vec![QuadraticMonomial::new_linear(1.0, 0)], 0.0);
-        let qmask_range = QuadraticMaskingRangeFunction::new(20091, "qmr", qmask, -2.0, 3.0);
-
-        let ty = Token::from_generic(
-            qmask_range.result_variable().clone(),
-            qmask_range.result_variable().index(),
-        );
-        ty.set_result(2.5);
-        tokens.add_token(ty);
-        assert_eq!(qmask_range.calculate_value(&tokens, false), Some(2.5));
-
-        let mut tokens_off = VecTokenList::<f64>::new();
-        let tm0 = Token::from_generic(
-            ContinuousVariableItem::create(VariableId::standalone(0), "m"),
-            0,
-        );
-        tm0.set_result(0.0);
-        tokens_off.add_token(tm0);
-        let ty_off = Token::from_generic(
-            qmask_range.result_variable().clone(),
-            qmask_range.result_variable().index(),
-        );
-        ty_off.set_result(2.5);
-        tokens_off.add_token(ty_off);
-        assert_eq!(qmask_range.calculate_value(&tokens_off, false), Some(0.0));
-
-        let mut tokens_poly_bound = VecTokenList::<f64>::new();
-        let tm_poly = Token::from_generic(
-            ContinuousVariableItem::create(VariableId::standalone(0), "m"),
-            0,
-        );
-        tm_poly.set_result(1.0);
-        tokens_poly_bound.add_token(tm_poly);
-        let tx_poly = Token::from_generic(
+        let qmask = Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 1, 1)], 0.0);
+        let qmask_range =
+            QuadraticMaskingRangeFunction::with_big_m(20091, "qmr", qmask, mask.clone(), 10.0);
+        let tx = Token::from_generic(
             ContinuousVariableItem::create(VariableId::standalone(1), "x"),
             1,
         );
-        tx_poly.set_result(2.0);
-        tokens_poly_bound.add_token(tx_poly);
-        let qmask_poly = Quadratic::new(vec![QuadraticMonomial::new_linear(1.0, 0)], 0.0);
-        let qlower_poly = Quadratic::new(vec![QuadraticMonomial::new_linear(1.0, 1)], -1.0); // x - 1
-        let qupper_poly = Quadratic::new(vec![QuadraticMonomial::new_linear(1.0, 1)], 1.0); // x + 1
-        let qmask_range_poly = QuadraticMaskingRangeFunction::with_quadratic_bounds(
-            20092,
-            "qmr_poly",
-            qmask_poly,
-            qlower_poly,
-            qupper_poly,
+        tx.set_result(-2.5);
+        tokens.add_token(tx);
+
+        assert_eq!(qmask_range.calculate_value(&tokens, false), Some(6.25));
+
+        let mut tokens_off = VecTokenList::<f64>::new();
+        let tm0 = Token::from_generic(mask.clone(), 0);
+        tm0.set_result(0.0);
+        tokens_off.add_token(tm0);
+        let tx_off = Token::from_generic(
+            ContinuousVariableItem::create(VariableId::standalone(1), "x"),
+            1,
         );
-        let ty_poly = Token::from_generic(
-            qmask_range_poly.result_variable().clone(),
-            qmask_range_poly.result_variable().index(),
-        );
-        ty_poly.set_result(2.4);
-        tokens_poly_bound.add_token(ty_poly);
-        // with x = 2, bounds are [1, 3], so y=2.4 is feasible.
-        assert_eq!(
-            qmask_range_poly.calculate_value(&tokens_poly_bound, false),
-            Some(2.4)
-        );
+        tx_off.set_result(-2.5);
+        tokens_off.add_token(tx_off);
+        assert_eq!(qmask_range.calculate_value(&tokens_off, false), Some(0.0));
     }
 
     #[test]
-    fn quadratic_semi_calculate_value() {
+    fn quadratic_positive_part_calculate_value() {
         let x = ContinuousVariableItem::create(VariableId::standalone(0), "x");
         let mut tokens = VecTokenList::<f64>::new();
         let tx = Token::from_generic(x, 0);
@@ -4549,8 +4700,8 @@ mod tests {
         tokens.add_token(tx);
 
         let quad = Quadratic::new(vec![QuadraticMonomial::new_linear(1.0, 0)], 0.0);
-        let qsemi = QuadraticSemiFunction::new(20101, "qsemi", quad);
-        assert_eq!(qsemi.calculate_value(&tokens, false), Some(0.0));
+        let positive_part = QuadraticPositivePartFunction::new(20101, "qpositive_part", quad);
+        assert_eq!(positive_part.calculate_value(&tokens, false), Some(0.0));
 
         let mut tokens_pos = VecTokenList::<f64>::new();
         let tx2 = Token::from_generic(
@@ -4559,47 +4710,47 @@ mod tests {
         );
         tx2.set_result(2.0);
         tokens_pos.add_token(tx2);
-        assert_eq!(qsemi.calculate_value(&tokens_pos, false), Some(2.0));
+        assert_eq!(positive_part.calculate_value(&tokens_pos, false), Some(2.0));
     }
 
     #[test]
-    fn quadratic_semi_infers_big_m_from_original_bounds() {
+    fn quadratic_positive_part_infers_big_m_from_original_bounds() {
         let x = ContinuousVariableItem::with_range(
             VariableId::standalone(0),
             "x",
             VariableRange::bounded(0.0, 2.0),
         );
         let quad = Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0);
-        let qsemi: QuadraticSemiFunction<f64> =
-            QuadraticSemiFunction::new(20102, "qsemi_bound", quad);
+        let positive_part: QuadraticPositivePartFunction<f64> =
+            QuadraticPositivePartFunction::new(20102, "qpositive_part_bound", quad);
 
         let mut aux_tokens = Vec::new();
-        qsemi
+        positive_part
             .register_tokens(&mut aux_tokens)
-            .expect("quadratic semi tokens should be registered");
+            .expect("quadratic positive-part tokens should be registered");
         let symbol_to_index = token_index_map(&aux_tokens);
         let selector_id = aux_tokens
             .iter()
             .find(|token| {
-                token.id() != qsemi.bridge.result_variable().id()
-                    && token.id() != qsemi.result_variable().id()
+                token.id() != positive_part.bridge.result_variable().id()
+                    && token.id() != positive_part.result_variable().id()
             })
-            .expect("semi selector token should exist")
+            .expect("positive-part selector token should exist")
             .id()
             .unique_id() as usize;
         let selector_index = *symbol_to_index
             .get(&selector_id)
-            .expect("semi selector index should exist");
+            .expect("positive-part selector index should exist");
         let mut tokens = vec![Token::from_generic(x, 0)];
         tokens.extend(aux_tokens);
 
-        let constraints = qsemi
+        let constraints = positive_part
             .mechanism_constraints_with_tokens(&symbol_to_index, &tokens)
-            .expect("quadratic semi constraints should be generated");
+            .expect("quadratic positive-part constraints should be generated");
         let upper = constraints
             .iter()
-            .find(|constraint| constraint.name == "qsemi_bound_max_ub_0")
-            .expect("semi max upper constraint should exist");
+            .find(|constraint| constraint.name == "qpositive_part_bound_max_ub_0")
+            .expect("positive-part max upper constraint should exist");
 
         assert!((coefficient_for_index(upper, selector_index) - 4.0).abs() <= 1e-9);
     }
@@ -4613,7 +4764,7 @@ mod tests {
         tokens.add_token(tx);
 
         let quad = Quadratic::new(vec![QuadraticMonomial::new_linear(1.0, 0)], 0.0);
-        let qstep = QuadraticInStepRangeFunction::new(20111, "qstep", quad, 0.0, 4.0, 2.0);
+        let qstep = QuadraticInStepRangeFunction::new(20111, "qstep", quad, 0.0, 4.0);
         assert_eq!(qstep.calculate_value(&tokens, false), Some(2.0));
 
         let mut tokens_off_step = VecTokenList::<f64>::new();
@@ -4621,9 +4772,9 @@ mod tests {
             ContinuousVariableItem::create(VariableId::standalone(0), "x"),
             0,
         );
-        tx2.set_result(3.0);
+        tx2.set_result(5.0);
         tokens_off_step.add_token(tx2);
-        assert_eq!(qstep.calculate_value(&tokens_off_step, false), Some(2.0));
+        assert_eq!(qstep.calculate_value(&tokens_off_step, false), Some(0.0));
     }
 
     #[test]

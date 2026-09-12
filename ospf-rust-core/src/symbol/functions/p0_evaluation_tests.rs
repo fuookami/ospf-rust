@@ -136,10 +136,21 @@ fn trigonometric_and_same_as_calculate_from_input_expression() {
 fn in_step_range_and_satisfied_amount_calculate_from_inputs() {
     let mut step_tokens = VecTokenList::new();
     add_continuous_token(&mut step_tokens, 6, 0, "x", 5.0);
-    let in_step = InStepRangeFunction::new(400, "step", linear_of(0, 1.0, 0.0), 1.0, 9.0, 2.0);
+    let in_step = InStepRangeIndicatorFunction::new(
+        400,
+        "step",
+        linear_of(0, 1.0, 0.0),
+        1.0,
+        9.0,
+        2.0,
+    );
     let in_step_value =
-        <InStepRangeFunction as FunctionSymbol>::calculate_value(&in_step, &step_tokens, false)
-            .unwrap();
+        <InStepRangeIndicatorFunction as FunctionSymbol>::calculate_value(
+            &in_step,
+            &step_tokens,
+            false,
+        )
+        .unwrap();
     assert_eq!(in_step_value, 1.0);
 
     let mut sat_tokens = VecTokenList::new();
@@ -199,13 +210,13 @@ fn first_one_of_if_else_balance_ternary_and_semi_calculate_from_inputs() {
         <IfElseFunction as FunctionSymbol>::calculate_value(&if_else, &tokens, false).unwrap();
     assert_eq!(if_else_value, 11.0);
 
-    let balance = BalanceTernaryzationFunction::new(503, "bal");
-    let pos_token = Token::from_generic(balance.positive_variable().clone(), 102);
-    pos_token.set_result(1.0);
-    tokens.add_token(pos_token);
-    let neg_token = Token::from_generic(balance.negative_variable().clone(), 103);
-    neg_token.set_result(0.0);
-    tokens.add_token(neg_token);
+    let balance = BalanceTernaryzationFunction::new(
+        503,
+        "bal",
+        linear_of(0, 1.0, 0.0),
+        1e-6,
+        1_000_000.0,
+    );
     let balance_value =
         <BalanceTernaryzationFunction as FunctionSymbol>::calculate_value(&balance, &tokens, false)
             .unwrap();
@@ -315,8 +326,15 @@ fn more_p0_functions_register_declared_dependencies_in_model_graph() {
     assert_eq!(model.symbol_dependency_ids(9550), vec![9500]);
 
     let step_fn =
-        InStepRangeFunction::new(9560, "step_dep", Linear::new(vec![], 8.0), 0.0, 10.0, 2.0)
-            .with_declared_dependencies(vec![9500]);
+        InStepRangeIndicatorFunction::new(
+            9560,
+            "step_dep",
+            Linear::new(vec![], 8.0),
+            0.0,
+            10.0,
+            2.0,
+        )
+        .with_declared_dependencies(vec![9500]);
     model.add_symbol(Arc::new(step_fn)).unwrap();
     assert_eq!(model.symbol_dependency_ids(9560), vec![9500]);
 
@@ -335,7 +353,13 @@ fn more_p0_functions_register_declared_dependencies_in_model_graph() {
     model.add_symbol(Arc::new(semi_fn)).unwrap();
     assert_eq!(model.symbol_dependency_ids(9590), vec![9500]);
 
-    let balance_fn = BalanceTernaryzationFunction::new(9600, "balance_dep")
+    let balance_fn = BalanceTernaryzationFunction::new(
+        9600,
+        "balance_dep",
+        Linear::new(vec![], 0.0),
+        1e-6,
+        1_000_000.0,
+    )
         .with_declared_dependencies(vec![9500]);
     model.add_symbol(Arc::new(balance_fn)).unwrap();
     assert_eq!(model.symbol_dependency_ids(9600), vec![9500]);
@@ -395,7 +419,7 @@ fn trigonometric_rounding_and_mod_support_f32_values() {
 }
 
 #[test]
-fn univariate_piecewise_sorts_interpolates_and_clamps_boundaries() {
+fn univariate_piecewise_interpolates_and_rejects_out_of_range_values() {
     let mut tokens = VecTokenList::new();
     add_continuous_token(&mut tokens, 9800, 0, "ulp_x", 0.5);
     let function = UnivariateLinearPiecewiseFunction::new(
@@ -403,9 +427,9 @@ fn univariate_piecewise_sorts_interpolates_and_clamps_boundaries() {
         "ulp_boundary",
         linear_of(0, 1.0, 0.0),
         vec![
-            Point2::new(2.0, 4.0),
             Point2::new(0.0, 0.0),
             Point2::new(1.0, 2.0),
+            Point2::new(2.0, 4.0),
         ],
     );
 
@@ -415,26 +439,19 @@ fn univariate_piecewise_sorts_interpolates_and_clamps_boundaries() {
     assert_close(function.calculate_value(&tokens, false).unwrap(), 1.0);
 
     tokens.find_by_index(0).unwrap().set_result(-1.0);
-    assert_close(function.calculate_value(&tokens, false).unwrap(), 0.0);
+    assert_eq!(function.calculate_value(&tokens, false), None);
 
     tokens.find_by_index(0).unwrap().set_result(3.0);
-    assert_close(function.calculate_value(&tokens, false).unwrap(), 4.0);
+    assert_eq!(function.calculate_value(&tokens, false), None);
 
     let missing = VecTokenList::<f64>::new();
     assert_eq!(function.calculate_value(&missing, false), None);
     assert_eq!(function.calculate_value(&missing, true), Some(0.0));
 
-    let single = UnivariateLinearPiecewiseFunction::new(
-        9802,
-        "ulp_single",
-        linear_of(0, 1.0, 0.0),
-        vec![Point2::new(7.0, 11.0)],
-    );
-    assert_eq!(single.calculate_value(&missing, false), Some(11.0));
 }
 
 #[test]
-#[should_panic(expected = "univariate piecewise function requires at least one point")]
+#[should_panic(expected = "univariate piecewise function requires at least two points")]
 fn univariate_piecewise_rejects_empty_points() {
     let _ = UnivariateLinearPiecewiseFunction::<f64>::new(
         9810,
@@ -445,45 +462,35 @@ fn univariate_piecewise_rejects_empty_points() {
 }
 
 #[test]
-fn bivariate_piecewise_uses_lambda_values_and_handles_missing_tokens() {
+fn bivariate_piecewise_evaluates_barycentric_coordinates_and_handles_missing_inputs() {
     let function = BivariateLinearPiecewiseFunction::new(
         9820,
         "blp_value",
-        Linear::new(vec![], 0.0),
-        Linear::new(vec![], 0.0),
-        vec![
+        linear_of(0, 1.0, 0.0),
+        linear_of(1, 1.0, 0.0),
+        vec![Triangle3::new(
             Point3::new(0.0, 0.0, 0.0),
             Point3::new(1.0, 0.0, 10.0),
             Point3::new(0.0, 1.0, 20.0),
-        ],
+        )],
     );
     let mut registered = Vec::new();
     function.register_tokens(&mut registered).unwrap();
-    assert_eq!(registered.len(), 4, "result plus one lambda per point");
+    assert_eq!(registered.len(), 5, "result, three lambdas, and one selector");
 
     let mut tokens = VecTokenList::new();
-    for (index, (lambda, value)) in function
-        .lambda_variables()
-        .iter()
-        .zip([0.25, 0.5, 0.25])
-        .enumerate()
-    {
-        let token = Token::from_generic(lambda.clone(), 100 + index);
-        token.set_result(value);
-        tokens.add_token(token);
-    }
+    add_continuous_token(&mut tokens, 9821, 0, "blp_x", 0.5);
+    add_continuous_token(&mut tokens, 9822, 1, "blp_y", 0.25);
     assert_close(function.calculate_value(&tokens, false).unwrap(), 10.0);
 
     let mut incomplete = VecTokenList::new();
-    let first = Token::from_generic(function.lambda_variables()[0].clone(), 200);
-    first.set_result(1.0);
-    incomplete.add_token(first);
+    add_continuous_token(&mut incomplete, 9823, 0, "blp_x", 0.5);
     assert_eq!(function.calculate_value(&incomplete, false), None);
-    assert_eq!(function.calculate_value(&incomplete, true), Some(0.0));
+    assert_eq!(function.calculate_value(&incomplete, true), Some(5.0));
 }
 
 #[test]
-#[should_panic(expected = "bivariate piecewise function requires at least one point")]
+#[should_panic(expected = "bivariate piecewise function requires at least one triangle")]
 fn bivariate_piecewise_rejects_empty_points() {
     let _ = BivariateLinearPiecewiseFunction::<f64>::new(
         9830,

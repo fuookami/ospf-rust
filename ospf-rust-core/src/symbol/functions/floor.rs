@@ -1,15 +1,15 @@
 //! 向下取整函数符号 / Floor function symbol
 
 use super::super::{
-    Category, FunctionSymbol, IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
-    auto_intermediate_symbol_name, next_auto_intermediate_symbol_id,
+    auto_intermediate_symbol_name, next_auto_intermediate_symbol_id, Category, FunctionSymbol,
+    IntermediateSymbol, IntermediateSymbolId, LinearIntermediateSymbol,
 };
-use super::big_m::{BigMPolicy, infer_linear_abs_bound_from_tokens};
+use super::big_m::{infer_linear_abs_bound_from_tokens, BigMPolicy};
 use crate::error::{ModelError, Result};
 use crate::model::{ConstraintRelation, LinearConstraint, LinearInequality};
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
-use crate::variable::{ContinuousVariableItem, IntegerVariableItem, VariableId, new_group_id};
+use crate::variable::{new_group_id, ContinuousVariableItem, IntegerVariableItem, VariableId};
 use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
@@ -73,7 +73,11 @@ const DEFAULT_BIG_M: f64 = 1_000_000.0;
 /// 大 M 策略 / Big-M policy
 const BIG_M_POLICY: BigMPolicy = BigMPolicy::new(DEFAULT_BIG_M, 1.0);
 /// 舍入精度常量 / Rounding epsilon constant
-const ROUNDING_EPSILON: f64 = 1e-8;
+///
+/// Keep the strict upper-bound margin identical to Kotlin's `FloorFunction`.
+/// This value is deliberately larger than machine epsilon while remaining
+/// small enough not to move an ordinary integer boundary.
+const ROUNDING_EPSILON: f64 = 1e-10;
 
 /// 向下取整函数 / Floor function
 ///

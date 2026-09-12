@@ -14,7 +14,7 @@ use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic};
 use crate::token::{IntoValue, Token, TokenList};
 #[cfg(test)]
 use crate::variable::VariableId;
-use crate::variable::{BinaryVariableItem, ContinuousVariableItem, new_standalone_id};
+use crate::variable::{new_standalone_id, BinaryVariableItem, ContinuousVariableItem};
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 use std::any::Any;
@@ -534,7 +534,16 @@ where
     V: Clone + Debug + Send + Sync + 'static,
 {
     /// 创建线性掩码范围函数 / Create a linear masking-range function.
-    pub fn new(id: u64, name: &str, mask: Linear<V>, lower: V, upper: V) -> Self {
+    pub fn new(id: u64, name: &str, mask: Linear<V>, lower: V, upper: V) -> Self
+    where
+        V: ToPrimitive,
+    {
+        let lower_f64 = to_f64(&lower).expect("masking_range lower bound must convert to f64");
+        let upper_f64 = to_f64(&upper).expect("masking_range upper bound must convert to f64");
+        assert!(
+            lower_f64.is_finite() && upper_f64.is_finite() && lower_f64 <= upper_f64,
+            "masking_range bounds must be finite and satisfy lower <= upper"
+        );
         let result_var =
             ContinuousVariableItem::create(new_standalone_id(), &format!("{}_mask_range", name));
         Self {
