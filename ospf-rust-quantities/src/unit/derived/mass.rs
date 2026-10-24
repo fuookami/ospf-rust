@@ -10,50 +10,50 @@ use crate::unit::CTUnit;
 // SI 质量单位 / SI mass units
 // ============================================================================
 
-define_unit!(Kilogram, "kilogram", "kg", Mass);
-define_unit!(Gram, "gram", "g", Mass, MILLI.clone());
-define_unit!(Hectogram, "hectogram", "hg", Mass, Scale::from_f64(0.1));
-define_unit!(
+define_unit!(@shared Kilogram, "kilogram", "kg", Mass);
+define_unit!(@shared Gram, "gram", "g", Mass, MILLI.clone());
+define_unit!(@shared Hectogram, "hectogram", "hg", Mass, Scale::from_f64(0.1));
+define_unit!(@shared
     Milligram,
     "milligram",
     "mg",
     Mass,
     Scale::from_int(1) / Scale::from_int(1000000)
 );
-define_unit!(
+define_unit!(@shared
     Microgram,
     "microgram",
     "μg",
     Mass,
     Scale::from_f64(0.000000001)
 );
-define_unit!(Tonne, "tonne", "t", Mass, KILO.clone());
+define_unit!(@shared Tonne, "tonne", "t", Mass, KILO.clone());
 
 // ============================================================================
 // 公制质量单位 / Metric mass units
 // ============================================================================
 
 // 公担 / Kintal (quintal)
-define_unit!(Kintal, "kintal", "q", Mass, Scale::from_f64(100.0));
+define_unit!(@shared Kintal, "kintal", "q", Mass, Scale::from_f64(100.0));
 
 // 克拉 / Carat
-define_unit!(Carat, "carat", "ct", Mass, Scale::from_f64(0.0002));
+define_unit!(@shared Carat, "carat", "ct", Mass, Scale::from_f64(0.0002));
 
 // 点 / Point (2 milligrams)
-define_unit!(Point, "point", "pt", Mass, Scale::from_f64(0.000002));
+define_unit!(@shared Point, "point", "pt", Mass, Scale::from_f64(0.000002));
 
 // ============================================================================
 // 英制质量单位 / Imperial mass units
 // ============================================================================
 
 // 磅 / Pound
-define_unit!(Pound, "pound", "lb", Mass, Scale::from_f64(0.45359237));
+define_unit!(@shared Pound, "pound", "lb", Mass, Scale::from_f64(0.45359237));
 
 // 格令 / Grain
-define_unit!(Gran, "grain", "gr", Mass, Scale::from_f64(0.00006479891));
+define_unit!(@shared Gran, "grain", "gr", Mass, Scale::from_f64(0.00006479891));
 
 // 英吨 / Long ton (2240 pounds)
-define_unit!(
+define_unit!(@shared
     LongTon,
     "long ton",
     "lt",
@@ -62,7 +62,7 @@ define_unit!(
 );
 
 // 美吨 / Short ton (2000 pounds)
-define_unit!(
+define_unit!(@shared
     ShortTon,
     "short ton",
     "st",
@@ -71,13 +71,13 @@ define_unit!(
 );
 
 // 英石 / Stone (14 pounds)
-define_unit!(Stone, "stone", "st", Mass, Scale::from_f64(6.35029318));
+define_unit!(@shared Stone, "stone", "st", Mass, Scale::from_f64(6.35029318));
 
 // 盎司 / Ounce
-define_unit!(Ounce, "ounce", "oz", Mass, Scale::from_f64(0.028349523125));
+define_unit!(@shared Ounce, "ounce", "oz", Mass, Scale::from_f64(0.028349523125));
 
 // 金衡盎司 / Troy ounce
-define_unit!(
+define_unit!(@shared
     TroyOunce,
     "troy ounce",
     "oz.tr",
@@ -86,7 +86,7 @@ define_unit!(
 );
 
 // 打兰 / Dram
-define_unit!(
+define_unit!(@shared
     Dram,
     "dram",
     "dr",

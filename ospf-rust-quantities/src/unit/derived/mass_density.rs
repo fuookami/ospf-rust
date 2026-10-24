@@ -7,26 +7,26 @@ use crate::scale::Scale;
 use crate::unit::CTUnit;
 use crate::unit::physical_unit::CTUnitDiv;
 
-define_unit_by!(
+define_unit_by!(@shared
     KilogramPerCubicMeter,
     "kilogram per cubic meter",
     "kg/m^3",
     CTUnitDiv<Kilogram, CubicMeter>
 );
-define_unit!(
+define_unit!(@shared
     KilogramPerLiter,
     "kilogram per liter",
     "kg/L",
     MassDensity,
     Scale::from_int(1000)
 );
-define_unit_by!(
+define_unit_by!(@shared
     KilogramPerCubicCentimeter,
     "kilogram per cubic centimeter",
     "kg/cm^3",
     CTUnitDiv<Kilogram, CubicCentimeter>
 );
-define_unit_by!(
+define_unit_by!(@shared
     GramPerCubicCentimeter,
     "gram per cubic centimeter",
     "g/cm^3",

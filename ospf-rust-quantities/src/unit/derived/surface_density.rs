@@ -10,13 +10,13 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // 表面密度单位 / Surface density units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     KilogramPerSquareMeter,
     "kilogram per square meter",
     "kg/m²",
     CTUnitDiv<Kilogram, SquareMeter>
 );
-define_unit_by!(
+define_unit_by!(@shared
     GramPerSquareMeter,
     "gram per square meter",
     "g/m²",

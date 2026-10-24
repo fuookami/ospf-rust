@@ -53,6 +53,18 @@ Physical quantities should preserve dimensions through compile-time unit types w
 
 ## Quick Start
 
+### Lazy Unit Metadata
+
+Built-in concrete units share immutable runtime metadata on first use. Checked compile-time conversions, conversion factors, `UnitTrait` metadata access and `Quantity::to_runtime()` reuse that metadata without changing arithmetic order or numeric conversion rules. `CTUnit::runtime_unit()` returns a cheap `Arc`-backed handle, useful as an explicit conversion context for repeated runtime conversions.
+
+Scale-only access uses `CTUnit::shared_scale()` and does not initialize names, dimensions or offsets for shared macro definitions. The full runtime unit is initialized separately on demand, reusing the scale definition. These lazy slots retain a scale copy when both paths are used; reduced allocation traffic does not imply lower resident memory. Existing custom `shared_instance()` implementations remain the default source of `shared_scale()`.
+
+`dimension_symbol()` and `dim_eq()` read `CTUnit::shared_dimension()` independently, without initializing a unit's scale or offset. Shared macro definitions initialize this dimension once and share its `Arc` with the full runtime unit; the default accessor returns `None` and retains associated-constant behavior. Incompatible conversions return `None` without initializing unrelated scales, even if their scale initializer would panic. `unit_eq()` reuses shared scales while preserving dimension and offset checks and the ordinary-definition fallback.
+
+Public associated constants (`SCALE`, `OFFSET`, `INSTANT`) remain available, but an associated `const Lazy` is not a process-wide cache: direct access still constructs a fresh value. Custom `CTUnit` implementations and ordinary `define_unit!` / `define_unit_by!` calls keep their existing per-access initialization behavior. Pure custom definitions may explicitly opt in with `define_unit!(@shared MyMeter, "my meter", "mm", Length)` or implement `CTUnit::shared_instance()`; do not opt in if initialization depends on mutable state. Generic anonymous compound units retain the default behavior, avoiding statics accidentally shared between different type arguments.
+
+Initialization is synchronous and lazy; concurrent first access waits for one initializer. There are no background workers or automatic prewarming. For explicit prewarming, call `runtime_unit()` (and `scale().value()` if needed) for selected hot units during a known preparation phase. Shared macro initializers use `once_cell::sync::Lazy`, including its panic-poisoning semantics. Cache lifetime is process-wide, so avoid opting unbounded dynamic data into a singleton.
+
 ### Compile-time Quantities
 
 Compile-time quantities have their unit types determined at compile time, providing zero-cost abstraction and compile-time dimension checking.

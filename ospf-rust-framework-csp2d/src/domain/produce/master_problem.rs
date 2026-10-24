@@ -20,6 +20,9 @@ use ospf_rust_base::error::Ret;
 use crate::domain::material::{CuttingPlan2, DemandMode2, DemandValue2, ProductId2};
 use crate::infrastructure::error::validation_error;
 
+#[cfg(test)]
+mod cache_tests;
+
 // ============================================================================
 // Csp2dMasterDemand - 主问题需求项 / Master problem demand entry
 // ============================================================================
@@ -112,6 +115,22 @@ impl CoverageProjection {
         self.rows.iter().map(|row| row.iter().enumerate()
             .map(|(index, coefficient)| coefficient * usage.get(index).copied().unwrap_or(0.0))
             .sum()).collect()
+    }
+}
+
+// 仅缓存本次求解中实际评分的方案，借用阻止期间修改方案。 / Cache only plans scored in this solve; the borrow prevents mutations during its lifetime.
+pub(crate) struct PlanWaste<'a> {
+    assignment: &'a Csp2dPatternAssignment,
+    values: Vec<Option<f64>>,
+}
+
+impl<'a> PlanWaste<'a> {
+    pub(crate) fn new(assignment: &'a Csp2dPatternAssignment) -> Self {
+        Self { assignment, values: vec![None; assignment.len()] }
+    }
+
+    pub(crate) fn for_scoring(&mut self, plan_index: usize) -> f64 {
+        *self.values[plan_index].get_or_insert_with(|| self.assignment.waste_area(plan_index).max(1e-9))
     }
 }
 

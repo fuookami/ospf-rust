@@ -12,8 +12,8 @@ use std::str::FromStr;
 // 热力学温度单位 / Thermodynamic temperature units
 // ============================================================================
 
-define_unit!(Kelvin, "kelvin", "K", ThermodynamicTemperature);
-define_unit!(
+define_unit!(@shared Kelvin, "kelvin", "K", ThermodynamicTemperature);
+define_unit!(@shared
     Celsius,
     "celsius",
     "°C",
@@ -22,7 +22,7 @@ define_unit!(
     offset = BigDecimal::from_str("273.15")
         .expect("无法解析摄氏度偏移值 / Failed to parse Celsius offset value")
 );
-define_unit!(
+define_unit!(@shared
     Fahrenheit,
     "fahrenheit",
     "°F",
@@ -31,7 +31,7 @@ define_unit!(
     offset = BigDecimal::from_str("255.37222222222222222222")
         .expect("无法解析华氏度偏移值 / Failed to parse Fahrenheit offset value")
 );
-define_unit!(
+define_unit!(@shared
     Rankine,
     "rankine",
     "°R",

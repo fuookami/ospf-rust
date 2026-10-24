@@ -11,7 +11,7 @@ use crate::unit::{CTUnit, CTUnitDiv, CTUnitMul};
 // 动量单位 / Momentum units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     KilogramMeterPerSecond,
     "kilogram meter per second",
     "kg·m/s",

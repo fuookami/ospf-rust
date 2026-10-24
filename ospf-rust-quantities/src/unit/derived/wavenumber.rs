@@ -3,7 +3,7 @@
 use super::length::Meter;
 use crate::unit::{CTUnit, CTUnitReciprocal};
 
-define_unit_by!(
+define_unit_by!(@shared
     ReciprocalMeter,
     "reciprocal meter",
     "1/m",

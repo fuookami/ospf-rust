@@ -10,13 +10,13 @@ use crate::unit::CTUnit;
 // 频率单位 / Frequency units
 // ============================================================================
 
-define_unit!(Hertz, "hertz", "Hz", Frequency, Scale::new());
-define_unit!(Kilohertz, "kilohertz", "kHz", Frequency, KILO.clone());
-define_unit!(Megahertz, "megahertz", "MHz", Frequency, MEGA.clone());
-define_unit!(Gigahertz, "gigahertz", "GHz", Frequency, GIGA.clone());
+define_unit!(@shared Hertz, "hertz", "Hz", Frequency, Scale::new());
+define_unit!(@shared Kilohertz, "kilohertz", "kHz", Frequency, KILO.clone());
+define_unit!(@shared Megahertz, "megahertz", "MHz", Frequency, MEGA.clone());
+define_unit!(@shared Gigahertz, "gigahertz", "GHz", Frequency, GIGA.clone());
 
 // 每小时周期数 / Cycle per hour
-define_unit!(
+define_unit!(@shared
     CyclePerHour,
     "cycle per hour",
     "cph",

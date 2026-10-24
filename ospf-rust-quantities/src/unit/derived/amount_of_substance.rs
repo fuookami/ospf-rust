@@ -9,7 +9,7 @@ use crate::unit::physical_unit::CTUnit;
 // 物质的量单位 / Amount of substance units
 // ============================================================================
 
-define_unit!(Mole, "mole", "mol", AmountOfSubstance);
+define_unit!(@shared Mole, "mole", "mol", AmountOfSubstance);
 
 // ============================================================================
 // 单元测试 / Unit tests

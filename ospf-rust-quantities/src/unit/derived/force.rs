@@ -12,20 +12,20 @@ use crate::unit::{CTUnit, CTUnitMul};
 // SI 力单位 / SI force units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     Newton,
     "newton",
     "N",
     CTUnitMul<Kilogram, MeterPerSecondSquared>
 );
-define_unit!(
+define_unit!(@shared
     Kilonewton,
     "kilonewton",
     "kN",
     Force,
     &*Newton::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     Meganewton,
     "meganewton",
     "MN",
@@ -38,7 +38,7 @@ define_unit!(
 // ============================================================================
 
 // 千克力 / Kilogram force
-define_unit!(
+define_unit!(@shared
     KilogramForce,
     "kilogram force",
     "kgf",
@@ -47,7 +47,7 @@ define_unit!(
 );
 
 // 克力 / Gram force
-define_unit!(
+define_unit!(@shared
     GramForce,
     "gram force",
     "gf",
@@ -56,14 +56,14 @@ define_unit!(
 );
 
 // 达因 / Dyne (1 g·cm/s²)
-define_unit!(Dyne, "dyne", "dyn", Force, Scale::from_f64(0.00001));
+define_unit!(@shared Dyne, "dyne", "dyn", Force, Scale::from_f64(0.00001));
 
 // ============================================================================
 // 英制力单位 / Imperial force units
 // ============================================================================
 
 // 磅力 / Pound force
-define_unit!(
+define_unit!(@shared
     PoundForce,
     "pound force",
     "lbf",
@@ -72,7 +72,7 @@ define_unit!(
 );
 
 // 千磅力 / Kilopound force
-define_unit!(
+define_unit!(@shared
     KilopoundForce,
     "kilopound force",
     "klbf",

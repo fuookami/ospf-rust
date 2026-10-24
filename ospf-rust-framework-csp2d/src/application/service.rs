@@ -341,6 +341,7 @@ impl Csp2dSolvers {
         }
         let plan_count = master.assignment.len();
         let projection = master.assignment.coverage_projection(&master.demands);
+        let mut waste = crate::domain::produce::master_problem::PlanWaste::new(&master.assignment);
         let mut usage = vec![0.0f64; plan_count];
 
         // 覆盖优先：只要还有未覆盖需求，就挑最能补齐的方案加一次。
@@ -364,8 +365,7 @@ impl Csp2dSolvers {
                     }
                     // 优先补齐缺口最大、且单位消耗余料最少的方案。
                     // Prefer the plan that closes the largest deficit per unit of remnant.
-                    let waste = master.assignment.waste_area(plan_index).max(1e-9);
-                    let score = coefficient / waste;
+                    let score = coefficient / waste.for_scoring(plan_index);
                     best = match best {
                         Some((_, best_score)) if best_score >= score => best,
                         _ => Some((plan_index, score)),

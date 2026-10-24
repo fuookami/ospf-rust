@@ -133,6 +133,7 @@ impl Csp2dMasterSolver for Csp2dHeuristicMasterSolver {
     fn solve_master(&self, master: &Csp2dMasterProblem) -> Ret<Csp2dMasterSolveResult> {
         let plan_count = master.assignment.len();
         let projection = master.assignment.coverage_projection(&master.demands);
+        let mut waste = crate::domain::produce::master_problem::PlanWaste::new(&master.assignment);
         let mut usage = vec![0.0f64; plan_count];
         let mut guard = 0usize;
         while guard < 4096 {
@@ -151,8 +152,7 @@ impl Csp2dMasterSolver for Csp2dHeuristicMasterSolver {
                     }
                     // 优先补齐缺口、且单位消耗余料最少的方案。
                     // Prefer the plan closing the largest deficit per unit of remnant.
-                    let waste = master.assignment.waste_area(plan_index).max(1e-9);
-                    let score = coefficient / waste;
+                    let score = coefficient / waste.for_scoring(plan_index);
                     best = match best {
                         Some((_, best_score)) if best_score >= score => best,
                         _ => Some((plan_index, score)),

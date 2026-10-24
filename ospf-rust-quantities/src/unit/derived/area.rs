@@ -8,73 +8,73 @@ use crate::scale::Scale;
 use crate::unit::CTUnitMul;
 use crate::unit::physical_unit::CTUnit;
 
-define_unit_by!(
+define_unit_by!(@shared
     SquareMillimeter,
     "square millimeter",
     "mm^2",
     CTUnitMul<Millimeter, Millimeter>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareCentimeter,
     "square centimeter",
     "cm^2",
     CTUnitMul<Cetimeter, Cetimeter>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareDecimeter,
     "square decimeter",
     "dm^2",
     CTUnitMul<Decimeter, Decimeter>
 );
-define_unit_by!(SquareMeter, "square meter", "m^2", CTUnitMul<Meter, Meter>);
-define_unit_by!(
+define_unit_by!(@shared SquareMeter, "square meter", "m^2", CTUnitMul<Meter, Meter>);
+define_unit_by!(@shared
     SquareKilometer,
     "square kilometer",
     "km^2",
     CTUnitMul<Kilometer, Kilometer>
 );
 
-define_unit!(Are, "are", "are", Area, Scale::from_f64(100.0));
-define_unit!(Hectare, "hectare", "ha", Area, Scale::from_f64(10000.0));
+define_unit!(@shared Are, "are", "are", Area, Scale::from_f64(100.0));
+define_unit!(@shared Hectare, "hectare", "ha", Area, Scale::from_f64(10000.0));
 
-define_unit_by!(
+define_unit_by!(@shared
     SquareInch,
     "square inch",
     "sq.in",
     CTUnitMul<Inch, Inch>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareFoot,
     "square foot",
     "sq.ft",
     CTUnitMul<Foot, Foot>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareYard,
     "square yard",
     "sq.yd",
     CTUnitMul<Yard, Yard>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareChain,
     "square chain",
     "sq.ch",
     CTUnitMul<Chain, Chain>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareRod,
     "square rod",
     "sq.rd",
     CTUnitMul<Rod, Rod>
 );
-define_unit_by!(
+define_unit_by!(@shared
     SquareMile,
     "square mile",
     "sq.mi",
     CTUnitMul<Mile, Mile>
 );
 
-define_unit!(Acre, "acre", "acre", Area, Scale::from_f64(4046.8564224));
+define_unit!(@shared Acre, "acre", "acre", Area, Scale::from_f64(4046.8564224));
 
 // ============================================================================
 // 单元测试 / Unit tests

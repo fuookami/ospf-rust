@@ -11,49 +11,49 @@ use crate::unit::{CTUnit, CTUnitMul};
 // SI 体积单位 / SI volume units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicMeter,
     "cubic meter",
     "m³",
     CTUnitMul<Meter, CTUnitMul<Meter, Meter>>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicKilometer,
     "cubic kilometer",
     "km³",
     CTUnitMul<super::length::Kilometer, CTUnitMul<super::length::Kilometer, super::length::Kilometer>>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicHectometer,
     "cubic hectometer",
     "hm³",
     CTUnitMul<super::length::Hectometer, CTUnitMul<super::length::Hectometer, super::length::Hectometer>>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicDecameter,
     "cubic decameter",
     "dam³",
     CTUnitMul<super::length::Decameter, CTUnitMul<super::length::Decameter, super::length::Decameter>>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicDecimeter,
     "cubic decimeter",
     "dm³",
     CTUnitMul<Decimeter, CTUnitMul<Decimeter, Decimeter>>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicCentimeter,
     "cubic centimeter",
     "cm³",
     CTUnitMul<Cetimeter, CTUnitMul<Cetimeter, Cetimeter>>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicMillimeter,
     "cubic millimeter",
     "mm³",
@@ -65,7 +65,7 @@ define_unit_by!(
 // ============================================================================
 
 // 升 / Liter (1 dm³)
-define_unit!(
+define_unit!(@shared
     Liter,
     "liter",
     "L",
@@ -74,10 +74,10 @@ define_unit!(
 );
 
 //  hectoliter / Hectoliter
-define_unit!(Hectoliter, "hectoliter", "hL", Volume, Scale::from_f64(0.1));
+define_unit!(@shared Hectoliter, "hectoliter", "hL", Volume, Scale::from_f64(0.1));
 
 //  deciliter / Deciliter
-define_unit!(
+define_unit!(@shared
     Deciliter,
     "deciliter",
     "dL",
@@ -86,7 +86,7 @@ define_unit!(
 );
 
 //  centiliter / Centiliter
-define_unit!(
+define_unit!(@shared
     Centiliter,
     "centiliter",
     "cL",
@@ -95,7 +95,7 @@ define_unit!(
 );
 
 //  milliliter / Milliliter
-define_unit!(
+define_unit!(@shared
     Milliliter,
     "milliliter",
     "mL",
@@ -104,7 +104,7 @@ define_unit!(
 );
 
 //  microliter / Microliter
-define_unit!(
+define_unit!(@shared
     Microliter,
     "microliter",
     "μL",
@@ -117,7 +117,7 @@ define_unit!(
 // ============================================================================
 
 // 立方英寸 / Cubic inch
-define_unit_by!(
+define_unit_by!(@shared
     CubicInch,
     "cubic inch",
     "cu.in",
@@ -125,7 +125,7 @@ define_unit_by!(
 );
 
 // 立方英尺 / Cubic foot
-define_unit_by!(
+define_unit_by!(@shared
     CubicFoot,
     "cubic foot",
     "cu.ft",
@@ -133,7 +133,7 @@ define_unit_by!(
 );
 
 // 立方码 / Cubic yard
-define_unit_by!(
+define_unit_by!(@shared
     CubicYard,
     "cubic yard",
     "cu.yd",
@@ -145,7 +145,7 @@ define_unit_by!(
 // ============================================================================
 
 // 英制液量盎司 / UK fluid ounce (28.4130625 mL)
-define_unit!(
+define_unit!(@shared
     UKFluidOunce,
     "uk fluid ounce",
     "uk.fl.oz",
@@ -154,7 +154,7 @@ define_unit!(
 );
 
 // 美制液量盎司 / US fluid ounce (29.5735295625 mL)
-define_unit!(
+define_unit!(@shared
     USFluidOunce,
     "us fluid ounce",
     "us.fl.oz",
@@ -163,7 +163,7 @@ define_unit!(
 );
 
 // 英制加仑 / UK gallon (160 UK fluid ounces)
-define_unit!(
+define_unit!(@shared
     UKGallon,
     "uk gallon",
     "uk.gal",
@@ -172,7 +172,7 @@ define_unit!(
 );
 
 // 美制加仑 / US gallon (128 US fluid ounces)
-define_unit!(
+define_unit!(@shared
     USGallon,
     "us gallon",
     "us.gal",

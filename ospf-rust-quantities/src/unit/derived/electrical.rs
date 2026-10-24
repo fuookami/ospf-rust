@@ -6,22 +6,22 @@ use crate::dimension::derived::{Capacitance, ElectricCharge, ElectricCurrent, El
 use crate::scale::{KILO, MEGA, MICRO, MILLI, NANO, PICO};
 use crate::unit::{CTUnit, CTUnitDiv, CTUnitMul};
 
-define_unit!(Ampere, "ampere", "A", ElectricCurrent);
-define_unit!(
+define_unit!(@shared Ampere, "ampere", "A", ElectricCurrent);
+define_unit!(@shared
     Milliampere,
     "milliampere",
     "mA",
     ElectricCurrent,
     &*Ampere::SCALE * &*MILLI
 );
-define_unit!(
+define_unit!(@shared
     Microampere,
     "microampere",
     "uA",
     ElectricCurrent,
     &*Ampere::SCALE * &*MICRO
 );
-define_unit!(
+define_unit!(@shared
     Kiloampere,
     "kiloampere",
     "kA",
@@ -29,77 +29,77 @@ define_unit!(
     &*Ampere::SCALE * &*KILO
 );
 
-define_unit_by!(Coulomb, "coulomb", "C", CTUnitMul<Ampere, Second>);
-define_unit!(
+define_unit_by!(@shared Coulomb, "coulomb", "C", CTUnitMul<Ampere, Second>);
+define_unit!(@shared
     Millicoulomb,
     "millicoulomb",
     "mC",
     ElectricCharge,
     &*Coulomb::SCALE * &*MILLI
 );
-define_unit!(
+define_unit!(@shared
     Microcoulomb,
     "microcoulomb",
     "uC",
     ElectricCharge,
     &*Coulomb::SCALE * &*MICRO
 );
-define_unit!(
+define_unit!(@shared
     Kilocoulomb,
     "kilocoulomb",
     "kC",
     ElectricCharge,
     &*Coulomb::SCALE * &*KILO
 );
-define_unit_by!(AmpereSecond, "ampere-second", "As", CTUnitMul<Ampere, Second>);
-define_unit_by!(
+define_unit_by!(@shared AmpereSecond, "ampere-second", "As", CTUnitMul<Ampere, Second>);
+define_unit_by!(@shared
     MilliampereHour,
     "milliampere-hour",
     "mAh",
     CTUnitMul<Milliampere, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     MicroampereHour,
     "microampere-hour",
     "uAh",
     CTUnitMul<Microampere, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     AmpereHour,
     "ampere-hour",
     "Ah",
     CTUnitMul<Ampere, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     KiloampereHour,
     "kiloampere-hour",
     "kAh",
     CTUnitMul<Kiloampere, Hour>
 );
 
-define_unit_by!(Volt, "volt", "V", CTUnitDiv<Watt, Ampere>);
-define_unit!(
+define_unit_by!(@shared Volt, "volt", "V", CTUnitDiv<Watt, Ampere>);
+define_unit!(@shared
     Microvolt,
     "microvolt",
     "uV",
     ElectricPotential,
     &*Volt::SCALE * &*MICRO
 );
-define_unit!(
+define_unit!(@shared
     Millivolt,
     "millivolt",
     "mV",
     ElectricPotential,
     &*Volt::SCALE * &*MILLI
 );
-define_unit!(
+define_unit!(@shared
     Kilovolt,
     "kilovolt",
     "kV",
     ElectricPotential,
     &*Volt::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     Megavolt,
     "megavolt",
     "MV",
@@ -107,29 +107,29 @@ define_unit!(
     &*Volt::SCALE * &*MEGA
 );
 
-define_unit_by!(Farad, "farad", "F", CTUnitDiv<Coulomb, Volt>);
-define_unit!(
+define_unit_by!(@shared Farad, "farad", "F", CTUnitDiv<Coulomb, Volt>);
+define_unit!(@shared
     Millifarad,
     "millifarad",
     "mF",
     Capacitance,
     &*Farad::SCALE * &*MILLI
 );
-define_unit!(
+define_unit!(@shared
     Microfarad,
     "microfarad",
     "uF",
     Capacitance,
     &*Farad::SCALE * &*MICRO
 );
-define_unit!(
+define_unit!(@shared
     Nanofarad,
     "nanofarad",
     "nF",
     Capacitance,
     &*Farad::SCALE * &*NANO
 );
-define_unit!(
+define_unit!(@shared
     Picofarad,
     "picofarad",
     "pF",

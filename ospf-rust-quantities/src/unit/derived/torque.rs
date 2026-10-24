@@ -10,13 +10,13 @@ use crate::unit::{CTUnit, CTUnitMul};
 // 扭矩单位 / Torque units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     NewtonMeter,
     "newton meter",
     "N·m",
     CTUnitMul<Newton, Meter>
 );
-define_unit_by!(
+define_unit_by!(@shared
     KilogramForceMeter,
     "kilogram-force meter",
     "kgf·m",

@@ -14,6 +14,8 @@ solver value types appear only at the modelling boundary and in the application 
 The 2D geometry is shared with BPP2D through
 [`ospf-rust-framework-geometry2d`](../ospf-rust-framework-geometry2d/README.md).
 
+The built-in master heuristic and service fallback reuse coverage within each solve and lazily evaluate a plan's scoring waste only when it contributes to a deficient demand. This domain-owned cache borrows the assignment, is discarded after the solve and never survives public plan mutations. Candidate order, tie-breaking and usage bounds are unchanged; no background workers or global plan snapshots are introduced.
+
 ## Scope
 
 Two supply modes, one model:
@@ -102,3 +104,21 @@ pricing certificate; the interface is in place so real LP duals can replace the 
 $env:RUSTC_BOOTSTRAP = "1"
 cargo test -p ospf-rust-framework-csp2d
 ```
+
+### Service workload observation
+
+`tests/workload_profile_contract.rs` uses the existing `Csp2dMasterSolver` injection point to record
+aggregate master-call counts, candidate counts, demand modes and placement counts for the complete service
+paths. It checks delegation, fallback, final-stage callbacks and shared-recorder concurrency without adding
+production counters or background threads. It is a contract-scale observation, not production traffic or
+a timing benchmark; it does not measure internal table reads, cache hit rates or native solver CPU usage.
+
+```powershell
+cargo +nightly-2026-08-01 test --offline -p ospf-rust-framework-csp2d --test workload_profile_contract -- --nocapture --test-threads=1
+```
+
+Native solver thread settings are per instance, not a process-wide budget shared with table builders.
+The default service has no automatic parallel table construction. Production adoption requires real input
+and reuse-frequency evidence, an explicit native-solver/concurrency budget, and mixed-load tail-latency
+validation. Matching candidate counts alone does not establish that two table contents are interchangeable,
+and repeated master calls must not be removed when an injected solver may change state between stages.

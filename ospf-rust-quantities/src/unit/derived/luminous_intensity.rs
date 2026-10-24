@@ -9,7 +9,7 @@ use crate::unit::CTUnit;
 // 发光强度单位 / Luminous intensity units
 // ============================================================================
 
-define_unit!(Candela, "candela", "cd", LuminousIntensity);
+define_unit!(@shared Candela, "candela", "cd", LuminousIntensity);
 
 // ============================================================================
 // 单元测试 / Unit tests

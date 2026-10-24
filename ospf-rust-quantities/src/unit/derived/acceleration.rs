@@ -14,7 +14,7 @@ use crate::unit::{CTUnitDiv, CTUnitMul};
 // ============================================================================
 
 // 米每二次方秒 / Meter per second squared
-define_unit_by!(
+define_unit_by!(@shared
     MeterPerSecondSquared,
     "meter per second squared",
     "m/s²",
@@ -22,7 +22,7 @@ define_unit_by!(
 );
 
 // 厘米每二次方秒 / Centimeter per second squared
-define_unit_by!(
+define_unit_by!(@shared
     CentimeterPerSecondSquared,
     "centimeter per second squared",
     "cm/s²",
@@ -30,7 +30,7 @@ CTUnitDiv<Cetimeter, CTUnitMul<Second, Second>>
 );
 
 // 千米每二次方秒 / Kilometer per second squared
-define_unit_by!(
+define_unit_by!(@shared
     KilometerPerSecondSquared,
     "kilometer per second squared",
     "km/s²",
@@ -42,7 +42,7 @@ define_unit_by!(
 // ============================================================================
 
 // 英寸每二次方秒 / Inch per second squared
-define_unit_by!(
+define_unit_by!(@shared
     InchPerSecondSquared,
     "inch per second squared",
     "in/s²",
@@ -50,7 +50,7 @@ define_unit_by!(
 );
 
 // 英尺每二次方秒 / Foot per second squared
-define_unit_by!(
+define_unit_by!(@shared
     FootPerSecondSquared,
     "foot per second squared",
     "ft/s²",
@@ -62,7 +62,7 @@ define_unit_by!(
 // ============================================================================
 
 // 标准重力加速度 / Standard gravity (9.80665 m/s²)
-define_unit!(
+define_unit!(@shared
     StandardGravity,
     "standard gravity",
     "g",

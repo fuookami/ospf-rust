@@ -670,16 +670,52 @@ pub trait CTUnit: UnitTrait {
         )
     });
 
+    /// 可选的不可变共享实例；默认保持关联 const 的逐次构建语义。 / Optional immutable shared instance; the default preserves per-access const construction.
+    ///
+    /// 仅纯定义或显式选择快照语义的单位应重写此方法。首次访问可能等待初始化者。
+    /// Only pure definitions or units explicitly opting into snapshot semantics should override this method. First access may wait for initialization.
+    fn shared_instance() -> Option<&'static Unit> {
+        None
+    }
+
+    /// 可选共享比例尺；只读比例尺访问无需构造完整元数据。 / Optional shared scale, allowing scale-only access without full metadata construction.
+    ///
+    /// 默认复用已有共享实现；纯定义可单独惰性初始化比例尺。 / The default reuses existing shared implementations; pure definitions may initialize the scale independently.
+    fn shared_scale() -> Option<&'static Scale> {
+        Self::shared_instance().map(|unit| unit.scale())
+    }
+
+    /// 可选的独立共享量纲；默认不构造完整单位。 / Optional independently shared dimension; the default never constructs a full unit.
+    fn shared_dimension() -> Option<&'static DerivedQuantity> {
+        None
+    }
+
+    /// 获取运行时单位；已选择共享的单位只克隆 Arc，否则按原 const 构建。 / Get a runtime unit, cloning only the Arc for shared units or constructing the original const otherwise.
+    fn runtime_unit() -> Unit {
+        Self::shared_instance().cloned().unwrap_or_else(|| Self::INSTANT.clone())
+    }
+
     /// 检查是否与另一个单位类型量纲相等（运行时比较）
     /// Check if dimension equal to another unit type (runtime comparison)
     fn dim_eq<U: CTUnit>() -> bool {
-        <Self as CTUnit>::Dimension::INSTANT.symbol() == <U as CTUnit>::Dimension::INSTANT.symbol()
+        let from_binding = <Self as CTUnit>::Dimension::INSTANT;
+        let to_binding = <U as CTUnit>::Dimension::INSTANT;
+        let from = Self::shared_dimension().unwrap_or_else(|| &*from_binding);
+        let to = U::shared_dimension().unwrap_or_else(|| &*to_binding);
+        from.symbol() == to.symbol()
     }
 
     /// 检查是否与另一个单位类型完全相等（量纲和比例尺，运行时比较）
     /// Check if fully equal to another unit type (dimension and scale, runtime comparison)
     fn unit_eq<U: CTUnit>() -> bool {
-        Self::dim_eq::<U>() && *Self::SCALE == *U::SCALE && *Self::OFFSET == *U::OFFSET
+        if !Self::dim_eq::<U>() {
+            return false;
+        }
+        let from_binding = Self::SCALE;
+        let to_binding = U::SCALE;
+        let from = Self::shared_scale().unwrap_or_else(|| &*from_binding);
+        let to = U::shared_scale().unwrap_or_else(|| &*to_binding);
+        from == to && *Self::OFFSET == *U::OFFSET
     }
 
     /// 计算到另一个单位的转换系数（运行时计算）
@@ -694,7 +730,11 @@ pub trait CTUnit: UnitTrait {
         if *Self::OFFSET != BigDecimal::from(0) || *U::OFFSET != BigDecimal::from(0) {
             return None;
         }
-        Some(Self::SCALE.value() / U::SCALE.value())
+        let from_binding = Self::SCALE;
+        let to_binding = U::SCALE;
+        let from = Self::shared_scale().unwrap_or_else(|| &*from_binding);
+        let to = U::shared_scale().unwrap_or_else(|| &*to_binding);
+        Some(from.value() / to.value())
     }
 
     /// 将值转换到另一个编译时单位
@@ -708,8 +748,10 @@ pub trait CTUnit: UnitTrait {
         }
         // 通过 UnitConversionRule 执行 checked 转换
         // Perform checked conversion via UnitConversionRule
-        let from_rule = &*Self::INSTANT;
-        let to_rule = &*U::INSTANT;
+        let from_binding = Self::INSTANT;
+        let to_binding = U::INSTANT;
+        let from_rule = Self::shared_instance().unwrap_or_else(|| &*from_binding);
+        let to_rule = U::shared_instance().unwrap_or_else(|| &*to_binding);
         let standard = from_rule.conversion().to_standard_value_checked(value)?;
         to_rule.conversion().value_from_standard_checked(standard)
     }
@@ -739,10 +781,10 @@ pub fn ct_conversion_factor<From: CTUnit, To: CTUnit>() -> BigDecimal
 where
     <From as CTUnit>::Dimension: SameDerivedDimension<<To as CTUnit>::Dimension>,
 {
-    let from_binding = &From::SCALE;
-    let from_scale = from_binding.value();
-    let to_binding = &To::SCALE;
-    let to_scale = to_binding.value();
+    let from_binding = From::SCALE;
+    let from_scale = From::shared_scale().unwrap_or_else(|| &*from_binding).value();
+    let to_binding = To::SCALE;
+    let to_scale = To::shared_scale().unwrap_or_else(|| &*to_binding).value();
     from_scale / to_scale
 }
 

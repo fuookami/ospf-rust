@@ -12,64 +12,64 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // 压力单位 / Pressure units
 // ============================================================================
 
-define_unit_by!(Pascal, "pascal", "Pa", CTUnitDiv<Newton, SquareMeter>);
-define_unit!(
+define_unit_by!(@shared Pascal, "pascal", "Pa", CTUnitDiv<Newton, SquareMeter>);
+define_unit!(@shared
     Hectopascal,
     "hectopascal",
     "hPa",
     Pressure,
     &*Pascal::SCALE * &*HECTO
 );
-define_unit!(
+define_unit!(@shared
     Kilopascal,
     "kilopascal",
     "kPa",
     Pressure,
     &*Pascal::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     Megapascal,
     "megapascal",
     "MPa",
     Pressure,
     &*Pascal::SCALE * &*MEGA
 );
-define_unit!(
+define_unit!(@shared
     Bar,
     "bar",
     "bar",
     Pressure,
     &*Pascal::SCALE * &Scale::from_int(100000)
 );
-define_unit!(
+define_unit!(@shared
     StandardAtmosphericPressure,
     "standard atmospheric pressure",
     "atm",
     Pressure,
     &*Pascal::SCALE * &Scale::from_int(101325)
 );
-define_unit!(
+define_unit!(@shared
     MeterMercury,
     "meter mercury",
     "mHg",
     Pressure,
     &*Pascal::SCALE * &Scale::from_f64(133322.387415)
 );
-define_unit!(
+define_unit!(@shared
     MillimeterMercury,
     "millimeter mercury",
     "mmHg",
     Pressure,
     &*MeterMercury::SCALE * &*MILLI
 );
-define_unit!(
+define_unit!(@shared
     InchOfMercury,
     "inch of mercury",
     "inHg",
     Pressure,
     &*Pascal::SCALE * &Scale::from_f64(3386.38815789)
 );
-define_unit!(
+define_unit!(@shared
     Millibar,
     "millibar",
     "mbar",

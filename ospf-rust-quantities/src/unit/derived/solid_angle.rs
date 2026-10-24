@@ -11,10 +11,10 @@ use crate::unit::CTUnit;
 // ============================================================================
 
 // 球面度 / Steradian
-define_unit!(Steradian, "steradian", "sr", SolidAngle);
+define_unit!(@shared Steradian, "steradian", "sr", SolidAngle);
 
 // 平方度 / Square degree (1 sr = (180/π)² square degrees)
-define_unit!(
+define_unit!(@shared
     SquareDegree,
     "square degree",
     "deg²",

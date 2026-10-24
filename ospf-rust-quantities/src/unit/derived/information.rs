@@ -15,8 +15,8 @@ use once_cell::sync::Lazy;
 
 static INFO_RADIX: Lazy<Scale> = Lazy::new(|| Scale::from_int(2).pow(&BigDecimal::from(10)));
 
-define_unit!(Bit, "bit", "bit", Information);
-define_unit!(
+define_unit!(@shared Bit, "bit", "bit", Information);
+define_unit!(@shared
     Kilobit,
     "kilobit",
     "kilobit",
@@ -24,7 +24,7 @@ define_unit!(
     KILO.clone(),
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Megabit,
     "megabit",
     "megabit",
@@ -32,7 +32,7 @@ define_unit!(
     MEGA.clone(),
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Gigabit,
     "gigabit",
     "gigabit",
@@ -40,7 +40,7 @@ define_unit!(
     GIGA.clone(),
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Terabit,
     "terabit",
     "terabit",
@@ -48,7 +48,7 @@ define_unit!(
     TERA.clone(),
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Petabit,
     "petabit",
     "petabit",
@@ -56,7 +56,7 @@ define_unit!(
     PETA.clone(),
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Exabit,
     "exabit",
     "exabit",
@@ -65,8 +65,8 @@ define_unit!(
     domain = QuantityDomain::Continuous
 );
 
-define_unit!(Byte, "byte", "B", Information, OCTAL.clone());
-define_unit!(
+define_unit!(@shared Byte, "byte", "B", Information, OCTAL.clone());
+define_unit!(@shared
     Kibibyte,
     "kibibyte",
     "KiB",
@@ -74,7 +74,7 @@ define_unit!(
     &*Byte::SCALE * &*INFO_RADIX,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Kilobyte,
     "kilobyte",
     "kB",
@@ -82,7 +82,7 @@ define_unit!(
     &*Byte::SCALE * &*KILO,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Mebibyte,
     "mebibyte",
     "MiB",
@@ -90,7 +90,7 @@ define_unit!(
     &*Kibibyte::SCALE * &*INFO_RADIX,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Megabyte,
     "megabyte",
     "MB",
@@ -98,7 +98,7 @@ define_unit!(
     &*Byte::SCALE * &*MEGA,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Gibibyte,
     "gibibyte",
     "GiB",
@@ -106,7 +106,7 @@ define_unit!(
     &*Mebibyte::SCALE * &*INFO_RADIX,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Gigabyte,
     "gigabyte",
     "GB",
@@ -114,7 +114,7 @@ define_unit!(
     &*Byte::SCALE * &*GIGA,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Terabyte,
     "terabyte",
     "TB",
@@ -122,7 +122,7 @@ define_unit!(
     &*Byte::SCALE * &*TERA,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Petabyte,
     "petabyte",
     "PB",
@@ -130,7 +130,7 @@ define_unit!(
     &*Byte::SCALE * &*PETA,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Exabyte,
     "exabyte",
     "EB",
@@ -138,7 +138,7 @@ define_unit!(
     &*Byte::SCALE * &*EXA,
     domain = QuantityDomain::Continuous
 );
-define_unit!(
+define_unit!(@shared
     Tebibyte,
     "tebibyte",
     "TiB",

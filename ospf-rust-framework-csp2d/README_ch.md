@@ -12,6 +12,8 @@
 
 二维几何与 BPP2D 共用 [`ospf-rust-framework-geometry2d`](../ospf-rust-framework-geometry2d/README_ch.md)。
 
+内置主问题启发式与 service 回退在每次求解内复用覆盖表，仅当方案参与未满足需求的评分时才惰性计算该方案的余料分母。缓存归属领域层，借用 assignment，求解结束即丢弃，不跨公开方案修改复用。候选顺序、同分取舍及使用上界不变，不引入后台线程或全局方案快照。
+
 ## 作用范围
 
 两种供给模式，一套模型：
@@ -98,3 +100,18 @@
 $env:RUSTC_BOOTSTRAP = "1"
 cargo test -p ospf-rust-framework-csp2d
 ```
+
+### 服务路径规模观测
+
+`tests/workload_profile_contract.rs` 通过已有 `Csp2dMasterSolver` 注入扩展点，记录完整服务路径的
+主问题调用次数、候选数量、需求口径及放置数量等聚合信息，验证委托、回退、最终阶段回调和共享记录器并发。
+它不增加生产计数器或后台线程。这是契约规模的观测，不是生产流量或耗时基准，也不测内部表读取次数、
+缓存命中率或原生求解器 CPU 占用。
+
+```powershell
+cargo +nightly-2026-08-01 test --offline -p ospf-rust-framework-csp2d --test workload_profile_contract -- --nocapture --test-threads=1
+```
+
+原生求解器线程配置属于单实例，不是与构表线程共享的进程总预算。默认服务不会自动并行构表；生产采用前
+需要真实输入及复用频率、明确的原生求解器/并发预算，以及混合负载尾延迟验证。候选数量相同不能证明表内容
+可以互换；注入求解器可能在阶段间改变状态，不能直接删掉重复主问题调用。

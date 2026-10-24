@@ -132,11 +132,13 @@ impl PrimeCache {
         if limit > self.current {
             self.extend_sieve(limit);
         }
-        self.primes
-            .iter()
-            .filter(|&&p| p <= limit)
-            .copied()
-            .collect()
+        self.primes_up_to(limit)
+    }
+
+    // 素数有序，热查只复制请求前缀，不扫描整个已扩展表。 / Primes are sorted; hot lookups copy only the requested prefix, not the whole expanded table.
+    fn primes_up_to(&self, limit: usize) -> Vec<usize> {
+        let end = self.primes.partition_point(|&prime| prime <= limit);
+        self.primes[..end].to_vec()
     }
 
     /// 判断一个数是否为素数
@@ -365,6 +367,40 @@ mod tests {
                 }
             })).collect::<Vec<_>>();
             for worker in workers { worker.join().unwrap(); }
+        });
+    }
+
+    #[test]
+    fn cached_prime_prefixes_and_concurrent_growth_remain_exact() {
+        let mut cache = PrimeCache::new();
+        cache.get_primes(25_000);
+        for limit in [0, 1, 2, 3, 4, 997, 1000, 10_007, 25_000] {
+            let expected: Vec<_> = (0..=limit).filter(|&number| trial_prime(number as u64)).collect();
+            assert_eq!(cache.primes_up_to(limit), expected);
+            assert_eq!(cache.get_primes(limit), expected);
+        }
+        let barrier = std::sync::Barrier::new(6);
+        std::thread::scope(|scope| {
+            for worker in 0..6 {
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    barrier.wait();
+                    for iteration in 0..32 {
+                        if worker < 2 {
+                            let limit = 30_000 + worker * 10_000 + iteration * 100;
+                            let primes = get_primes(limit);
+                            assert!(primes.iter().all(|&number| number <= limit && trial_prime(number as u64)));
+                            assert!(primes.windows(2).all(|pair| pair[0] < pair[1]));
+                        } else {
+                            let limit = iteration * 10;
+                            let expected: Vec<_> = (0..=limit).filter(|&number| trial_prime(number as u64)).collect();
+                            assert_eq!(get_primes(limit), expected);
+                            let number = 29_000 + iteration;
+                            assert_eq!(is_prime(number), trial_prime(number as u64));
+                        }
+                    }
+                });
+            }
         });
     }
 

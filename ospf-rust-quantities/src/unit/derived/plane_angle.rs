@@ -12,10 +12,10 @@ use once_cell::sync::Lazy;
 // ============================================================================
 
 // 弧度 / Radian
-define_unit!(Radian, "radian", "rad", PlaneAngle);
+define_unit!(@shared Radian, "radian", "rad", PlaneAngle);
 
 // 毫弧度 / Milliradian
-define_unit!(
+define_unit!(@shared
     Milliradian,
     "milliradian",
     "mrad",
@@ -27,10 +27,10 @@ define_unit!(
 pub static RADIAN_TO_DEGREE: Lazy<Scale> =
     Lazy::new(|| Scale::from_f64(std::f64::consts::PI) / Scale::from_int(180));
 
-define_unit!(Degree, "degree", "°", PlaneAngle, RADIAN_TO_DEGREE.clone());
+define_unit!(@shared Degree, "degree", "°", PlaneAngle, RADIAN_TO_DEGREE.clone());
 
 // 角分 / Arc minute
-define_unit!(
+define_unit!(@shared
     ArcMinute,
     "arc minute",
     "'",
@@ -39,7 +39,7 @@ define_unit!(
 );
 
 // 角秒 / Arc second
-define_unit!(
+define_unit!(@shared
     ArcSecond,
     "arc second",
     "\"",
@@ -48,7 +48,7 @@ define_unit!(
 );
 
 // 周角 / Round angle (360 degrees = 2π radians)
-define_unit!(
+define_unit!(@shared
     RoundAngle,
     "round angle",
     "round angle",
@@ -57,7 +57,7 @@ define_unit!(
 );
 
 // 直角 / Right angle (90 degrees = π/2 radians)
-define_unit!(
+define_unit!(@shared
     RightAngle,
     "right angle",
     "right angle",
@@ -66,7 +66,7 @@ define_unit!(
 );
 
 // 梯度 / Gradian (gon)
-define_unit!(
+define_unit!(@shared
     Gradian,
     "gradian",
     "gon",

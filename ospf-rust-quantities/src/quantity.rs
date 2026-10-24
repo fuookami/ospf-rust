@@ -292,7 +292,7 @@ where
     /// let rt_q: Quantity<BigDecimal, ospf_rust_quantities::unit::Unit> = ct_q.to_runtime();
     /// ```
     pub fn to_runtime(&self) -> Quantity<V, Unit> {
-        Quantity::new(self.value.clone(), U::INSTANT.clone())
+        Quantity::new(self.value.clone(), U::runtime_unit())
     }
 }
 
@@ -1337,11 +1337,19 @@ impl<V: Clone, U: CTUnit> QuantityTrait for Quantity<V, U> {
     }
 
     fn dimension_symbol(&self) -> String {
-        <U as CTUnit>::Dimension::INSTANT.symbol().to_string()
+        if let Some(dimension) = U::shared_dimension() {
+            dimension.symbol().to_string()
+        } else {
+            <U as CTUnit>::Dimension::INSTANT.symbol().to_string()
+        }
     }
 
     fn scale_value(&self) -> BigDecimal {
-        U::SCALE.value().clone()
+        if let Some(scale) = U::shared_scale() {
+            scale.value().clone()
+        } else {
+            U::SCALE.value().clone()
+        }
     }
 }
 

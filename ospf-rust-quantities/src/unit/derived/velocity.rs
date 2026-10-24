@@ -15,34 +15,34 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // SI 速度单位 / SI velocity units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     MeterPerSecond,
     "meter per second",
     "m/s",
     CTUnitDiv<Meter, Second>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     CentimeterPerSecond,
     "centimeter per second",
     "cm/s",
     CTUnitDiv<Cetimeter, Second>
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     KilometerPerSecond,
     "kilometer per second",
     "km/s",
     CTUnitDiv<Kilometer, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     KilometersPerSecond,
     "kilometers per second",
     "km/s",
     KilometerPerSecond
 );
 
-define_unit_by!(
+define_unit_by!(@shared
     KilometerPerHour,
     "kilometer per hour",
     "km/h",
@@ -54,7 +54,7 @@ define_unit_by!(
 // ============================================================================
 
 // 英寸每秒 / Inch per second
-define_unit_by!(
+define_unit_by!(@shared
     InchPerSecond,
     "inch per second",
     "ips",
@@ -62,7 +62,7 @@ define_unit_by!(
 );
 
 // 英尺每秒 / Foot per second
-define_unit_by!(
+define_unit_by!(@shared
     FootPerSecond,
     "foot per second",
     "fps",
@@ -70,7 +70,7 @@ define_unit_by!(
 );
 
 // 英里每小时 / Mile per hour
-define_unit_by!(
+define_unit_by!(@shared
     MilePerHour,
     "mile per hour",
     "mph",
@@ -82,31 +82,31 @@ define_unit_by!(
 // ============================================================================
 
 // 节 / Knot (nautical mile per hour)
-define_unit_by!(
+define_unit_by!(@shared
     Knot,
     "knot",
     "kn",
     CTUnitDiv<NauticalMile, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     FRKnot,
     "fr knot",
     "fr.kn",
     CTUnitDiv<FRNauticalMile, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     UKKnot,
     "uk knot",
     "uk.kn",
     CTUnitDiv<UKNauticalMile, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     RUKnot,
     "ru knot",
     "ru.kn",
     CTUnitDiv<RUNauticalMile, Hour>
 );
-define_unit_by!(
+define_unit_by!(@shared
     USKnot,
     "us knot",
     "us.kn",
@@ -114,10 +114,10 @@ define_unit_by!(
 );
 
 // 马赫 / Mach (speed of sound, approximately 340.3 m/s)
-define_unit!(Mach, "mach", "ma", Velocity, Scale::from_f64(340.3));
+define_unit!(@shared Mach, "mach", "ma", Velocity, Scale::from_f64(340.3));
 
 // 光速 / Light speed
-define_unit!(
+define_unit!(@shared
     LightSpeed,
     "light speed",
     "c",

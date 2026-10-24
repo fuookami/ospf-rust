@@ -12,22 +12,22 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // 催化活度单位 / Catalytic activity units
 // ============================================================================
 
-define_unit_by!(Katal, "katal", "kat", CTUnitDiv<Mole, Second>);
-define_unit!(
+define_unit_by!(@shared Katal, "katal", "kat", CTUnitDiv<Mole, Second>);
+define_unit!(@shared
     Millikatal,
     "millikatal",
     "mkat",
     CatalyticActivity,
     &*Katal::SCALE * &*MILLI
 );
-define_unit!(
+define_unit!(@shared
     Microkatal,
     "microkatal",
     "μkat",
     CatalyticActivity,
     &*Katal::SCALE * &*MICRO
 );
-define_unit!(
+define_unit!(@shared
     EnzymeUnit,
     "enzyme unit",
     "U",

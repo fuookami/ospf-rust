@@ -11,13 +11,13 @@ use crate::unit::physical_unit::CTUnit;
 // 角加速度单位 / Angular acceleration units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     RadianPerSecondSquared,
     "radian per second squared",
     "rad/s²",
     CTUnitDiv<RadianPerSecond, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     DegreePerSecondSquared,
     "degree per second squared",
     "°/s²",

@@ -11,9 +11,9 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // 电阻单位 / Resistance units
 // ============================================================================
 
-define_unit_by!(Ohm, "ohm", "Ω", CTUnitDiv<Volt, Ampere>);
-define_unit!(Kiloohm, "kiloohm", "kΩ", Resistance, &*Ohm::SCALE * &*KILO);
-define_unit!(Megaohm, "megaohm", "MΩ", Resistance, &*Ohm::SCALE * &*MEGA);
+define_unit_by!(@shared Ohm, "ohm", "Ω", CTUnitDiv<Volt, Ampere>);
+define_unit!(@shared Kiloohm, "kiloohm", "kΩ", Resistance, &*Ohm::SCALE * &*KILO);
+define_unit!(@shared Megaohm, "megaohm", "MΩ", Resistance, &*Ohm::SCALE * &*MEGA);
 
 // ============================================================================
 // 单元测试 / Unit tests

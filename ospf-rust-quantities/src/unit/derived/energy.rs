@@ -8,22 +8,22 @@ use crate::dimension::derived::Energy;
 use crate::scale::{GIGA, KILO, MEGA, Scale};
 use crate::unit::{CTUnit, CTUnitMul};
 
-define_unit_by!(Joule, "joule", "J", CTUnitMul<Newton, Meter>);
-define_unit!(
+define_unit_by!(@shared Joule, "joule", "J", CTUnitMul<Newton, Meter>);
+define_unit!(@shared
     Kilojoule,
     "kilojoule",
     "kJ",
     Energy,
     &*Joule::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     Megajoule,
     "megajoule",
     "MJ",
     Energy,
     &*Joule::SCALE * &*MEGA
 );
-define_unit!(
+define_unit!(@shared
     Gigajoule,
     "gigajoule",
     "GJ",
@@ -31,28 +31,28 @@ define_unit!(
     &*Joule::SCALE * &*GIGA
 );
 
-define_unit!(
+define_unit!(@shared
     ElectronVolt,
     "electronvolt",
     "eV",
     Energy,
     Scale::from_f64(1.602176634e-19)
 );
-define_unit!(
+define_unit!(@shared
     Kiloelectronvolt,
     "kiloelectronvolt",
     "keV",
     Energy,
     &*ElectronVolt::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     Megaelectronvolt,
     "megaelectronvolt",
     "MeV",
     Energy,
     &*ElectronVolt::SCALE * &*MEGA
 );
-define_unit!(
+define_unit!(@shared
     Gigaelectronvolt,
     "gigaelectronvolt",
     "GeV",
@@ -60,22 +60,22 @@ define_unit!(
     &*ElectronVolt::SCALE * &*GIGA
 );
 
-define_unit_by!(KilowattHour, "kilowatt-hour", "kWh", CTUnitMul<Kilowatt, Hour>);
-define_unit!(
+define_unit_by!(@shared KilowattHour, "kilowatt-hour", "kWh", CTUnitMul<Kilowatt, Hour>);
+define_unit!(@shared
     MegawattHour,
     "megawatt-hour",
     "MWh",
     Energy,
     &*KilowattHour::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     GigawattHour,
     "gigawatt-hour",
     "GWh",
     Energy,
     &*KilowattHour::SCALE * &*MEGA
 );
-define_unit!(
+define_unit!(@shared
     WattHour,
     "watt-hour",
     "Wh",
@@ -83,22 +83,22 @@ define_unit!(
     &*KilowattHour::SCALE / &*KILO
 );
 
-define_unit!(Calorie, "calorie", "cal", Energy, Scale::from_f64(4.184));
-define_unit!(
+define_unit!(@shared Calorie, "calorie", "cal", Energy, Scale::from_f64(4.184));
+define_unit!(@shared
     Kilocalorie,
     "kilocalorie",
     "kcal",
     Energy,
     &*Calorie::SCALE * &*KILO
 );
-define_unit!(
+define_unit!(@shared
     BritishThermalUnit,
     "british thermal unit",
     "BTU",
     Energy,
     Scale::from_f64(1055.06)
 );
-define_unit!(Erg, "erg", "erg", Energy, Scale::from_f64(1e-7));
+define_unit!(@shared Erg, "erg", "erg", Energy, Scale::from_f64(1e-7));
 
 // ============================================================================
 // 单元测试 / Unit tests

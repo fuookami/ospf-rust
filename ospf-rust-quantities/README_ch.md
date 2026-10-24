@@ -6,6 +6,18 @@
 
 `ospf-rust-quantities` 把 Kotlin `ospf-kotlin-quantities` 映射为 Rust 物理量、量纲和单位系统。它通过 `Quantity<V, U>` 支持编译期与运行期单位模式，并与 `ospf-rust-math` 集成以支持物理量感知的符号计算。
 
+## 单位元数据的惰性共享
+
+内置具体单位首次使用时共享不可变运行时元数据，编译时单位的 checked 转换、转换系数、`UnitTrait` 元数据访问和 `Quantity::to_runtime()` 复用该实例，不合并或重排数值运算。`CTUnit::runtime_unit()` 返回基于 `Arc` 的低成本句柄，调用方可将它保存为重复运行时换算的显式上下文。
+
+只读比例尺通过 `CTUnit::shared_scale()` 访问，共享宏定义无需为此初始化名称、量纲和偏移量。完整运行时单位另行按需构建，并复用比例尺定义。这些惰性槽在两条路径都使用时会保留比例尺副本；减少分配次数不等于减少常驻内存。已有自定义 `shared_instance()` 实现仍是默认 `shared_scale()` 的数据来源。
+
+`dimension_symbol()` 与 `dim_eq()` 通过 `CTUnit::shared_dimension()` 独立读取量纲，不初始化单位比例尺或偏移量。共享宏定义只初始化一次量纲，并与完整运行时单位共享其 `Arc`；默认访问器返回 `None`，保留关联常量行为。量纲不匹配的转换直接返回 `None`，无关比例尺即使会初始化 panic 也不触发。`unit_eq()` 复用共享比例尺，同时保留量纲、偏移量检查与普通定义的回退行为。
+
+公共关联常量 `SCALE`、`OFFSET`、`INSTANT` 保持可用；但关联 `const Lazy` 不是全局缓存，直接访问仍产生新值。自定义 `CTUnit` 及普通 `define_unit!` / `define_unit_by!` 调用保留原有逐次初始化行为。只有纯定义才应显式使用 `define_unit!(@shared MyMeter, "my meter", "mm", Length)` 或重写 `CTUnit::shared_instance()`，依赖可变状态的初始化不可直接共享。匿名泛型复合单位保持默认行为，避免不同类型参数意外共用一个普通静态变量。
+
+共享是同步惰性初始化，并发首访会等待同一初始化者；没有自动后台线程或全量预热。可在明确的准备阶段对选定热点调用 `runtime_unit()`，需要时再调用 `scale().value()` 显式预热。共享宏使用 `once_cell::sync::Lazy`，初始化 panic 后遵循其 poisoning 语义；单例存活至进程结束，不宜用于无界动态数据。
+
 ## 作用范围
 
 本 crate 拥有物理量纲、单位制、单位转换、物理量算术、编译期/运行期物理量模式和物理量感知符号 helper。

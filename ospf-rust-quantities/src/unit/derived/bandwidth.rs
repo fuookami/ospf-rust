@@ -12,61 +12,61 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // 带宽单位 / Bandwidth units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     BitPerSecond,
     "bit per second",
     "bit/s",
     CTUnitDiv<Bit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     KilobitPerSecond,
     "kilobit per second",
     "kbit/s",
     CTUnitDiv<Kilobit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     MegabitPerSecond,
     "megabit per second",
     "Mbit/s",
     CTUnitDiv<Megabit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     GigabitPerSecond,
     "gigabit per second",
     "Gbit/s",
     CTUnitDiv<Gigabit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     TerabitPerSecond,
     "terabit per second",
     "Tbit/s",
     CTUnitDiv<Terabit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     PetabitPerSecond,
     "petabit per second",
     "Pbit/s",
     CTUnitDiv<Petabit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     ExabitPerSecond,
     "exabit per second",
     "Ebit/s",
     CTUnitDiv<Exabit, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     BytePerSecond,
     "byte per second",
     "B/s",
     CTUnitDiv<Byte, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     KilobytePerSecond,
     "kilobyte per second",
     "kB/s",
     CTUnitDiv<Kilobyte, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     MegabytePerSecond,
     "megabyte per second",
     "MB/s",

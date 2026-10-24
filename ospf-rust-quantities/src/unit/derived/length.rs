@@ -10,24 +10,24 @@ use crate::unit::CTUnit;
 // SI 前缀单位 / SI prefix units
 // ============================================================================
 
-define_unit!(Meter, "meter", "m", Length);
-define_unit!(Kilometer, "kilometer", "km", Length, KILO.clone());
-define_unit!(Hectometer, "hectometer", "hm", Length, HECTO.clone());
-define_unit!(Decameter, "decameter", "dam", Length, DECA.clone());
-define_unit!(Decimeter, "decimeter", "dm", Length, DECI.clone());
-define_unit!(Cetimeter, "centimeter", "cm", Length, CENTI.clone());
-define_unit_by!(Centimeter, "centimeter", "cm", Cetimeter);
-define_unit!(Millimeter, "millimeter", "mm", Length, MILLI.clone());
-define_unit!(Micrometer, "micrometer", "μm", Length, MICRO.clone());
-define_unit!(Nanometer, "nanometer", "nm", Length, NANO.clone());
-define_unit!(Picometer, "picometer", "pm", Length, PICO.clone());
+define_unit!(@shared Meter, "meter", "m", Length);
+define_unit!(@shared Kilometer, "kilometer", "km", Length, KILO.clone());
+define_unit!(@shared Hectometer, "hectometer", "hm", Length, HECTO.clone());
+define_unit!(@shared Decameter, "decameter", "dam", Length, DECA.clone());
+define_unit!(@shared Decimeter, "decimeter", "dm", Length, DECI.clone());
+define_unit!(@shared Cetimeter, "centimeter", "cm", Length, CENTI.clone());
+define_unit_by!(@shared Centimeter, "centimeter", "cm", Cetimeter);
+define_unit!(@shared Millimeter, "millimeter", "mm", Length, MILLI.clone());
+define_unit!(@shared Micrometer, "micrometer", "μm", Length, MICRO.clone());
+define_unit!(@shared Nanometer, "nanometer", "nm", Length, NANO.clone());
+define_unit!(@shared Picometer, "picometer", "pm", Length, PICO.clone());
 
 // ============================================================================
 // 海里单位 / Nautical mile units
 // ============================================================================
 
 // 国际标准海里 / International nautical mile
-define_unit!(
+define_unit!(@shared
     NauticalMile,
     "nautical mile",
     "nmi",
@@ -36,7 +36,7 @@ define_unit!(
 );
 
 // 法国海里 / French nautical mile
-define_unit!(
+define_unit!(@shared
     FRNauticalMile,
     "french nautical mile",
     "fr.nmi",
@@ -45,7 +45,7 @@ define_unit!(
 );
 
 // 英国海里 / UK nautical mile
-define_unit!(
+define_unit!(@shared
     UKNauticalMile,
     "uk nautical mile",
     "uk.nmi",
@@ -54,7 +54,7 @@ define_unit!(
 );
 
 // 俄罗斯海里 / Russian nautical mile
-define_unit!(
+define_unit!(@shared
     RUNauticalMile,
     "russian nautical mile",
     "ru.nmi",
@@ -63,7 +63,7 @@ define_unit!(
 );
 
 // 美国海里 / US nautical mile
-define_unit!(
+define_unit!(@shared
     USNauticalMile,
     "us nautical mile",
     "us.nmi",
@@ -76,35 +76,35 @@ define_unit!(
 // ============================================================================
 
 // 英寸 / Inch
-define_unit!(Inch, "inch", "in", Length, Scale::from_f64(0.0254));
+define_unit!(@shared Inch, "inch", "in", Length, Scale::from_f64(0.0254));
 
 // 英尺 / Foot
-define_unit!(Foot, "foot", "ft", Length, Scale::from_f64(0.3048));
+define_unit!(@shared Foot, "foot", "ft", Length, Scale::from_f64(0.3048));
 
 // 码 / Yard
-define_unit!(Yard, "yard", "yd", Length, Scale::from_f64(0.9144));
+define_unit!(@shared Yard, "yard", "yd", Length, Scale::from_f64(0.9144));
 
 // 链 / Chain
-define_unit!(Chain, "chain", "ch", Length, Scale::from_f64(20.1168));
+define_unit!(@shared Chain, "chain", "ch", Length, Scale::from_f64(20.1168));
 
 // 杆 / Rod
-define_unit!(Rod, "rod", "rd", Length, Scale::from_f64(5.0292));
+define_unit!(@shared Rod, "rod", "rd", Length, Scale::from_f64(5.0292));
 
 // 英里 / Mile
-define_unit!(Mile, "mile", "mi", Length, Scale::from_f64(1609.344));
+define_unit!(@shared Mile, "mile", "mi", Length, Scale::from_f64(1609.344));
 
 // 英寻 / Fathom
-define_unit!(Fathom, "fathom", "fm", Length, Scale::from_f64(1.852));
+define_unit!(@shared Fathom, "fathom", "fm", Length, Scale::from_f64(1.852));
 
 // 链（海里单位）/ Cable
-define_unit!(Cable, "cable", "cab", Length, Scale::from_f64(185.2));
+define_unit!(@shared Cable, "cable", "cab", Length, Scale::from_f64(185.2));
 
 // ============================================================================
 // 天文单位 / Astronomical units
 // ============================================================================
 
 // 天文单位 / Astronomical unit
-define_unit!(
+define_unit!(@shared
     AstronomicalUnit,
     "astronomical unit",
     "au",
@@ -113,7 +113,7 @@ define_unit!(
 );
 
 // 光秒 / Light second
-define_unit!(
+define_unit!(@shared
     LightSecond,
     "light second",
     "lsc",
@@ -122,7 +122,7 @@ define_unit!(
 );
 
 // 光分 / Light minute
-define_unit!(
+define_unit!(@shared
     LightMinute,
     "light minute",
     "lmn",
@@ -131,7 +131,7 @@ define_unit!(
 );
 
 // 光时 / Light hour
-define_unit!(
+define_unit!(@shared
     LightHour,
     "light hour",
     "lhr",
@@ -140,7 +140,7 @@ define_unit!(
 );
 
 // 光日 / Light day
-define_unit!(
+define_unit!(@shared
     LightDay,
     "light day",
     "ldy",
@@ -149,7 +149,7 @@ define_unit!(
 );
 
 // 光年 / Light year
-define_unit!(
+define_unit!(@shared
     LightYear,
     "light year",
     "ly",
@@ -158,7 +158,7 @@ define_unit!(
 );
 
 // 秒差距 / Parsec
-define_unit!(
+define_unit!(@shared
     Parsec,
     "parsec",
     "pc",
@@ -167,7 +167,7 @@ define_unit!(
 );
 
 // 千秒差距 / Kiloparsec
-define_unit!(
+define_unit!(@shared
     Kiloparsec,
     "kiloparsec",
     "kpc",
@@ -176,7 +176,7 @@ define_unit!(
 );
 
 // 百万秒差距 / Megaparsec
-define_unit!(
+define_unit!(@shared
     Megaparsec,
     "megaparsec",
     "Mpc",
@@ -185,7 +185,7 @@ define_unit!(
 );
 
 // 十亿秒差距 / Gigaparsec
-define_unit!(
+define_unit!(@shared
     Gigaparsec,
     "gigaparsec",
     "Gpc",

@@ -10,19 +10,19 @@ use crate::unit::{CTUnit, CTUnitDiv};
 // 流量单位 / Flow rate units
 // ============================================================================
 
-define_unit_by!(
+define_unit_by!(@shared
     CubicMeterPerSecond,
     "cubic meter per second",
     "m³/s",
     CTUnitDiv<CubicMeter, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     LiterPerSecond,
     "liter per second",
     "L/s",
     CTUnitDiv<Liter, Second>
 );
-define_unit_by!(
+define_unit_by!(@shared
     LiterPerMinute,
     "liter per minute",
     "L/min",
