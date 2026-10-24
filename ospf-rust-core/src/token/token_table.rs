@@ -150,6 +150,8 @@ where
 {
     inner: VecTokenList<V>,
     next_solver_index: usize,
+    name_index: HashMap<String, usize>,
+    solver_index: HashMap<usize, usize>,
 }
 
 impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> VecTokenTable<V> {
@@ -158,6 +160,8 @@ impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> VecTokenTable<V> {
         Self {
             inner: VecTokenList::new(),
             next_solver_index: 0,
+            name_index: HashMap::new(),
+            solver_index: HashMap::new(),
         }
     }
 
@@ -166,6 +170,8 @@ impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> VecTokenTable<V> {
         Self {
             inner: VecTokenList::with_capacity(capacity),
             next_solver_index: 0,
+            name_index: HashMap::with_capacity(capacity),
+            solver_index: HashMap::with_capacity(capacity),
         }
     }
 
@@ -182,6 +188,16 @@ impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> VecTokenTable<V> {
         let (inner, next_solver_index) = snapshot.into_parts();
         self.inner.restore_state(inner);
         self.next_solver_index = next_solver_index;
+        self.rebuild_indexes();
+    }
+
+    fn rebuild_indexes(&mut self) {
+        self.name_index.clear();
+        self.solver_index.clear();
+        for (position, token) in self.inner.tokens().iter().enumerate() {
+            self.name_index.entry(token.name().to_owned()).or_insert(position);
+            self.solver_index.entry(token.solver_index).or_insert(position);
+        }
     }
 }
 
@@ -199,31 +215,63 @@ impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> TokenList<V> for VecTok
     fn find_by_id(&self, id: VariableId) -> Option<&Token<V>> {
         self.inner.find_by_id(id)
     }
+
+    fn find_by_index(&self, index: usize) -> Option<&Token<V>> {
+        self.solver_index.get(&index).map(|position| &self.inner.tokens()[*position])
+    }
+
+    fn find_by_name(&self, name: &str) -> Option<&Token<V>> {
+        self.name_index.get(name).map(|position| &self.inner.tokens()[*position])
+    }
 }
 
 impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> MutableTokenList<V> for VecTokenTable<V> {
     fn add_token(&mut self, token: Token<V>) {
         let solver_index = token.solver_index;
+        let position = self.inner.len();
+        self.name_index.entry(token.name().to_owned()).or_insert(position);
+        self.solver_index.entry(solver_index).or_insert(position);
         self.inner.add_token(token);
         self.advance_solver_index(solver_index);
     }
 
     fn try_add_tokens<I: IntoIterator<Item = Token<V>>>(&mut self, tokens: I) -> Result<()> {
         let staged = tokens.into_iter().collect::<Vec<_>>();
-        self.inner.try_add_tokens(staged.clone())?;
+        let mut ids = HashSet::with_capacity(staged.len());
+        let mut names = HashSet::with_capacity(staged.len());
+        let mut indices = HashSet::with_capacity(staged.len());
+        for token in &staged {
+            if self.find_by_id(token.id()).is_some() || !ids.insert(token.id()) {
+                return Err(VariableError::AlreadyExists(token.id()).into());
+            }
+            if self.find_by_name(token.name()).is_some() || !names.insert(token.name()) {
+                return Err(VariableError::NameConflict(token.name().to_owned()).into());
+            }
+            if token.solver_index != usize::MAX
+                && (self.find_by_index(token.solver_index).is_some() || !indices.insert(token.solver_index))
+            {
+                return Err(ModelError::InvalidConstraint(format!(
+                    "solver index {} is already assigned to another token", token.solver_index,
+                )).into());
+            }
+        }
         for token in staged {
-            self.advance_solver_index(token.solver_index);
+            self.add_token(token);
         }
         Ok(())
     }
 
     fn remove_token(&mut self, id: VariableId) -> Option<Token<V>> {
-        self.inner.remove_token(id)
+        let token = self.inner.remove_token(id)?;
+        self.rebuild_indexes();
+        Some(token)
     }
 
     fn clear(&mut self) {
         self.inner.clear();
         self.next_solver_index = 0;
+        self.name_index.clear();
+        self.solver_index.clear();
     }
 }
 
@@ -289,9 +337,9 @@ impl<V: Clone + std::fmt::Debug + Send + Sync + 'static> MutableTokenTable<V> fo
             if self.find_by_id(id).is_some() || !ids.insert(id) {
                 return Err(VariableError::AlreadyExists(id).into());
             }
-            let name = token.name().to_string();
-            if self.find_by_name(&name).is_some() || !names.insert(name.clone()) {
-                return Err(VariableError::NameConflict(name).into());
+            let name = token.name();
+            if self.find_by_name(name).is_some() || !names.insert(name) {
+                return Err(VariableError::NameConflict(name.to_owned()).into());
             }
         }
         for offset in 0..tokens.len() {
@@ -451,6 +499,104 @@ mod tests {
             VariableItem::<Continuous>::create(VariableId::standalone(id), name),
             solver_index,
         )
+    }
+
+    fn assert_lookup_indexes(table: &VecTokenTable<f64>) {
+        for token in table.tokens() {
+            let by_name = table.tokens().iter().find(|entry| entry.name() == token.name()).unwrap();
+            let by_index = table.tokens().iter().find(|entry| entry.solver_index == token.solver_index).unwrap();
+            assert!(std::ptr::eq(table.find_by_name(token.name()).unwrap(), by_name));
+            assert!(std::ptr::eq(table.find_by_index(token.solver_index).unwrap(), by_index));
+        }
+        assert!(table.find_by_name("unknown-name").is_none());
+        assert!(table.find_by_index(999_999).is_none());
+    }
+
+    #[test]
+    fn lookup_indexes_preserve_raw_first_matches_removal_snapshots_and_clear() {
+        let mut table = VecTokenTableF64::with_capacity(64);
+        for i in 0..64 {
+            table.add_token(test_token(100_000 + i, &format!("name-{}", i % 11),
+                if i % 7 == 0 { usize::MAX } else { i % 13 }));
+        }
+        assert_lookup_indexes(&table);
+        let snapshot = table.snapshot();
+        let list_snapshot = table.snapshot_state();
+        for i in 0..32 {
+            table.unregister(VariableId::standalone(100_000 + i)).unwrap();
+            assert_lookup_indexes(&table);
+        }
+        assert_lookup_indexes(&table.clone());
+        table.restore(snapshot);
+        assert_eq!(table.len(), 64);
+        assert_lookup_indexes(&table);
+        table.clear();
+        assert!(table.find_by_name("name-0").is_none());
+        assert!(table.find_by_index(usize::MAX).is_none());
+        table.restore_state(list_snapshot);
+        assert_lookup_indexes(&table);
+        let before = table.snapshot();
+        assert!(table.try_add_tokens(vec![test_token(200_000, "fresh", 100), test_token(200_001, "name-0", 101)]).is_err());
+        assert!(table.find_by_name("fresh").is_none());
+        assert_eq!(table.len(), before.len());
+        assert_eq!(table.next_solver_index, before.next_solver_index());
+        assert_lookup_indexes(&table);
+    }
+
+    #[test]
+    fn raw_batch_consumes_value_payloads_without_cloning() {
+        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+        use crate::token::{AnyVariable, TokenVariableData};
+
+        #[derive(Debug)]
+        struct CountedValue(Arc<AtomicUsize>);
+        impl Clone for CountedValue {
+            fn clone(&self) -> Self {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Self(self.0.clone())
+            }
+        }
+        let clones = Arc::new(AtomicUsize::new(0));
+        let input = (0..4).map(|i| Token::new(AnyVariable::new(TokenVariableData {
+            id: VariableId::standalone(300_000 + i), index: i, name: format!("counted-{i}"), display_name: None,
+            var_type: VariableType::Continuous, lower_bound: Some(CountedValue(clones.clone())), upper_bound: None,
+        }), i)).collect::<Vec<_>>();
+        clones.store(0, Ordering::Relaxed);
+        let mut table = VecTokenTable::new();
+        table.try_add_tokens(input).unwrap();
+        assert_eq!(clones.load(Ordering::Relaxed), 0);
+        assert_eq!(table.len(), 4);
+        assert_eq!(table.next_solver_index, 4);
+    }
+
+    #[test]
+    #[ignore = "manual release-mode token table lookup timings"]
+    fn performance_b04_token_table_lookup() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        for amount in [32, 256, 2048] {
+            let mut table = VecTokenTableF64::with_capacity(amount);
+            for i in 0..amount { table.add_token(test_token(400_000 + i, &format!("name-{i}"), i * 2)); }
+            let queries = (0..256).map(|i| { let index = i * 17 % amount; (format!("name-{index}"), index * 2) }).collect::<Vec<_>>();
+            for indexed in [false, true] {
+                let mut samples = Vec::new();
+                for _ in 0..5 {
+                    let start = Instant::now();
+                    for _ in 0..20 {
+                        for (name, index) in black_box(&queries) {
+                            let (named, numbered) = if indexed { (black_box(&table).find_by_name(name), table.find_by_index(*index)) }
+                                else { (black_box(&table).tokens().iter().find(|token| token.name() == name),
+                                    table.tokens().iter().find(|token| token.solver_index == *index)) };
+                            black_box((named.unwrap(), numbered.unwrap()));
+                        }
+                    }
+                    samples.push(start.elapsed().as_nanos() / 20);
+                }
+                samples.sort_unstable();
+                println!("P15 tokens={amount}, queries=256(name+index), indexed={indexed}: median={} ns; samples={samples:?}", samples[2]);
+            }
+        }
     }
 
     #[test]

@@ -132,11 +132,12 @@ impl Csp2dMasterSolver for Csp2dHeuristicMasterSolver {
 
     fn solve_master(&self, master: &Csp2dMasterProblem) -> Ret<Csp2dMasterSolveResult> {
         let plan_count = master.assignment.len();
+        let projection = master.assignment.coverage_projection(&master.demands);
         let mut usage = vec![0.0f64; plan_count];
         let mut guard = 0usize;
         while guard < 4096 {
             guard += 1;
-            let coverage = master.assignment.coverage(&usage, &master.demands);
+            let coverage = projection.coverage(&usage);
             let mut best: Option<(usize, f64)> = None;
             for (demand_index, demand) in master.demands.iter().enumerate() {
                 let required = demand.demand_value();
@@ -144,7 +145,7 @@ impl Csp2dMasterSolver for Csp2dHeuristicMasterSolver {
                     continue;
                 }
                 for plan_index in 0..plan_count {
-                    let coefficient = master.assignment.coverage_coefficient(plan_index, demand);
+                    let coefficient = projection.coefficient(plan_index, demand_index);
                     if coefficient <= 0.0 {
                         continue;
                     }

@@ -435,6 +435,161 @@ fn candidates() -> Vec<RecoveryActivityCandidate> {
 }
 
 #[test]
+fn persistent_recovery_prefixes_preserve_values_and_share_lazy_storage() {
+    fn thread_safe<T: Send + Sync>() {}
+    thread_safe::<FlightTaskBunch>();
+    let activities = vec![activity("F1", "A", "B", 8, 9)];
+    let pointer = activities.as_ptr();
+    let first = FlightTaskBunch::new("first".into(), aircraft(), activities).unwrap();
+    assert_eq!(first.activities().as_ptr(), pointer);
+    let second = first.append("second".into(), activity("F2", "B", "C", 10, 12)).unwrap();
+    let third = second.append("third".into(), activity("F3", "C", "D", 13, 14)).unwrap();
+    assert!(second.activities.flattened.get().is_none());
+    assert!(third.activities.flattened.get().is_none());
+    assert!(Arc::ptr_eq(third.activities.sequence.prefix.as_ref().unwrap(), &second.activities.sequence));
+    assert!(third.contains("F1"));
+    assert!(!third.contains("missing"));
+    assert_eq!(third.dep(), Some(&airport("A")));
+    assert_eq!(third.arr(), Some(&airport("D")));
+    assert_eq!(third.time(), Some((at(8, 0), at(14, 0))));
+    assert!(third.activities.flattened.get().is_none());
+    let cloned = third.clone();
+    assert!(Arc::ptr_eq(&third.activities, &cloned.activities));
+    std::thread::scope(|scope| {
+        let first = scope.spawn(|| third.activities().as_ptr() as usize);
+        let second = scope.spawn(|| cloned.activities().as_ptr() as usize);
+        assert_eq!(first.join().unwrap(), second.join().unwrap());
+    });
+    let expected = FlightTaskBunch::new("third".into(), aircraft(), vec![
+        activity("F1", "A", "B", 8, 9), activity("F2", "B", "C", 10, 12), activity("F3", "C", "D", 13, 14),
+    ]).unwrap();
+    assert_eq!(format!("{third:?}"), format!("{expected:?}"));
+    assert_eq!(third.activities().as_ptr(), cloned.activities().as_ptr());
+    assert_eq!(third.activities().len(), 3);
+    assert!(std::ptr::eq(third.recovery("F1").unwrap(), &third.activities()[0]));
+    assert_eq!(first.activities().len(), 1);
+    assert_eq!(second.activities().len(), 2);
+    let prefix_view = Arc::downgrade(&second.activities);
+    drop(second);
+    assert!(prefix_view.upgrade().is_none());
+    assert_eq!(third.activities().len(), 3);
+    assert_eq!(third.flight_hour().hours, expected.flight_hour().hours);
+    assert_eq!(third.flight_cycle(), expected.flight_cycle());
+    assert!(third.consecutive("F1", "F2"));
+    assert!(!third.consecutive("F1", "F3"));
+
+    for candidate in [activity("F1", "B", "C", 10, 12), activity("F2", "X", "C", 10, 12), activity("F2", "B", "C", 8, 12)] {
+        let mut all = first.activities().to_vec();
+        all.push(candidate.clone());
+        let expected = FlightTaskBunch::new("bad".into(), aircraft(), all).unwrap_err();
+        assert_eq!(first.append("bad".into(), candidate).unwrap_err(), expected);
+    }
+    let mut other_aircraft = aircraft();
+    other_aircraft.reg_no.0.push('X');
+    let candidate = activity("F2", "B", "C", 10, 12);
+    let mismatch = FlightTaskRecovery::new(candidate.original().clone(), other_aircraft, candidate.route().clone(), candidate.time()).unwrap();
+    assert!(matches!(first.append("bad".into(), mismatch), Err(RecoveryError::AircraftMismatch(_))));
+    let empty = FlightTaskBunch::new("idle".into(), aircraft(), vec![]).unwrap();
+    let appended = empty.append("first".into(), activity("F1", "A", "B", 8, 9)).unwrap();
+    assert_eq!(appended.dep(), first.dep());
+    assert_eq!(appended.arr(), first.arr());
+}
+
+#[test]
+fn long_shared_prefix_chains_drop_without_recursive_ownership_release() {
+    let mut sequence = Arc::new(RecoverySequence { prefix: None, entries: Vec::new(), length: 0 });
+    for _ in 0..100_000 {
+        sequence = Arc::new(RecoverySequence { prefix: Some(sequence), entries: Vec::new(), length: 0 });
+    }
+    drop(sequence);
+}
+
+#[test]
+fn recovery_prefix_search_matches_full_copy_reference_with_budgets_and_policies() {
+    use crate::framework::demo4::domain::bunch_generation::recovery::tests::generate_reference;
+    use crate::framework::demo4::domain::rule::service::{DefaultRecoveryTransitionPolicy, RecoveryTransitionPolicy};
+
+    struct Reward;
+    impl RecoveryCostPolicy for Reward {
+        fn activity_cost(&self, activity: &FlightTaskRecovery) -> Result<f64, RecoveryError> {
+            CostCalculator.activity_cost(activity)
+        }
+        fn terminal_cost(&self, bunch: &FlightTaskBunch) -> Result<f64, RecoveryError> {
+            Ok(if bunch.activities().len() >= 2 { -700.0 } else { 0.0 })
+        }
+    }
+    struct NoSecond;
+    impl RecoveryTransitionPolicy for NoSecond {
+        fn allows(&self, _: &Aircraft, _: Option<&FlightTaskRecovery>, activity: &FlightTaskRecovery) -> Result<bool, RecoveryError> {
+            Ok(activity.original().plan.id != "F2")
+        }
+    }
+    let aircraft = aircraft();
+    let usable = usability();
+    let mut candidates = candidates();
+    candidates.push(RecoveryActivityCandidate { id: "F1:alternative".into(), recovery: activity("F1", "B", "C", 13, 14) });
+    candidates.push(RecoveryActivityCandidate { id: "末段:F3".into(), recovery: activity("F3", "C", "A", 15, 16) });
+    for policy in [&DefaultRecoveryTransitionPolicy as &dyn RecoveryTransitionPolicy, &NoSecond] {
+        for maximum_results in [None, Some(0), Some(1), Some(3)] {
+            let request = RecoveryPathRequest { aircraft: &aircraft, candidates: &candidates,
+                rules: BunchRecoveryRules { usability: &usable, previous: None, links: &[] },
+                cost: &Reward, scope: scope(), maximum_results };
+            for maximum_labels in [None, Some(0), Some(1), Some(5), Some(50)] {
+                for maximum_labels_per_node in [None, Some(1)] {
+                    let budget = PathSearchBudget { maximum_labels, maximum_labels_per_node, interrupted: None };
+                    let actual = RecoveryBunchGenerationContext.generate_with_policy(&request, &budget,
+                        |bunch| bunch.activities().len() != 1, policy).unwrap();
+                    let reference = generate_reference(&request, &budget, |bunch| bunch.activities().len() != 1, policy).unwrap();
+                    assert_eq!(format!("{actual:?}"), format!("{reference:?}"));
+                }
+            }
+        }
+    }
+    for limit in [0, 1, 4, 16, 100] {
+        let request = RecoveryPathRequest { aircraft: &aircraft, candidates: &candidates,
+            rules: BunchRecoveryRules { usability: &usable, previous: None, links: &[] },
+            cost: &Reward, scope: scope(), maximum_results: None };
+        let actual_calls = std::cell::Cell::new(0);
+        let reference_calls = std::cell::Cell::new(0);
+        let actual_interrupt = || { actual_calls.set(actual_calls.get() + 1); actual_calls.get() > limit };
+        let reference_interrupt = || { reference_calls.set(reference_calls.get() + 1); reference_calls.get() > limit };
+        let actual = RecoveryBunchGenerationContext.generate(&request,
+            &PathSearchBudget { interrupted: Some(&actual_interrupt), ..Default::default() }).unwrap();
+        let reference = generate_reference(&request,
+            &PathSearchBudget { interrupted: Some(&reference_interrupt), ..Default::default() }, |_| true, &DefaultRecoveryTransitionPolicy).unwrap();
+        assert_eq!(actual_calls.get(), reference_calls.get());
+        assert_eq!(format!("{actual:?}"), format!("{reference:?}"));
+    }
+}
+
+#[test]
+#[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+fn performance_b08_recovery_path_prefixes() {
+    use std::hint::black_box;
+    use std::time::Instant;
+    for count in [6, 9, 12] {
+        let aircraft = aircraft();
+        let usable = usability();
+        let candidates = (0..count).map(|index| RecoveryActivityCandidate {
+            id: format!("candidate-{index}"), recovery: activity(&format!("F{index}"), "A", "A", 8 + 2 * index, 9 + 2 * index),
+        }).collect::<Vec<_>>();
+        let request = RecoveryPathRequest { aircraft: &aircraft, candidates: &candidates,
+            rules: BunchRecoveryRules { usability: &usable, previous: None, links: &[] },
+            cost: &CostCalculator, scope: scope(), maximum_results: None };
+        for sample in 0..5 {
+            let start = Instant::now();
+            let generated = RecoveryBunchGenerationContext.generate(black_box(&request), &PathSearchBudget::default()).unwrap();
+            let elapsed = start.elapsed();
+            assert_eq!(generated.search.diagnostics.total_results, 1 << count);
+            assert_eq!(generated.batch.completion, ColumnGenerationCompletion::Exhausted);
+            black_box(&generated);
+            println!("recovery_prefixes activities={count} paths={} labels={} sample={sample} elapsed={elapsed:?}",
+                generated.batch.columns.len(), generated.search.labels.len());
+        }
+    }
+}
+
+#[test]
 fn shared_path_bridge_preserves_records_trace_and_effective_link_rules() {
     let aircraft = aircraft();
     let usable = usability();

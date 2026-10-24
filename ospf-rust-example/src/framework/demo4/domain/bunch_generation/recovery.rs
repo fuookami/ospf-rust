@@ -84,38 +84,7 @@ impl RecoveryBunchGenerationContext {
         C: RecoveryCostPolicy,
         F: Fn(&FlightTaskBunch) -> bool,
     {
-        let mut ids = HashSet::new();
-        if request.aircraft.reg_no.0.is_empty() || request.scope.groups != [request.aircraft.reg_no.0.clone()].into()
-            || !request.scope.executor_slots.is_empty()
-        {
-            return Err(NetworkSchedulingError::validation("recovery path scope must describe exactly one unslotted aircraft"));
-        }
-        let mut nodes = vec![NetworkNode::new("source", None), NetworkNode::new("sink", None)];
-        let mut arcs = vec![NetworkArc::new("idle", "source", "sink", ())];
-        for candidate in request.candidates {
-            if candidate.id.is_empty() || !ids.insert(candidate.id.as_str()) {
-                return Err(NetworkSchedulingError::validation(format!("empty or duplicate recovery candidate {}", candidate.id)));
-            }
-            if !candidate.recovery.aircraft().same_configuration(request.aircraft) {
-                return Err(NetworkSchedulingError::validation(format!("recovery aircraft mismatch {}", candidate.id)));
-            }
-            let id = format!("activity:{}", candidate.id);
-            nodes.push(NetworkNode::new(id.clone(), Some(candidate.clone())));
-            arcs.push(NetworkArc::new(format!("start:{}", candidate.id), "source", id.clone(), ()));
-            arcs.push(NetworkArc::new(format!("finish:{}", candidate.id), id, "sink", ()));
-        }
-        for from in request.candidates {
-            for to in request.candidates {
-                if from.id != to.id && from.recovery.route().arr == to.recovery.route().dep
-                    && from.recovery.time().1 <= to.recovery.time().0
-                {
-                    // 序号而非用户字符串拼接形成弧身份，避免分隔符碰撞。 / Use ordinal arc identities to avoid delimiter collisions in user IDs.
-                    arcs.push(NetworkArc::new(format!("connection:{}", arcs.len()),
-                        format!("activity:{}", from.id), format!("activity:{}", to.id), ()));
-                }
-            }
-        }
-        let graph = NetworkGraph::new(nodes, arcs)?;
+        let graph = recovery_graph(request)?;
         let mut problem = PathProblem::new(&graph, RecoveryPathPolicy { request, accepts: &accepts, transition: policy });
         problem.starts = vec!["source".into()];
         problem.terminals = ["sink".into()].into();
@@ -133,19 +102,54 @@ impl RecoveryBunchGenerationContext {
     }
 }
 
+fn recovery_graph<'a, C>(request: &RecoveryPathRequest<'a, C>) -> Result<NetworkGraph<Option<&'a RecoveryActivityCandidate>, ()>> {
+    let mut ids = HashSet::new();
+    if request.aircraft.reg_no.0.is_empty() || request.scope.groups != [request.aircraft.reg_no.0.clone()].into()
+        || !request.scope.executor_slots.is_empty()
+    {
+        return Err(NetworkSchedulingError::validation("recovery path scope must describe exactly one unslotted aircraft"));
+    }
+    let mut nodes = vec![NetworkNode::new("source", None), NetworkNode::new("sink", None)];
+    let mut arcs = vec![NetworkArc::new("idle", "source", "sink", ())];
+    for candidate in request.candidates {
+        if candidate.id.is_empty() || !ids.insert(candidate.id.as_str()) {
+            return Err(NetworkSchedulingError::validation(format!("empty or duplicate recovery candidate {}", candidate.id)));
+        }
+        if !candidate.recovery.aircraft().same_configuration(request.aircraft) {
+            return Err(NetworkSchedulingError::validation(format!("recovery aircraft mismatch {}", candidate.id)));
+        }
+        let id = format!("activity:{}", candidate.id);
+        nodes.push(NetworkNode::new(id.clone(), Some(candidate)));
+        arcs.push(NetworkArc::new(format!("start:{}", candidate.id), "source", id.clone(), ()));
+        arcs.push(NetworkArc::new(format!("finish:{}", candidate.id), id, "sink", ()));
+    }
+    for from in request.candidates {
+        for to in request.candidates {
+            if from.id != to.id && from.recovery.route().arr == to.recovery.route().dep
+                && from.recovery.time().1 <= to.recovery.time().0
+            {
+                // 序号而非用户字符串拼接形成弧身份，避免分隔符碰撞。 / Use ordinal arc identities to avoid delimiter collisions in user IDs.
+                arcs.push(NetworkArc::new(format!("connection:{}", arcs.len()),
+                    format!("activity:{}", from.id), format!("activity:{}", to.id), ()));
+            }
+        }
+    }
+    NetworkGraph::new(nodes, arcs)
+}
+
 struct RecoveryPathPolicy<'a, 'b, C, F> {
     request: &'a RecoveryPathRequest<'b, C>,
     accepts: &'a F,
     transition: &'a dyn RecoveryTransitionPolicy,
 }
 
-impl<C, F> PathPolicy<Option<RecoveryActivityCandidate>, (), RecoveryBunchCandidate>
+impl<'c, C, F> PathPolicy<Option<&'c RecoveryActivityCandidate>, (), RecoveryBunchCandidate>
     for RecoveryPathPolicy<'_, '_, C, F>
 where
     C: RecoveryCostPolicy,
     F: Fn(&FlightTaskBunch) -> bool,
 {
-    fn start(&self, _: &NetworkNode<Option<RecoveryActivityCandidate>>) -> Result<Option<RecoveryBunchCandidate>> {
+    fn start(&self, _: &NetworkNode<Option<&'c RecoveryActivityCandidate>>) -> Result<Option<RecoveryBunchCandidate>> {
         let bunch = FlightTaskBunch::new("idle".into(), self.request.aircraft.clone(), Vec::new())
             .map_err(NetworkSchedulingError::dependency)?;
         Ok(Some(RecoveryBunchCandidate { bunch, cost: 0.0 }))
@@ -155,20 +159,17 @@ where
         &self,
         state: &RecoveryBunchCandidate,
         _: &NetworkArc<()>,
-        destination: &NetworkNode<Option<RecoveryActivityCandidate>>,
+        destination: &NetworkNode<Option<&'c RecoveryActivityCandidate>>,
     ) -> Result<Option<RecoveryBunchCandidate>> {
         let Some(candidate) = &destination.payload else { return Ok(Some(state.clone())); };
         if state.bunch.contains(&candidate.recovery.original().plan.id) { return Ok(None); }
-        let mut activities = state.bunch.activities().to_vec();
-        activities.push(candidate.recovery.clone());
-        let id = format!("{}:{}", state.bunch.id(), candidate.id.len());
-        let id = format!("{id}:{}", candidate.id);
-        let bunch = FlightTaskBunch::new(id, self.request.aircraft.clone(), activities)
+        let id = format!("{}:{}:{}", state.bunch.id(), candidate.id.len(), candidate.id);
+        let bunch = state.bunch.append(id, candidate.recovery.clone())
             .map_err(NetworkSchedulingError::dependency)?;
         Ok(Some(RecoveryBunchCandidate { bunch, cost: 0.0 }))
     }
 
-    fn finish(&self, trace: &PathTrace<'_, Option<RecoveryActivityCandidate>, (), RecoveryBunchCandidate>) -> Result<Option<RecoveryBunchCandidate>> {
+    fn finish(&self, trace: &PathTrace<'_, Option<&'c RecoveryActivityCandidate>, (), RecoveryBunchCandidate>) -> Result<Option<RecoveryBunchCandidate>> {
         let Some(state) = trace.states.last() else { return Ok(None); };
         if !(self.accepts)(&state.bunch) || !FeasibilityJudger.judge_bunch_with_policy(&state.bunch, &self.request.rules, self.transition)
             .map_err(NetworkSchedulingError::dependency)?.feasible
@@ -182,7 +183,7 @@ where
 
     fn validate(
         &self,
-        trace: &PathTrace<'_, Option<RecoveryActivityCandidate>, (), RecoveryBunchCandidate>,
+        trace: &PathTrace<'_, Option<&'c RecoveryActivityCandidate>, (), RecoveryBunchCandidate>,
         finished: &RecoveryBunchCandidate,
     ) -> Result<bool> {
         let activities = trace.nodes.iter().filter_map(|node| node.payload.as_ref())
@@ -198,5 +199,75 @@ where
 
     fn compare(&self, left: &RecoveryBunchCandidate, right: &RecoveryBunchCandidate) -> Ordering {
         left.cost.total_cmp(&right.cost).then_with(|| left.bunch.id().cmp(right.bunch.id()))
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    struct LegacyPolicy<'a, 'b, C, F>(RecoveryPathPolicy<'a, 'b, C, F>);
+
+    impl<'c, C, F> PathPolicy<Option<&'c RecoveryActivityCandidate>, (), RecoveryBunchCandidate> for LegacyPolicy<'_, '_, C, F>
+    where
+        C: RecoveryCostPolicy,
+        F: Fn(&FlightTaskBunch) -> bool,
+    {
+        fn start(&self, node: &NetworkNode<Option<&'c RecoveryActivityCandidate>>) -> Result<Option<RecoveryBunchCandidate>> {
+            self.0.start(node)
+        }
+
+        fn extend(
+            &self,
+            state: &RecoveryBunchCandidate,
+            _: &NetworkArc<()>,
+            destination: &NetworkNode<Option<&'c RecoveryActivityCandidate>>,
+        ) -> Result<Option<RecoveryBunchCandidate>> {
+            let Some(candidate) = &destination.payload else { return Ok(Some(state.clone())); };
+            if state.bunch.contains(&candidate.recovery.original().plan.id) { return Ok(None); }
+            let mut activities = state.bunch.activities().to_vec();
+            activities.push(candidate.recovery.clone());
+            let id = format!("{}:{}:{}", state.bunch.id(), candidate.id.len(), candidate.id);
+            let bunch = FlightTaskBunch::new(id, self.0.request.aircraft.clone(), activities)
+                .map_err(NetworkSchedulingError::dependency)?;
+            Ok(Some(RecoveryBunchCandidate { bunch, cost: 0.0 }))
+        }
+
+        fn finish(&self, trace: &PathTrace<'_, Option<&'c RecoveryActivityCandidate>, (), RecoveryBunchCandidate>) -> Result<Option<RecoveryBunchCandidate>> {
+            self.0.finish(trace)
+        }
+
+        fn validate(
+            &self,
+            trace: &PathTrace<'_, Option<&'c RecoveryActivityCandidate>, (), RecoveryBunchCandidate>,
+            finished: &RecoveryBunchCandidate,
+        ) -> Result<bool> {
+            self.0.validate(trace, finished)
+        }
+
+        fn compare(&self, left: &RecoveryBunchCandidate, right: &RecoveryBunchCandidate) -> Ordering {
+            left.cost.total_cmp(&right.cost).then_with(|| left.bunch.id().cmp(right.bunch.id()))
+        }
+    }
+
+    pub(crate) fn generate_reference<C, F>(
+        request: &RecoveryPathRequest<'_, C>,
+        budget: &PathSearchBudget<'_>,
+        accepts: F,
+        transition: &dyn RecoveryTransitionPolicy,
+    ) -> Result<NetworkBunchGenerationResult<RecoveryBunchCandidate, RecoveryBunchCandidate>>
+    where
+        C: RecoveryCostPolicy,
+        F: Fn(&FlightTaskBunch) -> bool,
+    {
+        let graph = recovery_graph(request)?;
+        let mut problem = PathProblem::new(&graph, LegacyPolicy(RecoveryPathPolicy { request, accepts: &accepts, transition }));
+        problem.starts = vec!["source".into()];
+        problem.terminals = ["sink".into()].into();
+        problem.options.maximum_results = request.maximum_results;
+        let mut result = NetworkBunchGenerationContext::default().generate(&problem, budget, request.scope.clone(),
+            |path, _| Ok(Some(path.state.clone())), |_| Ok(false))?;
+        result.batch.no_improving_columns = None;
+        Ok(result)
     }
 }

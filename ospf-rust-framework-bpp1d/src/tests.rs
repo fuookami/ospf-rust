@@ -28,6 +28,99 @@ fn pattern(amounts: &[(&str, u64)]) -> PackingPattern {
 }
 
 #[test]
+fn performance_b10_pattern_reference_preserves_order_budgets_and_policy_errors() {
+    struct RecordingPolicy {
+        calls: std::cell::RefCell<Vec<PackingPattern>>,
+        fail_at: usize,
+    }
+    impl PatternPolicy for RecordingPolicy {
+        fn accept(&self, pattern: &PackingPattern) -> Result<bool> {
+            let mut calls = self.calls.borrow_mut();
+            calls.push(pattern.clone());
+            if calls.len() == self.fail_at {
+                return Err(ModelError::InvalidConstraint("recorded failure".into()).into());
+            }
+            Ok(pattern.amounts.values().sum::<u64>() % 2 == 1)
+        }
+    }
+    for case in 0..12 {
+        let mut input = problem();
+        input.spacing.value = (case % 3) as f64 * 0.5;
+        input.items[0].amount = (case % 4) as u64;
+        input.items[1].id = "中文-β".into();
+        for index in 0..case % 4 {
+            input.items.push(Item { id: format!("extra_{index}"), amount: (index + 1) as u64,
+                length: Quantity::new_ct(1.0), ..input.items[1].clone() });
+        }
+        input.bin_types[0].length.value = 3.0 + case as f64;
+        let mut other = input.bin_types[0].clone();
+        other.id = "other".into();
+        other.inventory = Some(if case % 2 == 0 { 0 } else { 1 });
+        input.bin_types.push(other);
+        if case == 11 { input.items.clear(); }
+        let packing = PackingContext::new(input, &SameUnitPackingValueAdapter, &SameUnitPackingValueAdapter).unwrap();
+        for max_nodes in [0, 1, 2, 3, 7, 16, 1000] {
+            for max_patterns in [0, 1, 2, 1000] {
+                for fail_at in [1, 3, usize::MAX] {
+                    let make_policy = || RecordingPolicy { calls: Default::default(), fail_at };
+                    let expected_policy = make_policy();
+                    let actual_policy = make_policy();
+                    let config = PatternGenerationConfig { max_patterns, max_nodes };
+                    let expected = packing.generate_patterns_reference(config, &expected_policy);
+                    let actual = packing.generate_patterns(config, &actual_policy);
+                    assert_eq!(format!("{actual:?}"), format!("{expected:?}"), "case={case}");
+                    assert_eq!(*actual_policy.calls.borrow(), *expected_policy.calls.borrow());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn pattern_generation_keeps_checked_arithmetic_before_skip_branch() {
+    let mut input = problem();
+    input.items[0].length.value = f64::MAX;
+    input.items[0].weight.value = 0.0;
+    input.items[1].length.value = f64::MAX;
+    input.items[1].weight.value = 0.0;
+    input.bin_types[0].length.value = f64::MAX;
+    input.spacing.value = 0.0;
+    let packing = PackingContext::new(input, &SameUnitPackingValueAdapter, &SameUnitPackingValueAdapter).unwrap();
+    for max_nodes in 1..16 {
+        let config = PatternGenerationConfig { max_nodes, max_patterns: 100 };
+        assert_eq!(format!("{:?}", packing.generate_patterns(config, &AcceptAllPatterns)),
+            format!("{:?}", packing.generate_patterns_reference(config, &AcceptAllPatterns)));
+    }
+}
+
+#[test]
+#[ignore = "manual release timing; run with --ignored --nocapture --test-threads=1"]
+fn performance_b10_pattern_generation() {
+    for count in [4, 8, 12] {
+        let mut input = problem();
+        let item = input.items[0].clone();
+        input.items = (0..count).map(|i| Item { id: format!("item_{i:03}_long_business_id"),
+            length: Quantity::new_ct(1.0), weight: Quantity::new_ct(1.0), amount: 2, ..item.clone() }).collect();
+        input.bin_types[0].length.value = 12.0;
+        input.bin_types[0].max_weight.value = 12.0;
+        input.spacing.value = 0.0;
+        let packing = PackingContext::new(input, &SameUnitPackingValueAdapter, &SameUnitPackingValueAdapter).unwrap();
+        let config = PatternGenerationConfig { max_patterns: 100_000, max_nodes: 200_000 };
+        for sample in 0..5 {
+            for reference in if sample % 2 == 0 { [true, false] } else { [false, true] } {
+                let started = std::time::Instant::now();
+                let result = if reference { packing.generate_patterns_reference(std::hint::black_box(config), &AcceptAllPatterns) }
+                    else { packing.generate_patterns(std::hint::black_box(config), &AcceptAllPatterns) }.unwrap();
+                let elapsed = started.elapsed();
+                eprintln!("pattern_generation count={count} reference={reference} sample={sample} elapsed={elapsed:?} nodes={} patterns={} complete={}",
+                    result.visited_nodes, result.patterns.len(), result.complete);
+                std::hint::black_box(result);
+            }
+        }
+    }
+}
+
+#[test]
 fn spacing_has_no_trailing_gap_and_patterns_keep_identity() {
     let packing = context();
     packing.validate_pattern(&pattern(&[("a", 1), ("b", 1)])).unwrap();

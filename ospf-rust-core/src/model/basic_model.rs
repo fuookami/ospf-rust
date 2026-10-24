@@ -285,6 +285,19 @@ where
         V: IntoValue<f64>,
         VT::Value: IntoValue<V>,
     {
+        let index = self.add_variable_unbound(variable)?;
+        self.rebind_contexts();
+        Ok(index)
+    }
+
+    fn add_variable_unbound<VT: VariableTypeTrait>(
+        &mut self,
+        variable: VariableItem<VT>,
+    ) -> Result<usize>
+    where
+        V: IntoValue<f64>,
+        VT::Value: IntoValue<V>,
+    {
         let var_id = variable.id();
         let range = variable.range();
         let lower_bound = range
@@ -305,9 +318,7 @@ where
             upper_bound,
         };
         let any_var = AnyVariable::new(var_data);
-        let idx = self.push_token(Token::new(any_var, self.tokens.len()))?;
-        self.rebind_contexts();
-        Ok(idx)
+        self.push_token(Token::new(any_var, self.tokens.len()))
     }
 
     /// 批量添加变量 / Add variables
@@ -322,8 +333,9 @@ where
         self.transaction(|model| {
             let mut indices = Vec::new();
             for var in variables {
-                indices.push(model.add_variable(var)?);
+                indices.push(model.add_variable_unbound(var)?);
             }
+            if !indices.is_empty() { model.rebind_contexts(); }
             Ok(indices)
         })
     }
@@ -355,10 +367,19 @@ where
     where
         VT::Value: IntoValue<V>,
     {
-        let token = Token::from_generic(variable, self.tokens.len());
-        let idx = self.push_token(token)?;
+        let idx = self.register_variable_unbound(variable)?;
         self.rebind_contexts();
         Ok(idx)
+    }
+
+    fn register_variable_unbound<VT: VariableTypeTrait>(
+        &mut self,
+        variable: VariableItem<VT>,
+    ) -> Result<usize>
+    where
+        VT::Value: IntoValue<V>,
+    {
+        self.push_token(Token::from_generic(variable, self.tokens.len()))
     }
 
     /// 在原数值域注册变量数据，保留身份、类型和精确范围。
@@ -407,8 +428,9 @@ where
         self.transaction(|model| {
             let mut indices = Vec::new();
             for var in variables {
-                indices.push(model.register_variable(var)?);
+                indices.push(model.register_variable_unbound(var)?);
             }
+            if !indices.is_empty() { model.rebind_contexts(); }
             Ok(indices)
         })
     }
@@ -418,7 +440,8 @@ where
         self.transaction(|model| model.add_symbol_inner(symbol))
     }
 
-    fn add_symbol_inner(&mut self, symbol: Arc<dyn IntermediateSymbol<V>>) -> Result<()> {
+    // 仅用于已有外层事务的路径，仍逐符号发布辅助令牌上下文。 / Only use under an outer transaction; auxiliary-token contexts are still published per symbol.
+    pub(crate) fn add_symbol_inner(&mut self, symbol: Arc<dyn IntermediateSymbol<V>>) -> Result<()> {
         let symbol_id = symbol.id().id;
         if self.symbols.iter().any(|s| s.id().id == symbol_id) {
             return Err(ModelError::ConstraintConflict(format!(
@@ -516,7 +539,7 @@ where
     {
         self.transaction(|model| {
             for symbol in combination.iter_arc() {
-                model.add_symbol(symbol)?;
+                model.add_symbol_inner(symbol)?;
             }
             Ok(())
         })
@@ -551,8 +574,11 @@ where
         }
 
         self.transaction(|model| {
-            model.add_symbol(symbol)?;
-            model.add_symbol_dependencies(symbol_id, dependency_ids)
+            model.add_symbol_inner(symbol)?;
+            for dependency_id in dependency_ids {
+                model.add_symbol_dependency(symbol_id, dependency_id)?;
+            }
+            Ok(())
         })
     }
 
@@ -932,9 +958,115 @@ mod tests {
     use ospf_rust_math::symbol::{DynSymbol, Symbol, SymbolDynId};
 
     use crate::symbol::{Category, IntermediateSymbol, IntermediateSymbolId};
+    use crate::token::TokenList;
     use crate::variable::{Binary, Continuous, VariableRange};
 
     use super::BasicModel;
+
+    #[test]
+    fn batch_variable_paths_rebind_all_contexts_and_roll_back_duplicate_ids() {
+        use crate::variable::ContinuousVariableItem;
+
+        for compatibility in [false, true] {
+            let mut model = BasicModel::<f64>::new("batch-contexts");
+            let existing = ContinuousVariableItem::auto("existing");
+            model.register_variable(existing.clone()).unwrap();
+            model.set_solution_by_solver_order(&[3.0]);
+            let variables = (0..4).map(|i| ContinuousVariableItem::auto(&format!("batch-{i}"))).collect::<Vec<_>>();
+            let indices = if compatibility { model.add_variables(variables.clone()) }
+                else { model.register_variables(variables.clone()) }.unwrap();
+            assert_eq!(indices, vec![1, 2, 3, 4]);
+            let assert_bindings = |model: &BasicModel| {
+                for list in [model.flatten_ctx.token_list_ref().unwrap(), model.value_cache_ctx.token_list_ref().unwrap(),
+                    model.range_cache_ctx.token_list_ref().unwrap()]
+                {
+                    assert_eq!(list.tokens().len(), model.num_tokens());
+                    for (index, token) in model.tokens().iter().enumerate() {
+                        assert_eq!(list.find_by_id(token.id()).unwrap().solver_index, index);
+                    }
+                }
+            };
+            assert_bindings(&model);
+            let failed = ContinuousVariableItem::auto("duplicate");
+            let result = if compatibility { model.add_variables(vec![failed.clone(), failed.clone()]) }
+                else { model.register_variables(vec![failed.clone(), failed.clone()]) };
+            assert!(result.is_err());
+            assert!(model.find_token(failed.id()).is_none());
+            assert_eq!(model.num_tokens(), 5);
+            assert_eq!(model.find_token(existing.id()).unwrap().get_result(), Some(3.0));
+            assert_bindings(&model);
+            let result = if compatibility { model.add_variables(Vec::<ContinuousVariableItem>::new()) }
+                else { model.register_variables(Vec::<ContinuousVariableItem>::new()) }.unwrap();
+            assert!(result.is_empty());
+            assert_bindings(&model);
+        }
+    }
+
+    #[test]
+    fn batch_variable_paths_preserve_bigdecimal_bounds_and_nested_rollback() {
+        use bigdecimal::BigDecimal;
+        use crate::error::{ModelError, Result};
+        use crate::variable::ContinuousVariableItem;
+
+        {
+            let mut model = BasicModel::<BigDecimal>::new("batch-exact-bounds");
+            let variables = (0..4).map(|i| ContinuousVariableItem::auto_with_range(&format!("batch-{i}"),
+                VariableRange::bounded(-2.0, 7.0))).collect::<Vec<_>>();
+            let indices = model.register_variables(variables.clone()).unwrap();
+            assert_eq!(indices, vec![0, 1, 2, 3]);
+            for token in model.tokens() {
+                assert_eq!(token.range().lower_bound, Some(BigDecimal::from(-2)));
+                assert_eq!(token.range().upper_bound, Some(BigDecimal::from(7)));
+            }
+            let next = ContinuousVariableItem::auto("nested");
+            let result: Result<()> = model.transaction(|model| {
+                model.register_variables(vec![next.clone()])?;
+                Err(ModelError::InvalidConstraint("injected rollback".into()).into())
+            });
+            assert!(result.is_err());
+            assert!(model.find_token(next.id()).is_none());
+            assert_eq!(model.flatten_ctx.token_list_ref().unwrap().tokens().len(), 4);
+        }
+    }
+
+    #[test]
+    #[ignore = "manual release-mode batch registration timings"]
+    fn performance_b03_batch_registration() {
+        use std::hint::black_box;
+        use std::time::Instant;
+        use crate::error::Result;
+        use crate::variable::ContinuousVariableItem;
+
+        macro_rules! measure {
+            ($value:ty) => {
+                for amount in [32, 128, 512] {
+                    let variables = (0..amount).map(|i| ContinuousVariableItem::auto(&format!("batch-{i}"))).collect::<Vec<_>>();
+                    for batched in [false, true] {
+                        let mut samples = Vec::new();
+                        for _ in 0..5 {
+                            let mut model = BasicModel::<$value>::new("batch-registration-timing");
+                            model.register_variables((0..128).map(|i| ContinuousVariableItem::auto(&format!("existing-{i}")))).unwrap();
+                            let input = variables.clone();
+                            let start = Instant::now();
+                            let result = if batched { model.register_variables(black_box(input)) } else {
+                                model.transaction(|model| -> Result<Vec<usize>> {
+                                    input.into_iter().map(|variable| model.register_variable(variable)).collect()
+                                })
+                            }.unwrap();
+                            black_box(result);
+                            samples.push(start.elapsed().as_nanos());
+                            assert_eq!(model.num_tokens(), amount + 128);
+                        }
+                        samples.sort_unstable();
+                        println!("P01 {}, amount={amount}, batched={batched}: median={} ns; samples={samples:?}",
+                            stringify!($value), samples[2]);
+                    }
+                }
+            };
+        }
+        measure!(f64);
+        measure!(bigdecimal::BigDecimal);
+    }
 
     #[derive(Debug, Clone)]
     struct CountingSymbol {

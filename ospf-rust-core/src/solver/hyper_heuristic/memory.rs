@@ -108,6 +108,15 @@ impl<O: ObjectiveComponents, V: HeuristicValue> SearchMemory<O, V> {
         candidates: &[Individual<O, V>],
     ) -> (bool, f64) {
         let merged = self.merged(problem, reference, candidates);
+        Self::merged_contribution(problem, reference, &merged, candidates.len())
+    }
+
+    fn merged_contribution(
+        problem: &dyn SearchProblem<O, V>,
+        reference: &[Individual<O, V>],
+        merged: &[Individual<O, V>],
+        candidate_count: usize,
+    ) -> (bool, f64) {
         let novel = if problem.multi_objective() {
             merged.iter().filter(|candidate| !reference.iter().any(|old|
                 problem.dominates(&old.fitness, &candidate.fitness) || problem.equivalent(&old.fitness, &candidate.fitness))).count()
@@ -115,7 +124,7 @@ impl<O: ObjectiveComponents, V: HeuristicValue> SearchMemory<O, V> {
             usize::from(merged.first().is_some_and(|candidate|
                 reference.first().is_none_or(|old| problem.dominates(&candidate.fitness, &old.fitness))))
         };
-        (novel > 0, novel as f64 / candidates.len().max(1) as f64)
+        (novel > 0, novel as f64 / candidate_count.max(1) as f64)
     }
 
     fn merged(
@@ -161,6 +170,9 @@ impl<O: ObjectiveComponents, V: HeuristicValue> SearchMemory<O, V> {
     }
 
     /// 归并有效候选，不触发目标重评估 / Merge valid candidates without re-evaluating objectives
+    ///
+    /// 同次调用的分类和比较结果必须稳定；可以缓存或计数，但不得依调用次数改变判断。
+    /// Classification and comparison results must remain stable during a call; caching or counting must not change decisions.
     pub fn offer(
         &mut self,
         problem: &dyn SearchProblem<O, V>,
@@ -169,8 +181,9 @@ impl<O: ObjectiveComponents, V: HeuristicValue> SearchMemory<O, V> {
     ) -> bool {
         let valid: Vec<_> = candidates.into_iter().filter(|value| problem.valid_solution(&value.solution)
             && problem.valid_objective(&value.fitness) && problem.admissible(&value.solution) && problem.feasible(&value.solution)).collect();
-        let improved = self.contribution(problem, &self.archive, &valid).0;
-        self.archive = self.merged(problem, &self.archive, &valid);
+        let merged = self.merged(problem, &self.archive, &valid);
+        let improved = Self::merged_contribution(problem, &self.archive, &merged, valid.len()).0;
+        self.archive = merged;
         for candidate in &valid {
             if acceptance.accept(problem, &self.working, candidate) {
                 self.working.retain(|old| old.solution != candidate.solution);
@@ -179,5 +192,127 @@ impl<O: ObjectiveComponents, V: HeuristicValue> SearchMemory<O, V> {
             }
         }
         improved
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use crate::model::callback::Solution;
+    use crate::variable::{VariableId, new_standalone_id};
+    use super::*;
+
+    struct CountedProblem {
+        variable: VariableId,
+        vector: bool,
+        checks: Cell<usize>,
+    }
+
+    impl SearchProblem<Vec<f64>, f64> for CountedProblem {
+        fn id(&self) -> &str { "counted-memory" }
+        fn fingerprint(&self) -> &str { "counted-memory:1" }
+        fn variable_order(&self) -> Vec<VariableId> { vec![self.variable] }
+        fn initial_solutions(&self, _: usize) -> Vec<Solution<f64>> { vec![] }
+        fn objective(&self, _: &Solution<f64>) -> Option<Vec<f64>> { panic!("memory must not evaluate objectives") }
+        fn dominates(&self, left: &Vec<f64>, right: &Vec<f64>) -> bool {
+            if self.vector { left.iter().zip(right).all(|(a, b)| a <= b) && left.iter().zip(right).any(|(a, b)| a < b) }
+            else { left[0] < right[0] }
+        }
+        fn equivalent(&self, left: &Vec<f64>, right: &Vec<f64>) -> bool { left == right }
+        fn valid_objective(&self, fitness: &Vec<f64>) -> bool {
+            self.checks.set(self.checks.get() + 1);
+            fitness.len() == 2 && fitness.iter().all(|value| value.is_finite())
+        }
+        fn multi_objective(&self) -> bool { self.vector }
+    }
+
+    fn copy_memory(memory: &SearchMemory<Vec<f64>, f64>) -> SearchMemory<Vec<f64>, f64> {
+        SearchMemory { archive: memory.archive.clone(), working: memory.working.clone(), capacity: memory.capacity,
+            working_capacity: memory.working_capacity, crowding_truncation: memory.crowding_truncation }
+    }
+
+    fn original_offer(
+        memory: &mut SearchMemory<Vec<f64>, f64>,
+        problem: &CountedProblem,
+        candidates: Vec<Individual<Vec<f64>, f64>>,
+    ) -> bool {
+        let valid = candidates.into_iter().filter(|value| problem.valid_solution(&value.solution)
+            && problem.valid_objective(&value.fitness) && problem.admissible(&value.solution) && problem.feasible(&value.solution)).collect::<Vec<_>>();
+        let first_merge = memory.merged(problem, &memory.archive, &valid);
+        let improved = if problem.multi_objective() {
+            first_merge.iter().filter(|candidate| !memory.archive.iter().any(|old|
+                problem.dominates(&old.fitness, &candidate.fitness) || problem.equivalent(&old.fitness, &candidate.fitness))).count() > 0
+        } else {
+            first_merge.first().is_some_and(|candidate| memory.archive.first().is_none_or(|old|
+                problem.dominates(&candidate.fitness, &old.fitness)))
+        };
+        drop(first_merge);
+        memory.archive = memory.merged(problem, &memory.archive, &valid);
+        for candidate in &valid {
+            memory.working.retain(|old| old.solution != candidate.solution);
+            memory.working.insert(0, candidate.clone());
+            memory.working.truncate(memory.working_capacity);
+        }
+        improved
+    }
+
+    #[test]
+    fn offer_reuses_one_merge_for_scalar_vector_crowding_and_local_memories() {
+        for vector in [false, true] {
+            for local in [false, true] {
+                for capacity in [0, 1, 3, 8] {
+                    let problem = CountedProblem { variable: new_standalone_id(), vector, checks: Cell::new(0) };
+                    let individual = |id, fitness| Individual::new(Solution::from([(problem.variable, id)]), fitness);
+                    let mut memory = if local { SearchMemory::local(capacity, 2) } else { SearchMemory::new(capacity, 2) };
+                    memory.offer(&problem, vec![individual(0.0, vec![0.0, 4.0]), individual(2.0, vec![4.0, 0.0])], &mut AlwaysAcceptance);
+                    let candidates = vec![individual(1.0, vec![1.0, 1.0]), individual(1.0, vec![1.0, 1.0]),
+                        individual(3.0, vec![9.0, 9.0]), individual(4.0, vec![f64::NAN, 0.0])];
+                    let mut expected = copy_memory(&memory);
+                    let expected_improvement = original_offer(&mut expected, &problem, candidates.clone());
+                    let reference_count = memory.archive().len();
+                    problem.checks.set(0);
+                    assert_eq!(memory.offer(&problem, candidates, &mut AlwaysAcceptance), expected_improvement);
+                    assert_eq!(problem.checks.get(), 4 + reference_count + 3);
+                    let values = |entries: &[Individual<Vec<f64>, f64>]| entries.iter()
+                        .map(|entry| (entry.solution.clone(), entry.fitness.clone())).collect::<Vec<_>>();
+                    assert_eq!(values(memory.archive()), values(expected.archive()));
+                    assert_eq!(values(memory.working()), values(expected.working()));
+                    assert_eq!(memory.working().len(), 2);
+                    assert_eq!(memory.working()[0].solution[&problem.variable], 3.0);
+                    assert_eq!(memory.working()[1].solution[&problem.variable], 1.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "manual release-mode archive merge timings"]
+    fn performance_b03_memory_offer() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        for vector in [false, true] {
+            let problem = CountedProblem { variable: new_standalone_id(), vector, checks: Cell::new(0) };
+            let individual = |id: usize| Individual::new(Solution::from([(problem.variable, id as f64)]),
+                vec![id as f64, (200 - id) as f64]);
+            let mut reference = SearchMemory::new(64, 8);
+            reference.offer(&problem, (0..64).map(individual).collect(), &mut AlwaysAcceptance);
+            let candidates = (64..128).map(individual).collect::<Vec<_>>();
+            for reused in [false, true] {
+                let mut samples = Vec::new();
+                for _ in 0..5 {
+                    let mut memory = copy_memory(&reference);
+                    let input = candidates.clone();
+                    let start = Instant::now();
+                    let improved = if reused { memory.offer(&problem, black_box(input), &mut AlwaysAcceptance) }
+                        else { original_offer(&mut memory, &problem, black_box(input)) };
+                    black_box(improved);
+                    samples.push(start.elapsed().as_nanos());
+                    black_box(memory);
+                }
+                samples.sort_unstable();
+                println!("P05 vector={vector}, reused={reused}, reference=64,candidates=64: median={} ns; samples={samples:?}", samples[2]);
+            }
+        }
     }
 }

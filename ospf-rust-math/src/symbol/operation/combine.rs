@@ -40,8 +40,8 @@ use crate::symbol::{
     Canonical, CanonicalMonomial, Linear, LinearMonomial, OwnedSymbol, Quadratic, QuadraticMonomial,
 };
 use num_traits::Zero;
-use std::collections::HashMap;
-use std::hash::Hash;
+use std::collections::{HashMap, hash_map::RandomState};
+use std::hash::{BuildHasher, Hash};
 
 // ============================================================================
 // CombineTerms trait - 合并同类项 trait
@@ -120,38 +120,40 @@ where
     T: Clone + Zero + PartialEq + std::ops::Add<Output = T>,
 {
     fn combine_terms(&mut self) {
-        // 使用分组合并而非 HashMap
-        // Use grouping instead of HashMap
-        // 首先按项分组 / First group by term
         let mut combined_monomials: Vec<QuadraticMonomial<T>> = Vec::new();
+        let mut index: Option<(RandomState, HashMap<u64, Vec<usize>>)> = None;
+        let use_index = self.monomials.len() > 128;
 
         for monomial in self.monomials.drain(..) {
-            if monomial.coefficient.is_zero() {
-                continue;
-            }
-
-            // 查找是否有相同符号的项 / Find if there's a term with same symbols
-            let existing = combined_monomials.iter_mut().find(|m| {
-                // 比较符号是否相同 / Compare if symbols are the same
-                match (&m.symbol2, &monomial.symbol2) {
-                    (Some(s2_a), Some(s2_b)) => {
-                        // 二次项：需要两个符号都相同
-                        // Quadratic term: both symbols must match
-                        m.symbol1 == monomial.symbol1 && *s2_a == *s2_b
-                    }
-                    (None, None) => {
-                        // 线性项：只需要第一个符号相同
-                        // Linear term: only first symbol must match
-                        m.symbol1 == monomial.symbol1
-                    }
-                    _ => false,
+            if monomial.coefficient.is_zero() { continue; }
+            // 少量不同项仍直接扫描；超过阈值后才建索引，不因大量重复项支付建表成本。
+            // Scan a few distinct terms directly; build an index only past the threshold, not merely for many duplicates.
+            if use_index && index.is_none() && combined_monomials.len() >= 32 {
+                let hasher = RandomState::new();
+                let mut positions: HashMap<u64, Vec<usize>> = HashMap::new();
+                for (position, term) in combined_monomials.iter().enumerate() {
+                    positions.entry(hasher.hash_one((&term.symbol1, &term.symbol2))).or_default().push(position);
                 }
-            });
-
-            if let Some(existing) = existing {
+                index = Some((hasher, positions));
+            }
+            let hash = index.as_ref().map(|(hasher, _)| hasher.hash_one((&monomial.symbol1, &monomial.symbol2)));
+            let same_term = |term: &QuadraticMonomial<T>|
+                term.symbol1 == monomial.symbol1 && term.symbol2 == monomial.symbol2;
+            let existing = if let (Some((_, positions)), Some(hash)) = (&index, hash) {
+                // 哈希仅用于缩小候选范围；碰撞仍比较完整有序符号对，不克隆符号。
+                // Hashes only narrow candidates; collisions still compare complete ordered symbol pairs without cloning symbols.
+                positions.get(&hash).and_then(|bucket| bucket.iter().copied().find(|position| same_term(&combined_monomials[*position])))
+            } else {
+                combined_monomials.iter().position(same_term)
+            };
+            if let Some(position) = existing {
                 // 累加系数 / Accumulate coefficient
+                let existing = &mut combined_monomials[position];
                 existing.coefficient = existing.coefficient.clone() + monomial.coefficient;
             } else {
+                if let (Some((_, positions)), Some(hash)) = (&mut index, hash) {
+                    positions.entry(hash).or_default().push(combined_monomials.len());
+                }
                 combined_monomials.push(monomial);
             }
         }
@@ -311,6 +313,98 @@ mod tests {
 
     fn make_symbol(name: &str, id: usize) -> OwnedSymbol {
         OwnedSymbol::new(TestSymbol::new(name, id))
+    }
+
+    fn original_combine<T>(polynomial: &mut Quadratic<T>)
+    where
+        T: Clone + Zero + PartialEq + std::ops::Add<Output = T>,
+    {
+        let mut combined: Vec<QuadraticMonomial<T>> = Vec::new();
+        for monomial in polynomial.monomials.drain(..) {
+            if monomial.coefficient.is_zero() { continue; }
+            if let Some(existing) = combined.iter_mut().find(|term|
+                term.symbol1 == monomial.symbol1 && term.symbol2 == monomial.symbol2)
+            {
+                existing.coefficient = existing.coefficient.clone() + monomial.coefficient;
+            } else { combined.push(monomial); }
+        }
+        polynomial.monomials = combined.into_iter().filter(|term| !term.coefficient.is_zero()).collect();
+    }
+
+    #[test]
+    fn indexed_quadratic_combine_matches_reference_without_commuting_or_reordering_terms() {
+        let x = make_symbol("x", 1);
+        let y = make_symbol("y", 2);
+        let mut polynomial = Quadratic::new(vec![
+            QuadraticMonomial::quadratic(1e16, x.clone(), y.clone()),
+            QuadraticMonomial::quadratic(2.0, y.clone(), x.clone()),
+            QuadraticMonomial::quadratic(1.0, x.clone(), y.clone()),
+            QuadraticMonomial::quadratic(-1e16, x.clone(), y.clone()),
+            QuadraticMonomial::linear(-0.0, x.clone()), QuadraticMonomial::linear(1.0, x.clone()),
+            QuadraticMonomial::linear(-1.0, x.clone()), QuadraticMonomial::linear(3.0, x.clone()),
+        ], 7.0);
+        let mut expected = polynomial.clone();
+        original_combine(&mut expected);
+        polynomial.combine_terms();
+        assert_eq!(polynomial, expected);
+        assert_eq!(polynomial.monomials.len(), 2);
+        assert_eq!(polynomial.monomials[0].symbol1, y);
+        assert_eq!(polynomial.monomials[0].symbol2, Some(x));
+        for amount in [0, 1, 8, 128, 129] {
+            let symbol = make_symbol("special", 1);
+            let mut actual = Quadratic::new((0..amount).map(|i| QuadraticMonomial::linear(
+                [1e16, 1.0, -1e16, -0.0, f64::NAN][i % 5], symbol.clone(),
+            )).collect(), 0.0);
+            let mut expected = actual.clone();
+            original_combine(&mut expected);
+            actual.combine_terms();
+            let bits = |polynomial: Quadratic<f64>| polynomial.monomials.into_iter()
+                .map(|term| (term.symbol1, term.symbol2, term.coefficient.to_bits())).collect::<Vec<_>>();
+            assert_eq!(bits(actual), bits(expected));
+        }
+        for case in 0..32 {
+            let symbols = (0..64).map(|id| make_symbol(&format!("s-{id}"), id)).collect::<Vec<_>>();
+            let terms = (0..512).map(|i| QuadraticMonomial::new(((i * 17 + case) % 23) as f64 - 11.0,
+                symbols[(i + case) % 64].clone(), (i % 5 != 0).then(|| symbols[(i * 3 + case) % 64].clone()))).collect();
+            let mut actual = Quadratic::new(terms, 5.0);
+            let mut exact = Quadratic::new(actual.monomials.iter().map(|term| QuadraticMonomial::new(
+                bigdecimal::BigDecimal::from(term.coefficient as i32), term.symbol1.clone(), term.symbol2.clone(),
+            )).collect(), bigdecimal::BigDecimal::from(5));
+            let mut expected = actual.clone();
+            original_combine(&mut expected);
+            actual.combine_terms();
+            assert_eq!(actual, expected);
+            let mut expected = exact.clone();
+            original_combine(&mut expected);
+            exact.combine_terms();
+            assert_eq!(exact, expected);
+        }
+    }
+
+    #[test]
+    #[ignore = "manual release-mode term combining timings"]
+    fn performance_b04_quadratic_combine() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        for (amount, repetitions) in [(1, 4), (8, 4), (32, 4), (256, 4), (2048, 4), (1, 8192), (8, 1024), (32, 256), (64, 128)] {
+            let symbols = (0..amount).map(|id| make_symbol(&format!("x-{id}"), id)).collect::<Vec<_>>();
+            let polynomial = Quadratic::new((0..amount * repetitions).map(|i| QuadraticMonomial::quadratic(1.0,
+                symbols[i % amount].clone(), symbols[(i * 17 + 5) % amount].clone())).collect(), 0.0);
+            for optimized in [false, true] {
+                let mut samples = Vec::new();
+                for _ in 0..5 {
+                    let mut input = polynomial.clone();
+                    let start = Instant::now();
+                    if optimized { black_box(&mut input).combine_terms(); } else { original_combine(black_box(&mut input)); }
+                    samples.push(start.elapsed().as_nanos());
+                    assert_eq!(input.monomials.len(), amount);
+                    black_box(input);
+                }
+                samples.sort_unstable();
+                println!("P17 unique={amount}, terms={}, optimized={optimized}: median={} ns; samples={samples:?}", amount * repetitions, samples[2]);
+            }
+        }
     }
 
     #[test]

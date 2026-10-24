@@ -25,7 +25,9 @@ pub(crate) fn invalid(message: impl Into<String>) -> CoreError {
 fn boxed(error: Box<dyn std::error::Error>) -> CoreError { invalid(error.to_string()) }
 
 pub(crate) fn index(model: &MetaModel, variable: VariableId) -> Result<usize> {
-    model.tokens().iter().position(|token| token.id() == variable).ok_or_else(|| invalid("missing registered column"))
+    // BasicModel 总是将 solver_index 设为模型列位置，与独立 TokenTable 的跳号语义不同。
+    // BasicModel always assigns the model column position to solver_index, unlike standalone TokenTable gaps.
+    model.find_token(variable).map(|token| token.solver_index).ok_or_else(|| invalid("missing registered column"))
 }
 
 /// 完整航空上下文；共享装载变量是唯一分配与占位来源。 / Complete aviation context; shared loading owns all assignment and occupancy decisions.
@@ -246,5 +248,56 @@ impl Demo2LoadingContext {
         }
         Ok(PartitionLoadingOptions { partitions: request.loading.partitions.clone(), extra_decisions, refinable_resources,
             tolerance: request.loading.column_generation.tolerance })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "manual release-mode token lookup timings"]
+    fn performance_b02_token_id_lookup() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        let mut model = MetaModel::new("demo2-lookup-timing");
+        model.register_variables((0..512).map(|i| BinaryVariableItem::auto(&format!("x_{i}")))).unwrap();
+        let ids = model.tokens().iter().map(|token| token.id()).collect::<Vec<_>>();
+        for indexed in [false, true] {
+            let mut samples = Vec::new();
+            for _ in 0..5 {
+                let start = Instant::now();
+                for _ in 0..20 {
+                    for id in black_box(&ids) {
+                        let column = if indexed { index(black_box(&model), *id).unwrap() }
+                            else { black_box(&model).tokens().iter().position(|token| token.id() == *id).unwrap() };
+                        black_box(column);
+                    }
+                }
+                samples.push(start.elapsed().as_nanos() / 20);
+            }
+            samples.sort_unstable();
+            println!("P23 indexed={indexed}, 512 queries: median={} ns/op; samples={samples:?}", samples[2]);
+        }
+    }
+
+    #[test]
+    fn id_lookup_matches_model_positions_after_failed_registration() {
+        let mut model = MetaModel::new("demo2-column-identity");
+        let variables = (0..8).map(|i| BinaryVariableItem::auto(&format!("x_{i}"))).collect::<Vec<_>>();
+        for variable in &variables { model.register_variable(variable.clone()).unwrap(); }
+        let failed = BinaryVariableItem::auto("failed");
+        let result: Result<()> = model.transaction(|model| {
+            model.register_variable(failed.clone())?;
+            Err(invalid("injected rollback"))
+        });
+        assert!(result.is_err());
+        assert!(index(&model, failed.id()).is_err());
+        let next = BinaryVariableItem::auto("after-rollback");
+        assert_eq!(model.register_variable(next.clone()).unwrap(), 8);
+        for (position, token) in model.tokens().iter().enumerate() {
+            assert_eq!(index(&model, token.id()).unwrap(), position);
+        }
     }
 }

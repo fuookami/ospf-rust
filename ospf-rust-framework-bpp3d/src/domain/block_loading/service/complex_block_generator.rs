@@ -80,49 +80,50 @@ impl ComplexBlockGenerator {
                     && Self::enough_amounts(block, amounts)
                     && Self::within_weight(block, rest_weight.clone())
             })
-            .cloned()
             .collect::<Vec<_>>();
         if base_candidates.is_empty() {
             return Vec::new();
         }
-        let mut results = Vec::new();
-        let mut frontier = base_candidates.clone();
+        let mut results = Vec::<Block<V, U>>::new();
+        let mut frontier = (0..base_candidates.len()).collect::<Vec<_>>();
         let mut seen = std::collections::HashSet::new();
         let depth_limit = self.config.max_depth.max(1);
 
-        for _ in 0..depth_limit {
+        for depth in 0..depth_limit {
             let mut next_frontier = Vec::new();
-            for lhs in &frontier {
+            for &lhs_index in &frontier {
                 for rhs in &base_candidates {
                     if results.len() >= self.config.max_candidates {
                         return results;
                     }
-                for axis in [Axis3::X, Axis3::Y, Axis3::Z] {
-                    if !self.axis_enabled(axis) || !Self::merge_compatible(axis, lhs, rhs) {
-                        continue;
-                    }
-                    let Some(complex) = Self::merge(axis, lhs, rhs) else {
-                        continue;
-                    };
-                    let block = Block::Complex(complex);
-                    if !Self::fits_container(&block, container_size)
-                        || !Self::enough_amounts(&block, amounts)
-                        || !Self::within_weight(&block, rest_weight.clone())
-                    {
-                        continue;
-                    }
-                    let signature = Self::block_signature(&block);
-                    if !seen.insert(signature) {
-                        continue;
-                    }
-                    next_frontier.push(block.clone());
-                    results.push(block);
-                    if results.len() >= self.config.max_candidates {
-                        return results;
+                    for axis in [Axis3::X, Axis3::Y, Axis3::Z] {
+                        // 每次合并重新借用，结果追加可能移动底层缓冲。 / Reborrow per merge; appending may move the result buffer.
+                        let lhs = if depth == 0 { base_candidates[lhs_index] } else { &results[lhs_index] };
+                        if !self.axis_enabled(axis) || !Self::merge_compatible(axis, lhs, rhs) {
+                            continue;
+                        }
+                        let Some(complex) = Self::merge(axis, lhs, rhs) else {
+                            continue;
+                        };
+                        let block = Block::Complex(complex);
+                        if !Self::fits_container(&block, container_size)
+                            || !Self::enough_amounts(&block, amounts)
+                            || !Self::within_weight(&block, rest_weight.clone())
+                        {
+                            continue;
+                        }
+                        let signature = Self::block_signature(&block);
+                        if !seen.insert(signature) {
+                            continue;
+                        }
+                        next_frontier.push(results.len());
+                        results.push(block);
+                        if results.len() >= self.config.max_candidates {
+                            return results;
+                        }
                     }
                 }
             }
-        }
             if next_frontier.is_empty() {
                 break;
             }
@@ -333,3 +334,75 @@ impl Default for ComplexBlockGenerator {
     }
 }
 
+
+#[cfg(test)]
+impl ComplexBlockGenerator {
+    fn generate_reference<V, U>(
+        &self,
+        amounts: &[u64],
+        container_size: &MetricSize3<V, U>,
+        simple_blocks: &[Block<V, U>],
+        rest_weight: Option<V>,
+    ) -> Vec<Block<V, U>>
+    where
+        V: Field + num_traits::Float + Clone + Debug + Send + Sync + PartialOrd + num_traits::FloatConst,
+        U: CTUnit + Default + Clone,
+    {
+        let base_candidates = simple_blocks
+            .iter()
+            .filter(|block| {
+                Self::fits_container(block, container_size)
+                    && Self::enough_amounts(block, amounts)
+                    && Self::within_weight(block, rest_weight.clone())
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if base_candidates.is_empty() {
+            return Vec::new();
+        }
+        let mut results = Vec::new();
+        let mut frontier = base_candidates.clone();
+        let mut seen = std::collections::HashSet::new();
+        let depth_limit = self.config.max_depth.max(1);
+
+        for _ in 0..depth_limit {
+            let mut next_frontier = Vec::new();
+            for lhs in &frontier {
+                for rhs in &base_candidates {
+                    if results.len() >= self.config.max_candidates {
+                        return results;
+                    }
+                for axis in [Axis3::X, Axis3::Y, Axis3::Z] {
+                    if !self.axis_enabled(axis) || !Self::merge_compatible(axis, lhs, rhs) {
+                        continue;
+                    }
+                    let Some(complex) = Self::merge(axis, lhs, rhs) else {
+                        continue;
+                    };
+                    let block = Block::Complex(complex);
+                    if !Self::fits_container(&block, container_size)
+                        || !Self::enough_amounts(&block, amounts)
+                        || !Self::within_weight(&block, rest_weight.clone())
+                    {
+                        continue;
+                    }
+                    let signature = Self::block_signature(&block);
+                    if !seen.insert(signature) {
+                        continue;
+                    }
+                    next_frontier.push(block.clone());
+                    results.push(block);
+                    if results.len() >= self.config.max_candidates {
+                        return results;
+                    }
+                }
+            }
+        }
+            if next_frontier.is_empty() {
+                break;
+            }
+            frontier = next_frontier;
+        }
+        results
+    }
+}

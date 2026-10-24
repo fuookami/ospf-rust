@@ -1,6 +1,6 @@
 //! Branch-aware ESPPRC 定价图 / Branch-aware ESPPRC pricing graph.
 
-use std::collections::{BTreeMap, hash_map::DefaultHasher};
+use std::collections::{BTreeMap, HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use time::Duration;
@@ -10,7 +10,7 @@ use ospf_rust_quantities::unit::UnitConversionValue;
 
 use crate::domain::vrp::{
     ArcCostCalculator, ArcFeasibilityPolicy, BranchMask, DistanceCalculator, PricingDuals,
-    RouteCostPolicy, RoutePricingArc, RoutePricingRows, TravelTimeCalculator, VehicleTypeId, VrpNode, VrptwInstance, default_arc_id,
+    RouteCostPolicy, RoutePricingArc, RoutePricingRows, TravelTimeCalculator, VehicleTypeId, VrptwInstance, default_arc_id,
 };
 use crate::error::{NetworkSchedulingError, Result};
 use crate::infrastructure::{NetworkNodeId, NetworkSchedulingSolverValueAdapter};
@@ -297,31 +297,26 @@ where
             })?;
         let mut arcs = Vec::new();
         let mut outgoing = vec![Vec::new(); nodes.len()];
-        let candidates = if self.instance.arcs.is_empty() {
-            let mut candidates = Vec::new();
-            for from_index in 0..nodes.len() {
-                for to_index in 0..nodes.len() {
-                    if from_index == to_index
-                        || nodes[to_index].is_start_depot
-                        || nodes[from_index].is_end_depot
-                    {
-                        continue;
-                    }
-                    candidates.push((from_index, to_index, None));
-                }
-            }
-            candidates
-        } else {
-            self.instance
-                .arcs
-                .iter()
-                .filter_map(|arc| {
-                    let from_index = nodes.iter().position(|node| node.node_id == arc.from)?;
-                    let to_index = nodes.iter().position(|node| node.node_id == arc.to)?;
-                    Some((from_index, to_index, Some(arc.clone())))
-                })
-                .collect()
-        };
+        let mut node_indices = HashMap::with_capacity(nodes.len());
+        for (index, node) in nodes.iter().enumerate() {
+            node_indices.entry(&node.node_id).or_insert(index);
+        }
+        // 保留原端点解析的起仓、终仓、首个客户优先级，包括未验证输入的重复身份。
+        // Preserve start/end/first-customer resolution precedence, including duplicate identities in unvalidated inputs.
+        let mut original_nodes = HashMap::with_capacity(self.instance.customers.len() + 2);
+        for node in std::iter::once(&self.instance.start_depot.node)
+            .chain(std::iter::once(&self.instance.end_depot.node))
+            .chain(self.instance.customers.iter().map(|customer| &customer.node))
+        {
+            original_nodes.entry(&node.id).or_insert(node);
+        }
+        let implicit_count = if self.instance.arcs.is_empty() { nodes.len() } else { 0 };
+        let candidates = (0..implicit_count).flat_map(|from| (0..implicit_count).map(move |to| (from, to, None)))
+            .chain(self.instance.arcs.iter().filter_map(|arc| {
+                let from = *node_indices.get(&arc.from)?;
+                let to = *node_indices.get(&arc.to)?;
+                Some((from, to, Some(arc)))
+            }));
         for (from_index, to_index, base_arc) in candidates {
             if from_index == to_index
                 || nodes[to_index].is_start_depot
@@ -330,8 +325,8 @@ where
             {
                 continue;
             }
-            let from = resolve_node(&self.instance, &nodes[from_index].node_id)?;
-            let to = resolve_node(&self.instance, &nodes[to_index].node_id)?;
+            let from = original_nodes[&nodes[from_index].node_id];
+            let to = original_nodes[&nodes[to_index].node_id];
             if !self
                 .arc_feasibility_policy
                 .is_feasible(from, to, vehicle_type)?
@@ -489,27 +484,4 @@ where
         graph.integrity_fingerprint = graph.calculate_integrity_fingerprint();
         Ok(graph)
     }
-}
-
-fn resolve_node<'a, V>(instance: &'a VrptwInstance<V>, id: &NetworkNodeId) -> Result<&'a VrpNode<V>>
-where
-    V: SolveValue + UnitConversionValue,
-{
-    if id == &instance.start_depot.node.id {
-        return Ok(&instance.start_depot.node);
-    }
-    if id == &instance.end_depot.node.id {
-        return Ok(&instance.end_depot.node);
-    }
-    instance
-        .customers
-        .iter()
-        .find(|customer| &customer.node.id == id)
-        .map(|customer| &customer.node)
-        .ok_or_else(|| {
-            NetworkSchedulingError::structure(format!(
-                "定价图节点不存在：{} / pricing graph node does not exist: {}",
-                id, id
-            ))
-        })
 }

@@ -34,6 +34,107 @@ fn meters(value: f64) -> Quantity<f64, Meter> {
     Quantity::new_ct(value)
 }
 
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use ospf_rust_framework_csp2d::application::{Csp2dHeuristicMasterSolver, Csp2dMasterSolver};
+    use ospf_rust_framework_csp2d::domain::material::DemandMode2;
+    use ospf_rust_framework_csp2d::domain::produce::{Csp2dPricingConfig, estimate_reduced_cost, reduced_costs};
+
+    fn reference_coefficient(
+        assignment: &Csp2dPatternAssignment,
+        index: usize,
+        demand: &Csp2dMasterDemand,
+    ) -> f64 {
+        let Some(plan) = assignment.plans.get(index) else { return 0.0; };
+        let amounts = plan.product_amounts();
+        let Some(count) = amounts.get(&demand.product_id) else { return 0.0; };
+        match demand.mode {
+            DemandMode2::Amount => *count as f64,
+            DemandMode2::Area => plan.pattern.placements.iter()
+                .find(|item| item.item_id.as_deref() == Some(demand.product_id.as_str()))
+                .map(|item| item.shape.area().value).unwrap_or(0.0) * *count as f64,
+        }
+    }
+
+    fn fixture() -> (Csp2dPatternAssignment, Vec<Csp2dMasterDemand>) {
+        let mut plans = Vec::new();
+        for index in 0..32 {
+            let mut candidate = plan(&format!("p{index}"), sheet_material(100.0, 100.0, 10000), 100.0, 100.0, 1.0, 64, "a");
+            for (position, placement) in candidate.pattern.placements.iter_mut().enumerate() {
+                placement.item_id = Some(format!("product{}", (position + index) % 16));
+            }
+            plans.push(candidate);
+        }
+        let demands = (0..16).flat_map(|index| [
+            Csp2dMasterDemand::new(product_id2(format!("product{index}")), DemandValue2::Amount(400)),
+            Csp2dMasterDemand::new(product_id2(format!("product{index}")), DemandValue2::Area(400.0)),
+        ]).collect();
+        (Csp2dPatternAssignment::new(plans, 10000).unwrap(), demands)
+    }
+
+    #[test]
+    fn coverage_projection_preserves_first_area_order_and_public_mutations() {
+        let (mut assignment, mut demands) = fixture();
+        let mut large = assignment.plans[0].pattern.placements[0].clone();
+        large.shape = PackingShape2::Rectangle(rectangle_shape2(meters(2.0), meters(3.0)).unwrap());
+        assignment.plans[0].pattern.placements.insert(0, large);
+        assignment.plans[0].pattern.placements[1].item_id = None;
+        demands.push(Csp2dMasterDemand::new(product_id2("missing"), DemandValue2::Area(1.0)));
+        // 极端数值检验源列的累加次序。 / Extreme values check source-column accumulation order.
+        let usage: Vec<f64> = [1e16, 1.0, -1e16, 2.0].repeat(8);
+        for _ in 0..2 {
+            let expected: Vec<f64> = demands.iter().map(|demand| (0..assignment.len())
+                .map(|index| reference_coefficient(&assignment, index, demand) * usage.get(index).copied().unwrap_or(0.0))
+                .sum()).collect();
+            assert_eq!(assignment.coverage(&usage, &demands), expected);
+            assert_eq!(assignment.coverage(&[], &demands), vec![0.0; demands.len()]);
+            for (index, candidate) in assignment.plans.iter().enumerate() {
+                let prices = demands.iter().map(|demand| (demand.product_id.clone(), 0.75)).collect();
+                let config = Csp2dPricingConfig::default();
+                let costs = reduced_costs(&assignment, &demands, &prices, &config);
+                let expected_revenue: f64 = demands.iter().map(|demand| reference_coefficient(&assignment, index, demand) * 0.75).sum();
+                assert_eq!(costs[index].revenue, expected_revenue);
+                assert_eq!(estimate_reduced_cost(candidate, &demands, &prices, &config).revenue, expected_revenue);
+            }
+            assert_eq!(assignment.coverage_coefficient(usize::MAX, &demands[0]), 0.0);
+            assignment.plans[0].pattern.placements.remove(0);
+            assignment.plans.reverse();
+        }
+        assert!(assignment.coverage(&usage, &[]).is_empty());
+    }
+
+    #[test]
+    fn missing_product_pricing_preserves_nonfinite_price_skip_semantics() {
+        let (assignment, _) = fixture();
+        let demands = vec![Csp2dMasterDemand::new(product_id2("missing"), DemandValue2::Area(1.0))];
+        let prices = [(product_id2("missing"), f64::NAN)].into();
+        let config = Csp2dPricingConfig::default();
+        let estimated = estimate_reduced_cost(&assignment.plans[0], &demands, &prices, &config);
+        assert_eq!(estimated.revenue, 0.0);
+        assert!(reduced_costs(&assignment, &demands, &prices, &config)[0].revenue.is_nan());
+    }
+
+    #[test]
+    #[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+    fn projection_timing() {
+        use std::hint::black_box;
+        use std::time::Instant;
+        let (assignment, demands) = fixture();
+        let usage = vec![2.0; assignment.len()];
+        for sample in 0..5 {
+            let start = Instant::now();
+            for _ in 0..10 { black_box(assignment.coverage(black_box(&usage), black_box(&demands))); }
+            println!("csp2d coverage sample={sample} ten_calls={:?}", start.elapsed());
+            let master = Csp2dMasterProblem::new(assignment.clone(), demands.clone()).unwrap();
+            let start = Instant::now();
+            let result = Csp2dHeuristicMasterSolver::new().solve_master(black_box(&master)).unwrap();
+            assert_eq!(result.usage.iter().sum::<f64>(), 100.0);
+            println!("csp2d solve sample={sample} elapsed={:?}", start.elapsed());
+        }
+    }
+}
+
 fn sheet_material(width: f64, height: f64, available: u64) -> Material2<f64, Meter> {
     Material2::sheet(material_id2("m1"), "sheet", meters(width), meters(height), available)
 }

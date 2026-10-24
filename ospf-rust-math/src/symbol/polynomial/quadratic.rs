@@ -1394,6 +1394,10 @@ impl<T: Clone> SecondOrderDifferentiate<T> for Quadratic<T> {
     {
         let n = symbols.len();
         let mut hessian = vec![vec![T::zero(); n]; n];
+        let mut positions = HashMap::with_capacity(n);
+        for (index, symbol) in symbols.iter().enumerate() {
+            positions.entry(symbol).or_insert(index);
+        }
 
         // 遍历所有二次项
         // Iterate through all quadratic terms
@@ -1401,8 +1405,8 @@ impl<T: Clone> SecondOrderDifferentiate<T> for Quadratic<T> {
             if let Some(symbol2) = &monomial.symbol2 {
                 // 找到 symbol1 和 symbol2 在 symbols 中的索引
                 // Find indices of symbol1 and symbol2 in symbols
-                let idx1 = symbols.iter().position(|s| *s == monomial.symbol1);
-                let idx2 = symbols.iter().position(|s| *s == *symbol2);
+                let idx1 = positions.get(&monomial.symbol1).copied();
+                let idx2 = positions.get(symbol2).copied();
 
                 if let (Some(i), Some(j)) = (idx1, idx2) {
                     if i == j {
@@ -1772,6 +1776,81 @@ mod tests {
             id,
             name: name.to_string(),
         })
+    }
+
+    fn original_hessian<T>(polynomial: &Quadratic<T>, symbols: &[OwnedSymbol]) -> Vec<Vec<T>>
+    where
+        T: Clone + Zero + for<'a> AddAssign<&'a T>,
+    {
+        let mut result = vec![vec![T::zero(); symbols.len()]; symbols.len()];
+        for monomial in &polynomial.monomials {
+            if let Some(second) = &monomial.symbol2 {
+                let first = symbols.iter().position(|symbol| symbol == &monomial.symbol1);
+                let second = symbols.iter().position(|symbol| symbol == second);
+                if let (Some(first), Some(second)) = (first, second) {
+                    result[first][second] += &monomial.coefficient;
+                    result[second][first] += &monomial.coefficient;
+                }
+            }
+        }
+        result
+    }
+
+    #[test]
+    fn indexed_hessian_preserves_first_requested_symbol_and_accumulation_order() {
+        for case in 0..32 {
+            let symbols = (0..8).map(|id| make_symbol(&format!("x-{id}"), id)).collect::<Vec<_>>();
+            let mut requested = symbols.iter().step_by(2).cloned().collect::<Vec<_>>();
+            requested.push(symbols[0].clone());
+            requested.push(make_symbol("same-identity-different-name", 0));
+            let terms = (0..128).map(|i| QuadraticMonomial::new(((i * 17 + case) % 19) as f64 - 9.0,
+                symbols[(i + case) % 8].clone(), (i % 5 != 0).then(|| symbols[(i * 3 + case) % 8].clone()))).collect();
+            let polynomial = Quadratic::new(terms, 7.0);
+            assert_eq!(polynomial.hessian(&requested), original_hessian(&polynomial, &requested));
+            assert!(polynomial.hessian(&[]).is_empty());
+            let exact = Quadratic::new(polynomial.monomials.iter().map(|term| QuadraticMonomial::new(
+                bigdecimal::BigDecimal::from(term.coefficient as i32), term.symbol1.clone(), term.symbol2.clone(),
+            )).collect(), bigdecimal::BigDecimal::from(7));
+            assert_eq!(exact.hessian(&requested), original_hessian(&exact, &requested));
+        }
+        let x = make_symbol("x", 0);
+        let polynomial = Quadratic::new([1e16, 1.0, -1e16, -0.0, f64::NAN].into_iter()
+            .map(|coefficient| QuadraticMonomial::quadratic(coefficient, x.clone(), x.clone())).collect(), 0.0);
+        let bits = |matrix: Vec<Vec<f64>>| matrix.into_iter().map(|row| row.into_iter().map(f64::to_bits).collect::<Vec<_>>()).collect::<Vec<_>>();
+        assert_eq!(bits(polynomial.hessian(&[x.clone(), x.clone()])), bits(original_hessian(&polynomial, &[x.clone(), x])));
+    }
+
+    #[test]
+    #[ignore = "manual release-mode Hessian indexing timings"]
+    fn performance_b04_quadratic_hessian() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        macro_rules! measure {
+            ($value:ty) => {
+                for (amount, terms) in [(16, 64), (128, 4096), (512, 8192)] {
+                    let symbols = (0..amount).map(|id| make_symbol(&format!("x-{id}"), id)).collect::<Vec<_>>();
+                    let polynomial = Quadratic::new((0..terms).map(|i| QuadraticMonomial::quadratic(
+                        <$value>::from(1), symbols[i % amount].clone(), symbols[(i * 17 + 5) % amount].clone(),
+                    )).collect(), <$value>::from(0));
+                    for indexed in [false, true] {
+                        let mut samples = Vec::new();
+                        for _ in 0..5 {
+                            let start = Instant::now();
+                            let result = if indexed { black_box(&polynomial).hessian(black_box(&symbols)) }
+                                else { original_hessian(black_box(&polynomial), black_box(&symbols)) };
+                            samples.push(start.elapsed().as_nanos());
+                            black_box(result);
+                        }
+                        samples.sort_unstable();
+                        println!("P16 {}, symbols={amount}, terms={terms}, indexed={indexed}: median={} ns; samples={samples:?}",
+                            stringify!($value), samples[2]);
+                    }
+                }
+            };
+        }
+        measure!(f64);
+        measure!(bigdecimal::BigDecimal);
     }
 
     #[test]

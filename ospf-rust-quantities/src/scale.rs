@@ -95,22 +95,12 @@ impl ScaleFactor {
 
 impl Eq for ScaleFactor {}
 
-/// 整理比例因子：合并同类项、排序
-/// Tidy scale factors: merge like terms, sort
-fn tidy(scales: &Vec<ScaleFactor>) -> Vec<ScaleFactor> {
-    // 移除指数为0的项
-    // Remove items with zero exponent
-    let mut non_zero: Vec<ScaleFactor> = scales
-        .iter()
-        .filter(|f| f.exponent != BigDecimal::from(0))
-        .cloned()
-        .collect();
-
-    // 排序
-    // Sort
-    non_zero.sort_by(|a, b| a.base.cmp(&b.base));
-
-    non_zero
+/// 复用自有缓冲，移除零指数因子并排序。 / Reuse the owned buffer to remove zero exponents and sort.
+fn tidy(mut scales: Vec<ScaleFactor>) -> Vec<ScaleFactor> {
+    let zero = BigDecimal::from(0);
+    scales.retain(|factor| factor.exponent != zero);
+    scales.sort_by(|a, b| a.base.cmp(&b.base));
+    scales
 }
 
 /// Scale - 比例尺
@@ -355,7 +345,7 @@ impl Mul for Scale {
             }
         }
         Scale {
-            scales: tidy(&self.scales),
+            scales: tidy(self.scales),
             value: OnceLock::new(),
         }
     }
@@ -375,7 +365,7 @@ impl Mul<&Scale> for Scale {
             }
         }
         Scale {
-            scales: tidy(&self.scales),
+            scales: tidy(self.scales),
             value: OnceLock::new(),
         }
     }
@@ -428,7 +418,7 @@ impl Div for Scale {
             }
         }
         Scale {
-            scales: tidy(&self.scales),
+            scales: tidy(self.scales),
             value: OnceLock::new(),
         }
     }
@@ -449,7 +439,7 @@ impl Div<&Scale> for Scale {
             }
         }
         Scale {
-            scales: tidy(&self.scales),
+            scales: tidy(self.scales),
             value: OnceLock::new(),
         }
     }
@@ -702,5 +692,72 @@ mod tests {
         let inch = Scale::from_f64(2.54);
         let val = inch.value();
         assert!(val > &BigDecimal::from(2) && val < &BigDecimal::from(3));
+    }
+
+    #[test]
+    fn test_owned_scale_operators_reuse_buffer_and_reset_cache() {
+        for divide in [false, true] {
+            for borrowed_rhs in [false, true] {
+                let mut scales = Vec::with_capacity(8);
+                for base in [3, 2] {
+                    scales.push(ScaleFactor::new(
+                        ScaleBase::float(BigDecimal::from(base)),
+                        BigDecimal::from(1),
+                    ));
+                }
+                let lhs = Scale { scales, value: OnceLock::new() };
+                let rhs = Scale::from_int(2);
+                let expected = if divide { &lhs / &rhs } else { &lhs * &rhs };
+                let _ = lhs.value();
+                assert!(lhs.value.get().is_some());
+                let pointer = lhs.scales.as_ptr();
+                let capacity = lhs.scales.capacity();
+
+                let result = match (divide, borrowed_rhs) {
+                    (false, false) => lhs * rhs.clone(),
+                    (false, true) => lhs * &rhs,
+                    (true, false) => lhs / rhs.clone(),
+                    (true, true) => lhs / &rhs,
+                };
+
+                assert_eq!(result.scales.as_ptr(), pointer);
+                assert_eq!(result.scales.capacity(), capacity);
+                assert!(result.value.get().is_none());
+                assert_eq!(result.value(), expected.value());
+                assert_eq!(rhs.scales.len(), 1);
+                assert_eq!(rhs.scales[0].exponent, BigDecimal::from(1));
+                assert!(result.scales.iter().all(|factor| factor.exponent != BigDecimal::from(0)));
+                assert!(result.scales.windows(2).all(|pair| pair[0].base <= pair[1].base));
+                assert_eq!(result.scales.len(), if divide { 1 } else { 2 });
+            }
+        }
+    }
+
+    #[test]
+    fn test_owned_scale_cancellation_and_rational_factors() {
+        let rational = Scale::from_base_exponent(
+            ScaleBase::rational(BigInt::from(3), BigInt::from(2)),
+            BigDecimal::from(1),
+        );
+        let inverse = Scale::from_base_exponent(
+            ScaleBase::rational(BigInt::from(3), BigInt::from(2)),
+            BigDecimal::from(-1),
+        );
+        for borrowed_rhs in [false, true] {
+            let product = if borrowed_rhs {
+                rational.clone() * &inverse
+            } else {
+                rational.clone() * inverse.clone()
+            };
+            let quotient = if borrowed_rhs {
+                rational.clone() / &rational
+            } else {
+                rational.clone() / rational.clone()
+            };
+            assert!(product.scales.is_empty());
+            assert!(quotient.scales.is_empty());
+            assert_eq!(product.value(), &BigDecimal::from(1));
+            assert_eq!(quotient.value(), &BigDecimal::from(1));
+        }
     }
 }

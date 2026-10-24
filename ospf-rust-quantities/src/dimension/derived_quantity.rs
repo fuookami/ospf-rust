@@ -414,7 +414,7 @@ impl DerivedQuantityBuilder {
     pub fn build(self) -> DerivedQuantity {
         DerivedQuantity::from_quantities_with_domain(
             self.name.unwrap_or_else(|| "".to_string()),
-            self.quantities.clone(),
+            self.quantities,
             self.domain,
         )
     }
@@ -1182,6 +1182,31 @@ mod tests {
         let dim = DerivedQuantity::none("".to_string());
         assert!(dim.is_none());
         assert_eq!(dim.symbol(), "1");
+    }
+
+    #[test]
+    fn test_builder_preserves_name_domain_and_nonzero_powers() {
+        let mut builder = DerivedQuantityBuilder::new_with_domain(
+            vec![
+                FundamentalQuantity::new(FundamentalQuantityEnum::Length, 2),
+                FundamentalQuantity::new(FundamentalQuantityEnum::Mass, 0),
+                FundamentalQuantity::new(FundamentalQuantityEnum::Time, -1),
+            ],
+            QuantityDomain::Discrete,
+        );
+        builder.name("named_dimension".to_string());
+        let dimension = builder.build();
+
+        assert_eq!(dimension.name(), "named_dimension");
+        assert_eq!(dimension.domain(), QuantityDomain::Discrete);
+        assert_eq!(dimension.get_power(&FundamentalQuantityEnum::Length), 2);
+        assert_eq!(dimension.get_power(&FundamentalQuantityEnum::Time), -1);
+        assert_eq!(dimension.powers().count(), 2);
+
+        let empty = DerivedQuantityBuilder::new(vec![]).build();
+        assert_eq!(empty.name(), "");
+        assert_eq!(empty.domain(), QuantityDomain::Continuous);
+        assert!(empty.is_none());
     }
 
     #[test]

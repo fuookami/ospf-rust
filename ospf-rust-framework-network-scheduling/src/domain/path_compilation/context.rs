@@ -14,6 +14,24 @@ use super::aggregation::PathCompilationAggregation;
 use super::model::{PathColumn, PathCompilationProblem, PathCompilationSolution};
 use super::pricing::{PathCompilationDuals, PathModelState, normalize_certificate_duals, validate_scope};
 
+struct PathPricingSnapshot<'a> {
+    model: &'a MetaModel<f64>,
+    compiled: LinearTriadModel,
+    relaxed: LinearTriadModel,
+}
+
+impl<'a> PathPricingSnapshot<'a> {
+    fn new<V, C>(aggregation: &PathCompilationAggregation<V, C>, model: &'a MetaModel<f64>) -> Result<Self>
+    where
+        V: SolveValue + UnitConversionValue,
+        C: Clone + PartialEq,
+    {
+        let compiled = aggregation.validate_model(model, true)?;
+        let relaxed = compiled.linear_relaxed();
+        Ok(Self { model, compiled, relaxed })
+    }
+}
+
 /// 每 context 的扩展，生命周期 hook 不跨模型共享注册态。 / Per-context extension with lifecycle hooks that must not share registration state across models.
 pub trait PathCompilationPipeline<V, C>: Debug + Send + Sync
 where
@@ -87,14 +105,12 @@ where
     /// 原子注册初始二元列、行、完整费用与扩展，失败时可重试。 / Atomically register initial binary columns, rows, complete costs and extensions; failures can be retried.
     pub fn register(&mut self, model: &mut MetaModel<f64>) -> Result<()> {
         if self.aggregation.is_registered() { self.aggregation.validate_model(model, false)?; return Ok(()); }
-        let mut next = self.aggregation.clone();
-        model.transaction(|model| {
-            next.register(model)?;
-            for pipeline in &self.pipelines { pipeline.register(model, &next)?; }
+        self.aggregation.transaction(model, |next, model, undo| {
+            next.register(model, undo)?;
+            for pipeline in &self.pipelines { pipeline.register(model, next)?; }
             next.validate_model(model, false)?;
             Ok(())
         })?;
-        self.aggregation = next;
         self.current_epoch = None;
         Ok(())
     }
@@ -102,34 +118,30 @@ where
     /// 预校验整批候选，再原子刷新变量、行、目标及扩展；完全相同的重复列不失效旧快照。 / Prevalidate the whole batch, then atomically refresh variables, rows, objectives and extensions; identical duplicates do not invalidate snapshots.
     pub fn add_columns(&mut self, model: &mut MetaModel<f64>, columns: Vec<PathColumn<V, C>>) -> Result<Vec<PathColumn<V, C>>> {
         self.aggregation.validate_model(model, false)?;
-        let mut next = self.aggregation.clone();
-        let added = model.transaction(|model| {
-            let added = next.add(model, columns)?;
+        let added = self.aggregation.transaction(model, |next, model, undo| {
+            let added = next.add(model, columns, undo)?;
             if !added.is_empty() {
-                for pipeline in &self.pipelines { pipeline.add_columns(model, &next, &added)?; }
+                for pipeline in &self.pipelines { pipeline.add_columns(model, next, &added)?; }
                 next.validate_model(model, false)?;
             }
             Ok(added)
         })?;
         if !added.is_empty() { self.current_epoch = None; }
-        self.aggregation = next;
         Ok(added)
     }
 
     /// 移除活动列、清理受管行和全部目标中的旧变量项，并把旧 token 固定为零；重加使用新变量。 / Remove active columns, clear managed rows and all old-variable objective terms, and fix retired tokens at zero; re-addition creates new variables.
     pub fn remove_columns(&mut self, model: &mut MetaModel<f64>, ids: &BTreeSet<String>) -> Result<Vec<PathColumn<V, C>>> {
         self.aggregation.validate_model(model, false)?;
-        let mut next = self.aggregation.clone();
-        let removed = model.transaction(|model| {
-            let removed = next.remove(model, ids)?;
+        let removed = self.aggregation.transaction(model, |next, model, undo| {
+            let removed = next.remove(model, ids, undo)?;
             if !removed.is_empty() {
-                for pipeline in &self.pipelines { pipeline.remove_columns(model, &next, &removed)?; }
+                for pipeline in &self.pipelines { pipeline.remove_columns(model, next, &removed)?; }
                 next.validate_model(model, false)?;
             }
             Ok(removed)
         })?;
         if !removed.is_empty() { self.current_epoch = None; }
-        self.aggregation = next;
         Ok(removed)
     }
 
@@ -146,10 +158,11 @@ where
         scope: ColumnGenerationScope,
     ) -> Result<PathCompilationDuals> {
         self.current_epoch = None;
-        let lp = self.pricing_model(model)?;
-        let certificate = VerifiedPricingDuals::new(&lp, report)
+        let snapshot = PathPricingSnapshot::new(&self.aggregation, model)?;
+        let certificate = VerifiedPricingDuals::new(&snapshot.relaxed, report)
             .map_err(|error| NetworkSchedulingError::contract(error.to_string()))?;
-        self.refresh_verified_duals(model, &certificate, scope)
+        let prices = normalize_certificate_duals(&self.aggregation, model, certificate.duals())?;
+        self.publish_duals(snapshot, scope, prices, Some(certificate))
     }
 
     /// 重用现有已验证句柄，并再次绑定当前模型、请求与完整业务域。 / Reuse an existing verified handle and rebind it to the current model, request and complete business scope.
@@ -160,10 +173,10 @@ where
         scope: ColumnGenerationScope,
     ) -> Result<PathCompilationDuals> {
         self.current_epoch = None;
-        let lp = self.pricing_model(model)?;
-        certificate.validate_for(&lp).map_err(|error| NetworkSchedulingError::contract(error.to_string()))?;
+        let snapshot = PathPricingSnapshot::new(&self.aggregation, model)?;
+        certificate.validate_for(&snapshot.relaxed).map_err(|error| NetworkSchedulingError::contract(error.to_string()))?;
         let prices = normalize_certificate_duals(&self.aggregation, model, certificate.duals())?;
-        self.publish_duals(model, scope, prices, Some(certificate.clone()))
+        self.publish_duals(snapshot, scope, prices, Some(certificate.clone()))
     }
 
     /// 仅供显式启发式 reduced cost；全部声明行包括零对偶都必须提供。 / Explicit heuristic reduced costs only; every declared row, including zero duals, must be supplied.
@@ -177,21 +190,22 @@ where
         if prices.len() != self.aggregation.problem().rows().len() || prices.values().any(|value| !value.is_finite())
             || self.aggregation.problem().rows().iter().any(|row| !prices.contains_key(&row.id))
         { return Err(NetworkSchedulingError::contract("启发式路径对偶缺少行、含未知行或非有限值 / heuristic path duals contain missing/unknown rows or nonfinite values")); }
-        self.publish_duals(model, scope, prices, None)
+        let snapshot = PathPricingSnapshot::new(&self.aggregation, model)?;
+        self.publish_duals(snapshot, scope, prices, None)
     }
 
     fn publish_duals(
         &mut self,
-        model: &MetaModel<f64>,
+        snapshot: PathPricingSnapshot<'_>,
         scope: ColumnGenerationScope,
         prices: BTreeMap<String, f64>,
         certificate: Option<VerifiedPricingDuals>,
     ) -> Result<PathCompilationDuals> {
-        let compiled = self.aggregation.validate_model(model, true)?;
-        validate_scope(&scope, &compiled.linear_relaxed())?;
+        // 证书、作用域和源状态共用同一只读阶段；不跨增删或扩展回调缓存。 / Share one read-only phase across certificate, scope and source state; never cache across edits or extension callbacks.
+        validate_scope(&scope, &snapshot.relaxed)?;
         let epoch = self.epoch.checked_add(1).ok_or_else(|| NetworkSchedulingError::contract("路径对偶轮次溢出 / path-dual epoch overflow"))?;
         let duals = PathCompilationDuals { owner: self.aggregation.owner, revision: self.aggregation.revision, epoch,
-            state: PathModelState::capture(model, &compiled)?, scope, prices, certificate };
+            state: PathModelState::capture(snapshot.model, &snapshot.compiled)?, scope, prices, certificate };
         for pipeline in &self.pipelines { pipeline.refresh_shadow_prices(&self.aggregation, &duals)?; }
         self.epoch = epoch;
         self.current_epoch = Some(epoch);

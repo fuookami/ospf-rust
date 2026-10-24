@@ -730,6 +730,15 @@ impl MultiArrayBuilder {
             shape.len()
         );
 
+        if access_order == AccessOrder::from_storage_order(shape.storage_order()) {
+            // 输入已经按存储顺序排列，直接接管缓冲。 / Input is already in storage order; take its buffer directly.
+            return MultiArray {
+                list,
+                shape,
+                _marker: PhantomData,
+            };
+        }
+
         let mut reordered: std::vec::Vec<Option<T>> = (0..shape.len()).map(|_| None).collect();
         let mut list_iter = list.into_iter();
 
@@ -1731,6 +1740,74 @@ mod tests {
         assert_eq!(column_array[&[1, 0]], 2);
         assert_eq!(column_array[&[0, 1]], 3);
         assert_eq!(column_array[&[1, 2]], 6);
+    }
+
+    #[test]
+    fn test_from_list_matching_order_reuses_owned_buffer() {
+        struct Element(usize);
+
+        for storage_order in [StorageOrder::RowMajor, StorageOrder::ColumnMajor] {
+            let shape = RTShape::new_with_order([2, 3], storage_order);
+            let mut values = Vec::with_capacity(12);
+            values.extend((0..6).map(Element));
+            let pointer = values.as_ptr();
+            let capacity = values.capacity();
+            let array = MultiArrayBuilder::from_list_with_order(
+                shape,
+                values,
+                AccessOrder::from_storage_order(storage_order),
+            );
+
+            assert_eq!(array.list.as_ptr(), pointer);
+            assert_eq!(array.list.capacity(), capacity);
+            for row in 0..2 {
+                for column in 0..3 {
+                    let expected = match storage_order {
+                        StorageOrder::RowMajor => row * 3 + column,
+                        StorageOrder::ColumnMajor => column * 2 + row,
+                    };
+                    assert_eq!(array[&[row, column]].0, expected);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_from_list_dynamic_storage_and_access_order_matrix() {
+        for storage_order in [StorageOrder::RowMajor, StorageOrder::ColumnMajor] {
+            for access_order in [AccessOrder::RowMajor, AccessOrder::ColumnMajor] {
+                for sizes in [vec![2, 3], vec![2, 1, 3], vec![0, 3], vec![]] {
+                    let shape: DynShape = DynShape::new_with_order(sizes, storage_order);
+                    let values = (0..shape.len()).map(|index| format!("value_{index}")).collect::<Vec<_>>();
+                    let array = MultiArrayBuilder::from_list_with_order(shape, values, access_order);
+                    for (index, value) in array.iter_with_order(access_order).enumerate() {
+                        assert_eq!(value, &format!("value_{index}"));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_from_list_static_column_order_and_default_row_access() {
+        let shape = Shape::<2, crate::concept::ColumnMajor>::new([2, 3]);
+        let row_input = MultiArrayBuilder::from_list(shape.clone(), vec![0, 1, 2, 3, 4, 5]);
+        assert_eq!(row_input[&[0, 1]], 1);
+        assert_eq!(row_input[&[1, 0]], 3);
+
+        let column_input = MultiArrayBuilder::from_list_with_order(
+            shape,
+            vec![0, 1, 2, 3, 4, 5],
+            AccessOrder::ColumnMajor,
+        );
+        assert_eq!(column_input[&[0, 1]], 2);
+        assert_eq!(column_input[&[1, 0]], 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "List size")]
+    fn test_from_list_matching_order_still_rejects_wrong_length() {
+        MultiArrayBuilder::from_list(Shape::<2>::new([2, 3]), vec![1, 2]);
     }
 
     #[test]

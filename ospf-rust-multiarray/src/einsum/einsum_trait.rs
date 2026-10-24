@@ -254,7 +254,7 @@ where
 
         // 创建输出数组
         // Create output array
-        let out_dyn_shape = DynShape::new(out_shape.clone());
+        let out_dyn_shape = DynShape::new(out_shape);
         let mut result = MultiArray::<T, DynShape>::new_with(out_dyn_shape, T::zero());
 
         // 执行爱因斯坦求和
@@ -294,6 +294,97 @@ where
 /// - `out_ids`: 输出索引 ID
 /// - `common_ids`: 公共索引（求和索引）
 fn perform_einsum<T, S1, S2>(
+    lhs: &MultiArray<T, S1>,
+    lhs_ids: &[usize],
+    lhs_shape: &[usize],
+    rhs: &MultiArray<T, S2>,
+    rhs_ids: &[usize],
+    rhs_shape: &[usize],
+    result: &mut MultiArray<T, DynShape>,
+    out_ids: &[usize],
+    common_ids: &[usize],
+) -> Result<(), EinsumError>
+where
+    S1: AbstractShape,
+    S2: AbstractShape,
+    T: Clone + Zero + Add<Output = T> + Mul<Output = T> + AddAssign,
+{
+    let fallback = |result: &mut MultiArray<T, DynShape>| perform_einsum_pairs(
+        lhs, lhs_ids, lhs_shape, rhs, rhs_ids, rhs_shape, result, out_ids, common_ids,
+    );
+    let Some((lhs_strides, lhs_size)) = row_major_strides(lhs_shape) else { return fallback(result); };
+    let Some((rhs_strides, rhs_size)) = row_major_strides(rhs_shape) else { return fallback(result); };
+    let Some(output_shape) = (0..result.shape.dimension()).map(|axis| result.shape.len_of_dimension(axis).ok())
+        .collect::<Option<Vec<_>>>() else { return fallback(result); };
+    let Some((output_strides, output_size)) = row_major_strides(&output_shape) else { return fallback(result); };
+    if lhs_size != lhs.len() || rhs_size != rhs.len() || output_size != result.len() { return fallback(result); }
+    if lhs_size == 0 || rhs_size == 0 { return Ok(()); }
+
+    let mut rhs_sources = vec![None; rhs_shape.len()];
+    for id in common_ids {
+        if let (Some(left), Some(right)) = (lhs_ids.iter().position(|value| value == id), rhs_ids.iter().position(|value| value == id)) {
+            if left >= lhs_shape.len() || right >= rhs_shape.len() { return fallback(result); }
+            rhs_sources[right] = Some(left);
+        }
+    }
+    let free_axes = rhs_sources.iter().enumerate().filter_map(|(axis, source)| source.is_none().then_some(axis)).collect::<Vec<_>>();
+    let Some(output_axes) = out_ids.iter().map(|id| {
+        lhs_ids.iter().position(|value| value == id).filter(|axis| *axis < lhs_shape.len()).map(|axis| (true, axis))
+            .or_else(|| rhs_ids.iter().position(|value| value == id).filter(|axis| *axis < rhs_shape.len()).map(|axis| (false, axis)))
+    }).collect::<Option<Vec<_>>>() else { return fallback(result); };
+    let mut lhs_coords = vec![0; lhs_shape.len()];
+    let mut rhs_coords = vec![0; rhs_shape.len()];
+    // 保留原来的lhs外循环/rhs物理顺序，以及重复标签首次匹配；只枚举满足共享坐标的rhs项。 / Retain lhs-outer/rhs-physical order and first matches for duplicate labels; enumerate only matching rhs items.
+    'left: for lhs_linear in 0..lhs_size {
+        for (axis, coordinate) in lhs_coords.iter_mut().enumerate() {
+            *coordinate = lhs_linear / lhs_strides[axis] % lhs_shape[axis];
+        }
+        let mut rhs_linear = 0;
+        for (axis, source) in rhs_sources.iter().enumerate() {
+            let coordinate = source.map_or(0, |left| lhs_coords[left]);
+            if coordinate >= rhs_shape[axis] { continue 'left; }
+            rhs_coords[axis] = coordinate;
+            rhs_linear += coordinate * rhs_strides[axis];
+        }
+        loop {
+            let product = lhs[lhs_linear].clone() * rhs[rhs_linear].clone();
+            let mut output_linear = 0;
+            let mut valid = output_axes.len() == output_shape.len();
+            for (axis, &(left, source)) in output_axes.iter().enumerate() {
+                let coordinate = if left { lhs_coords[source] } else { rhs_coords[source] };
+                if output_shape.get(axis).is_none_or(|size| coordinate >= *size) { valid = false; break; }
+                output_linear += coordinate * output_strides[axis];
+            }
+            if valid { result[output_linear] += product; }
+            let mut advanced = false;
+            for &axis in free_axes.iter().rev() {
+                if rhs_coords[axis] + 1 < rhs_shape[axis] {
+                    rhs_coords[axis] += 1;
+                    rhs_linear += rhs_strides[axis];
+                    advanced = true;
+                    break;
+                }
+                rhs_linear -= rhs_coords[axis] * rhs_strides[axis];
+                rhs_coords[axis] = 0;
+            }
+            if !advanced { break; }
+        }
+    }
+    Ok(())
+}
+
+fn row_major_strides(shape: &[usize]) -> Option<(Vec<usize>, usize)> {
+    let mut strides = vec![0; shape.len()];
+    let mut size = 1usize;
+    for (axis, dimension) in shape.iter().enumerate().rev() {
+        strides[axis] = size;
+        size = size.checked_mul(*dimension)?;
+    }
+    Some((strides, size))
+}
+
+// 保留非常规形状/缺失索引的兼容路径，也作为精确累加顺序的参考。 / Retain compatibility for irregular shapes/missing indices and a reference for exact accumulation order.
+fn perform_einsum_pairs<T, S1, S2>(
     lhs: &MultiArray<T, S1>,
     lhs_ids: &[usize],
     lhs_shape: &[usize],
@@ -460,6 +551,141 @@ mod tests {
     use super::super::indices::{I, IL, IL2, J, K};
     use super::*;
     use crate::{MultiArrayBuilder, Shape};
+
+    struct Case<'a> {
+        lhs_shape: &'a [usize],
+        rhs_shape: &'a [usize],
+        lhs_ids: &'a [usize],
+        rhs_ids: &'a [usize],
+        output_shape: &'a [usize],
+        output_ids: &'a [usize],
+        common: &'a [usize],
+    }
+
+    fn compare_pair_reference(case: &Case<'_>) {
+        for order in [crate::StorageOrder::RowMajor, crate::StorageOrder::ColumnMajor] {
+            for palette in [&[1e16f64, 1.0, -1e16, -0.0, 0.0, -3.0][..],
+                &[1e16f64, 1.0, -1e16, -0.0, 0.0, -3.0, f64::INFINITY, f64::NAN][..]]
+            {
+                let lhs: MultiArray<f64, DynShape> = MultiArrayBuilder::new_by(
+                    DynShape::new_with_order(case.lhs_shape.to_vec(), order), |index, coordinates| palette[(index + coordinates.iter().copied().sum::<usize>()) % palette.len()],
+                );
+                let rhs: MultiArray<f64, DynShape> = MultiArrayBuilder::new_by(
+                    DynShape::new_with_order(case.rhs_shape.to_vec(), order), |index, coordinates| palette[(index + coordinates.iter().copied().sum::<usize>() + 1) % palette.len()],
+                );
+                let mut actual = MultiArray::new_with(DynShape::new(case.output_shape.to_vec()), 0.0);
+                let mut expected = MultiArray::new_with(DynShape::new(case.output_shape.to_vec()), 0.0);
+                perform_einsum(&lhs, case.lhs_ids, case.lhs_shape, &rhs, case.rhs_ids, case.rhs_shape,
+                    &mut actual, case.output_ids, case.common).unwrap();
+                perform_einsum_pairs(&lhs, case.lhs_ids, case.lhs_shape, &rhs, case.rhs_ids, case.rhs_shape,
+                    &mut expected, case.output_ids, case.common).unwrap();
+                for index in 0..expected.len() { assert_eq!(actual[index].to_bits(), expected[index].to_bits(), "index={index} order={order:?}"); }
+            }
+        }
+    }
+
+    #[test]
+    fn generic_pair_plan_preserves_first_matches_empty_axes_and_physical_order() {
+        for case in [
+            Case { lhs_shape: &[2, 3], rhs_shape: &[3, 4], lhs_ids: &[0, 1], rhs_ids: &[1, 2], output_shape: &[2, 4], output_ids: &[0, 2], common: &[1] },
+            Case { lhs_shape: &[2], rhs_shape: &[3], lhs_ids: &[0], rhs_ids: &[1], output_shape: &[2, 3], output_ids: &[0, 1], common: &[] },
+            Case { lhs_shape: &[3], rhs_shape: &[3], lhs_ids: &[0], rhs_ids: &[0], output_shape: &[], output_ids: &[], common: &[0] },
+            Case { lhs_shape: &[2, 3], rhs_shape: &[2, 4], lhs_ids: &[0, 0], rhs_ids: &[0, 2], output_shape: &[2, 4], output_ids: &[0, 2], common: &[0, 0] },
+            Case { lhs_shape: &[2, 3], rhs_shape: &[3, 2, 4], lhs_ids: &[0, 1], rhs_ids: &[1, 1, 2], output_shape: &[2, 4], output_ids: &[0, 2], common: &[1] },
+            Case { lhs_shape: &[2, 3], rhs_shape: &[3, 4], lhs_ids: &[0, 1], rhs_ids: &[1, 2], output_shape: &[4, 2, 4], output_ids: &[2, 0, 2], common: &[1] },
+            Case { lhs_shape: &[2, 3], rhs_shape: &[2, 3], lhs_ids: &[0, 1], rhs_ids: &[0, 1], output_shape: &[], output_ids: &[], common: &[0, 1] },
+            Case { lhs_shape: &[], rhs_shape: &[], lhs_ids: &[], rhs_ids: &[], output_shape: &[], output_ids: &[], common: &[] },
+            Case { lhs_shape: &[0, 3], rhs_shape: &[3, 2], lhs_ids: &[0, 1], rhs_ids: &[1, 2], output_shape: &[0, 2], output_ids: &[0, 2], common: &[1] },
+            Case { lhs_shape: &[2, 3], rhs_shape: &[3, 4], lhs_ids: &[0, 1], rhs_ids: &[1, 2], output_shape: &[1, 1], output_ids: &[0, 2], common: &[1] },
+            Case { lhs_shape: &[2], rhs_shape: &[3], lhs_ids: &[0, 99], rhs_ids: &[1, 99], output_shape: &[2, 3], output_ids: &[0, 1], common: &[99] },
+            Case { lhs_shape: &[2], rhs_shape: &[3], lhs_ids: &[0], rhs_ids: &[1], output_shape: &[2, 3], output_ids: &[0, 99], common: &[] },
+        ] { compare_pair_reference(&case); }
+        let mut random = 0x1234_5678u64;
+        for _ in 0..256 {
+            let mut next = || { random = random.wrapping_mul(6364136223846793005).wrapping_add(1); (random >> 32) as usize };
+            let left = [next() % 4, next() % 4];
+            let right = [next() % 4, next() % 4, next() % 4];
+            let output = [next() % 4, next() % 4];
+            let common = find_common_indices(&left, &right);
+            compare_pair_reference(&Case { lhs_shape: &[2, 3], rhs_shape: &[3, 2, 2], lhs_ids: &left, rhs_ids: &right,
+                output_shape: &[3, 2], output_ids: &output, common: &common });
+        }
+    }
+
+    #[test]
+    fn pair_enumeration_retains_generic_multiplication_order_even_for_discarded_outputs() {
+        use std::cell::RefCell;
+        thread_local! { static CALLS: RefCell<Vec<(usize, usize)>> = const { RefCell::new(Vec::new()) }; }
+        #[derive(Clone, Debug, PartialEq)]
+        struct Ordered { id: usize, terms: Vec<(usize, usize)> }
+        impl AddAssign for Ordered { fn add_assign(&mut self, rhs: Self) { self.terms.extend(rhs.terms); } }
+        impl Add for Ordered { type Output = Self; fn add(mut self, rhs: Self) -> Self { self += rhs; self } }
+        impl Mul for Ordered {
+            type Output = Self;
+            fn mul(self, rhs: Self) -> Self {
+                CALLS.with(|calls| calls.borrow_mut().push((self.id, rhs.id)));
+                Self { id: 0, terms: vec![(self.id, rhs.id)] }
+            }
+        }
+        impl Zero for Ordered { fn zero() -> Self { Self { id: 0, terms: Vec::new() } } fn is_zero(&self) -> bool { self.terms.is_empty() } }
+        for case in [
+            Case { lhs_shape: &[2, 3], rhs_shape: &[3, 2], lhs_ids: &[0, 1], rhs_ids: &[1, 2], output_shape: &[2, 2], output_ids: &[0, 2], common: &[1] },
+            Case { lhs_shape: &[2, 3], rhs_shape: &[2, 2, 3, 2], lhs_ids: &[0, 1], rhs_ids: &[0, 2, 1, 3], output_shape: &[2, 2], output_ids: &[2, 3], common: &[0, 1] },
+        ] {
+            let lhs: MultiArray<Ordered, DynShape> = MultiArrayBuilder::new_by(DynShape::new(case.lhs_shape.to_vec()), |id, _| Ordered { id, terms: Vec::new() });
+            let rhs: MultiArray<Ordered, DynShape> = MultiArrayBuilder::new_by(DynShape::new(case.rhs_shape.to_vec()), |id, _| Ordered { id: id + 10, terms: Vec::new() });
+            for output_shape in [case.output_shape.to_vec(), vec![1, 1], vec![4]] {
+                let mut expected = MultiArray::new_with(DynShape::new(output_shape.clone()), Ordered::zero());
+                let mut actual = MultiArray::new_with(DynShape::new(output_shape), Ordered::zero());
+                CALLS.with(|calls| calls.borrow_mut().clear());
+                perform_einsum_pairs(&lhs, case.lhs_ids, case.lhs_shape, &rhs, case.rhs_ids, case.rhs_shape, &mut expected, case.output_ids, case.common).unwrap();
+                let expected_calls = CALLS.with(|calls| std::mem::take(&mut *calls.borrow_mut()));
+                perform_einsum(&lhs, case.lhs_ids, case.lhs_shape, &rhs, case.rhs_ids, case.rhs_shape, &mut actual, case.output_ids, case.common).unwrap();
+                assert_eq!(CALLS.with(|calls| std::mem::take(&mut *calls.borrow_mut())), expected_calls);
+                for index in 0..actual.len() { assert_eq!(actual[index], expected[index]); }
+            }
+        }
+    }
+
+    #[test]
+    fn public_generic_contraction_matches_specialized_matmul_and_compatibility_path() {
+        let lhs: MultiArray<f64, DynShape> = MultiArrayBuilder::new_by(DynShape::new(vec![2, 3]), |index, _| index as f64 - 2.0);
+        let rhs: MultiArray<f64, DynShape> = MultiArrayBuilder::new_by(DynShape::new(vec![3, 4]), |index, _| index as f64 + 1.0);
+        let left: TensorExpr<'_, _, _, IL2<I, J>> = TensorExpr::new(&lhs);
+        let right: TensorExpr<'_, _, _, IL2<J, K>> = TensorExpr::new(&rhs);
+        let actual = <_ as EinsteinSum<'_, f64, _, IL2<I, J>, _, IL2<J, K>, IL2<I, K>>>::einsum(&left, &right).unwrap();
+        let expected = crate::einsum::matmul(&lhs, &rhs).unwrap();
+        for index in 0..actual.len() { assert_eq!(actual[index].to_bits(), expected[index].to_bits()); }
+        let wrong: MultiArray<f64, DynShape> = MultiArray::new_with(DynShape::new(vec![2, 4]), 1.0);
+        let wrong: TensorExpr<'_, _, _, IL2<J, K>> = TensorExpr::new(&wrong);
+        assert!(matches!(<_ as EinsteinSum<'_, f64, _, IL2<I, J>, _, IL2<J, K>, IL2<I, K>>>::einsum(&left, &wrong), Err(EinsumError::IncompatibleShapes { .. })));
+        let mut expected = MultiArray::new_with(DynShape::new(vec![2, 4]), 0.0);
+        let mut actual = MultiArray::new_with(DynShape::new(vec![2, 4]), 0.0);
+        perform_einsum_pairs(&lhs, &[0, 1], &[2, 2], &rhs, &[1, 2], &[3, 4], &mut expected, &[0, 2], &[1]).unwrap();
+        perform_einsum(&lhs, &[0, 1], &[2, 2], &rhs, &[1, 2], &[3, 4], &mut actual, &[0, 2], &[1]).unwrap();
+        for index in 0..actual.len() { assert_eq!(actual[index].to_bits(), expected[index].to_bits()); }
+    }
+
+    #[test]
+    #[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+    fn performance_b09_generic_contraction() {
+        use std::hint::black_box;
+        use std::time::Instant;
+        for size in [8, 24, 48] {
+            let lhs: MultiArray<f64, DynShape> = MultiArray::new_with(DynShape::new(vec![size, size]), 1.0f64);
+            let rhs: MultiArray<f64, DynShape> = MultiArray::new_with(DynShape::new(vec![size, size]), 2.0f64);
+            for sample in 0..5 {
+                let mut result = MultiArray::new_with(DynShape::new(vec![size, size]), 0.0f64);
+                let start = Instant::now();
+                perform_einsum(black_box(&lhs), &[0, 1], &[size, size], black_box(&rhs), &[1, 2], &[size, size],
+                    black_box(&mut result), &[0, 2], &[1]).unwrap();
+                let elapsed = start.elapsed();
+                for index in 0..size * size { assert_eq!(result[index], 2.0 * size as f64); }
+                black_box(result);
+                println!("generic_contraction size={size} sample={sample} elapsed={elapsed:?}");
+            }
+        }
+    }
 
     #[test]
     fn test_linear_to_coords() {

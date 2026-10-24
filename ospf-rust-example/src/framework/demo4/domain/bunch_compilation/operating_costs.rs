@@ -139,7 +139,7 @@ pub(super) struct RecoveryOperatingCostComponent {
 impl RecoveryOperatingCostComponent {
     pub fn refresh(
         &mut self,
-        columns: &[(usize, RecoveryBunchCandidate)],
+        columns: &[(usize, &RecoveryBunchCandidate)],
         cancellations: &BTreeMap<String, usize>,
         model: &mut MetaModel<f64>,
     ) -> GanttResult<()> {

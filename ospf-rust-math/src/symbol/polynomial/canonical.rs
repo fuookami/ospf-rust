@@ -1769,18 +1769,42 @@ where
     {
         let n = symbols.len();
         let mut hessian = vec![vec![T::zero(); n]; n];
+        if n == 0 { return hessian; }
+        let mut positions: Option<HashMap<&OwnedSymbol, Vec<usize>>> = None;
+        let mut involved = Vec::new();
 
-        // 遍历所有单项式，计算二阶导数
-        // Iterate through all monomials and compute second derivatives
+        // 只访问实际出现的请求位置，保留重复符号和原行列运算顺序。 / Visit involved positions only, retaining duplicate symbols and row/column operation order.
         for monomial in &self.monomials {
-            // 计算每个单项式对 Hessian 的贡献
-            // Compute contribution of each monomial to Hessian
-            for (i, symbol_i) in symbols.iter().enumerate() {
-                for (j, symbol_j) in symbols.iter().enumerate() {
-                    // 计算二阶混合偏导 ∂²m/∂xᵢ∂xⱼ
-                    // Compute second mixed partial derivative
+            // 稠密项保留直接行列遍历，避免索引收集和间接访问成本。 / Dense terms retain direct row/column traversal to avoid index collection and indirection.
+            if monomial.powers.len() >= n {
+                for (i, symbol_i) in symbols.iter().enumerate() {
+                    for (j, symbol_j) in symbols.iter().enumerate() {
+                        if let Some(contribution) = compute_second_derivative_contribution(monomial, symbol_i, symbol_j) {
+                            let lhs = std::mem::replace(&mut hessian[i][j], T::zero());
+                            hessian[i][j] = lhs + contribution;
+                        }
+                    }
+                }
+                continue;
+            }
+            let positions = positions.get_or_insert_with(|| {
+                let mut positions: HashMap<&OwnedSymbol, Vec<usize>> = HashMap::new();
+                for (index, symbol) in symbols.iter().enumerate() {
+                    positions.entry(symbol).or_default().push(index);
+                }
+                positions
+            });
+            involved.clear();
+            for symbol in monomial.powers.keys() {
+                if let Some(indices) = positions.get(symbol) {
+                    involved.extend_from_slice(indices);
+                }
+            }
+            involved.sort_unstable();
+            for &i in &involved {
+                for &j in &involved {
                     if let Some(contribution) =
-                        compute_second_derivative_contribution(monomial, symbol_i, symbol_j)
+                        compute_second_derivative_contribution(monomial, &symbols[i], &symbols[j])
                     {
                         let lhs = std::mem::replace(&mut hessian[i][j], T::zero());
                         hessian[i][j] = lhs + contribution;
@@ -2034,4 +2058,6 @@ mod tests {
         assert_eq!(scaled.monomials[0].coefficient, 6.0);
         assert_eq!(scaled.constant, 3.0);
     }
+
+    include!("canonical/performance_tests.rs");
 }

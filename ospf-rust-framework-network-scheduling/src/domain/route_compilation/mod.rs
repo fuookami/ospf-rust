@@ -3,7 +3,7 @@
 //! 本模块只负责把路线列编译到 `MetaModel<f64>`，不负责调用具体求解器。
 //! This module compiles route columns into `MetaModel<f64>` and does not call a solver.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use ospf_rust_core::model::{
@@ -207,41 +207,91 @@ where
         Ok(self)
     }
 
+    fn metadata_snapshot(&self) -> Self {
+        Self {
+            instance: self.instance.clone(),
+            column_pool: RouteColumnPool { routes: Vec::new(), signatures: self.column_pool.signatures.clone() },
+            artificial_coverage: self.artificial_coverage.clone(),
+            phase: self.phase,
+            pricing_rows: self.pricing_rows.clone(),
+            route_indices: self.route_indices.clone(),
+            model_to_route: self.model_to_route.clone(),
+            retired_route_indices: self.retired_route_indices.clone(),
+            constraint_group: self.constraint_group.clone(),
+            registered: self.registered,
+            registered_model: self.registered_model,
+            next_route_variable_id: self.next_route_variable_id,
+            objective_name: self.objective_name.clone(),
+        }
+    }
+
+    fn transaction<T, F>(
+        &mut self,
+        model: &mut MetaModel<f64>,
+        operation: F,
+    ) -> Result<T>
+    where
+        F: FnOnce(&mut Self, &mut MetaModel<f64>, &mut Vec<(usize, Route<V>)>) -> Result<T>,
+    {
+        // 单次生命周期操作只备份元数据，删除项保留原对象及原位置。 / A single lifecycle operation backs up metadata only; removed items retain their objects and original positions.
+        let mut before = self.metadata_snapshot();
+        let original_len = self.column_pool.routes.len();
+        let mut removed = Vec::new();
+        let result = model.transaction(|model| operation(self, model, &mut removed));
+        if result.is_err() {
+            let mut routes = std::mem::take(&mut self.column_pool.routes);
+            if removed.is_empty() {
+                routes.truncate(original_len);
+            } else {
+                let mut kept = routes.into_iter();
+                let mut removed = removed.into_iter().peekable();
+                routes = (0..original_len).map(|position| {
+                    if removed.peek().is_some_and(|(index, _)| *index == position) {
+                        removed.next().expect("removed route position exists").1
+                    } else {
+                        kept.next().expect("unchanged route position exists")
+                    }
+                }).collect();
+            }
+            before.column_pool.routes = routes;
+            *self = before;
+        }
+        result
+    }
+
     /// 注册人工变量、覆盖约束、车队约束和 Phase I 目标 / Register artificial variables, coverage, fleet, and Phase-I objective.
     pub fn register(&mut self, model: &mut MetaModel<f64>) -> Result<()> {
         if self.registered {
             self.bind_model(model)?;
             return Ok(());
         }
-        let aggregation_before = self.clone();
-        let result = model.transaction(|model| {
-            self.registered_model = Some(model.model_identity());
-            let group = model
-                .create_constraint_group(
-                    COMPILATION_GROUP_ID,
-                    "network_scheduling_route_compilation",
+        self.transaction(model, |aggregation, model, _| aggregation.register_inner(model))
+    }
+
+    fn register_inner(&mut self, model: &mut MetaModel<f64>) -> Result<()> {
+        if self.registered { self.bind_model(model)?; return Ok(()); }
+        self.registered_model = Some(model.model_identity());
+        let group = model
+            .create_constraint_group(
+                COMPILATION_GROUP_ID,
+                "network_scheduling_route_compilation",
+            )
+            .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+        self.constraint_group = Some(group);
+        for customer in &self.instance.customers {
+            let index = model
+                .register_auto_variable_with_range::<Continuous>(
+                    &format!("artificial_coverage_{}", customer.id),
+                    VariableRange::bounded(0.0, 1.0),
                 )
                 .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
-            self.constraint_group = Some(group);
-            for customer in &self.instance.customers {
-                let index = model
-                    .register_auto_variable_with_range::<Continuous>(
-                        &format!("artificial_coverage_{}", customer.id),
-                        VariableRange::bounded(0.0, 1.0),
-                    )
-                    .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
-                self.artificial_coverage.variable_indices.push(index);
-            }
-            self.pricing_rows.register_variables(model)?;
-            self.registered = true;
-            self.refresh_constraints(model)?;
-            self.refresh_objective(model)?;
-            Ok(())
-        });
-        if result.is_err() {
-            *self = aggregation_before;
+            self.artificial_coverage.variable_indices.push(index);
         }
-        result
+        self.pricing_rows.register_variables(model)?;
+        self.registered = true;
+        self.refresh_constraints(model)?;
+        self.refresh_objective(model)?;
+        Ok(())
     }
 
     /// 添加路线列并刷新所有相关模型内容 / Add route columns and refresh all related model content.
@@ -250,6 +300,16 @@ where
         _iteration: usize,
         routes: impl IntoIterator<Item = Route<V>>,
         model: &mut MetaModel<f64>,
+    ) -> Result<Vec<Route<V>>> {
+        let candidates = self.prepare_columns(routes, model)?;
+        if candidates.is_empty() { return Ok(Vec::new()); }
+        self.transaction(model, |aggregation, model, _| aggregation.commit_columns(candidates, model))
+    }
+
+    fn prepare_columns(
+        &self,
+        routes: impl IntoIterator<Item = Route<V>>,
+        model: &MetaModel<f64>,
     ) -> Result<Vec<Route<V>>> {
         self.ensure_registered_on(model)?;
         let routes = routes
@@ -262,7 +322,7 @@ where
             .filter(|route| candidate_signatures.insert(route.signature()))
             .collect::<Vec<_>>();
         if candidates.is_empty() {
-            return Ok(Vec::new());
+            return Ok(candidates);
         }
         for route in &candidates {
             let customers = route.customer_ids();
@@ -279,45 +339,47 @@ where
             }
             self.instance.validate_route_arc_ids(route)?;
         }
-        let aggregation_before = self.clone();
-        let result = model.transaction(|model| {
-            let first_variable_id = self.next_route_variable_id;
-            self.pricing_rows.prepare(&candidates, &self.instance)?;
-            let mut registrations = Vec::with_capacity(candidates.len());
-            for (offset, route) in candidates.iter().enumerate() {
-                let variable_id = first_variable_id + offset;
-                let variable_index = model
-                    .register_auto_variable_with_range::<Continuous>(
-                        &format!("route_column_{variable_id}"),
-                        // 精确覆盖已蕴含上界一；显式上界会引入定价未包含的列对偶。
-                        // Exact coverage implies an upper bound of one; explicit bounds introduce unpriced column duals.
-                        VariableRange::with_lower(0.0),
-                    )
-                    .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
-                let column_index = self.column_pool.len() + offset;
-                registrations.push((route.signature(), column_index, variable_index));
-            }
-            self.next_route_variable_id += candidates.len();
-            for (signature, column_index, variable_index) in registrations {
-                self.route_indices.insert(
-                    signature.clone(),
-                    RouteVariableIndex {
-                        column_index,
-                        model_index: variable_index,
-                    },
-                );
-                self.model_to_route.insert(variable_index, signature);
-            }
-            let added = self.column_pool.add_columns(candidates);
-            model.flush(false);
-            self.refresh_constraints(model)?;
-            self.refresh_objective(model)?;
-            Ok(added)
-        });
-        if result.is_err() {
-            *self = aggregation_before;
+        Ok(candidates)
+    }
+
+    fn commit_columns(
+        &mut self,
+        candidates: Vec<Route<V>>,
+        model: &mut MetaModel<f64>,
+    ) -> Result<Vec<Route<V>>> {
+        if candidates.is_empty() { return Ok(Vec::new()); }
+        let first_variable_id = self.next_route_variable_id;
+        self.pricing_rows.prepare(&candidates, &self.instance)?;
+        let mut registrations = Vec::with_capacity(candidates.len());
+        for (offset, route) in candidates.iter().enumerate() {
+            let variable_id = first_variable_id + offset;
+            let variable_index = model
+                .register_auto_variable_with_range::<Continuous>(
+                    &format!("route_column_{variable_id}"),
+                    // 精确覆盖已蕴含上界一；显式上界会引入定价未包含的列对偶。
+                    // Exact coverage implies an upper bound of one; explicit bounds introduce unpriced column duals.
+                    VariableRange::with_lower(0.0),
+                )
+                .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+            let column_index = self.column_pool.len() + offset;
+            registrations.push((route.signature(), column_index, variable_index));
         }
-        result
+        self.next_route_variable_id += candidates.len();
+        for (signature, column_index, variable_index) in registrations {
+            self.route_indices.insert(
+                signature.clone(),
+                RouteVariableIndex {
+                    column_index,
+                    model_index: variable_index,
+                },
+            );
+            self.model_to_route.insert(variable_index, signature);
+        }
+        let added = self.column_pool.add_columns(candidates);
+        model.flush(false);
+        self.refresh_constraints(model)?;
+        self.refresh_objective(model)?;
+        Ok(added)
     }
 
     /// 删除路线列并将旧变量固定为零 / Remove route columns and fix old variables to zero.
@@ -331,34 +393,46 @@ where
             .into_iter()
             .map(|route| self.canonicalize_route(route))
             .collect::<Result<Vec<_>>>()?;
-        let aggregation_before = self.clone();
-        let result = model.transaction(|model| {
-            for route in &routes {
-                if let Some(index) = self.route_indices.remove(&route.signature()) {
-                    model.remove_objective_terms(&[index.model_index].into_iter().collect());
-                    model
-                        .set_variable_range_by_index(index.model_index, VariableRange::fixed(0.0))
-                        .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
-                    self.model_to_route.remove(&index.model_index);
-                    self.retired_route_indices.insert(index.model_index);
-                }
+        self.transaction(model, |aggregation, model, removed| aggregation.remove_inner(&routes, model, removed))
+    }
+
+    fn remove_inner(
+        &mut self,
+        routes: &[Route<V>],
+        model: &mut MetaModel<f64>,
+        removed: &mut Vec<(usize, Route<V>)>,
+    ) -> Result<()> {
+        for route in routes {
+            if let Some(index) = self.route_indices.remove(&route.signature()) {
+                model.remove_objective_terms(&[index.model_index].into_iter().collect());
+                model
+                    .set_variable_range_by_index(index.model_index, VariableRange::fixed(0.0))
+                    .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+                self.model_to_route.remove(&index.model_index);
+                self.retired_route_indices.insert(index.model_index);
             }
-            self.pricing_rows.remove(&routes);
-            self.column_pool.remove_columns(routes);
-            for (column_index, route) in self.column_pool.routes().iter().enumerate() {
-                if let Some(index) = self.route_indices.get_mut(&route.signature()) {
-                    index.column_index = column_index;
-                }
-            }
-            model.flush(false);
-            self.refresh_constraints(model)?;
-            self.refresh_objective(model)?;
-            Ok(())
-        });
-        if result.is_err() {
-            *self = aggregation_before;
         }
-        result
+        self.pricing_rows.remove(routes);
+        let signatures = routes.iter().map(|route| route.signature()).collect::<BTreeSet<_>>();
+        let mut position = 0;
+        let mut positions = Vec::new();
+        let removed_routes = self.column_pool.routes.extract_if(.., |route| {
+            let remove = signatures.contains(&route.signature());
+            if remove { positions.push(position); }
+            position += 1;
+            remove
+        }).collect::<Vec<_>>();
+        removed.extend(positions.into_iter().zip(removed_routes));
+        for signature in signatures { self.column_pool.signatures.remove(&signature); }
+        for (column_index, route) in self.column_pool.routes().iter().enumerate() {
+            if let Some(index) = self.route_indices.get_mut(&route.signature()) {
+                index.column_index = column_index;
+            }
+        }
+        model.flush(false);
+        self.refresh_constraints(model)?;
+        self.refresh_objective(model)?;
+        Ok(())
     }
 
     /// 切换到 Phase II 并固定人工变量为零 / Switch to Phase II and fix artificial variables to zero.
@@ -367,23 +441,18 @@ where
         if self.phase == PricingPhase::PhaseTwo {
             return Ok(());
         }
-        let aggregation_before = self.clone();
-        let result = model.transaction(|model| {
-            for index in self.artificial_coverage.variable_indices.iter().copied().chain(self.pricing_rows.artificial_indices()) {
+        self.transaction(model, |aggregation, model, _| {
+            for index in aggregation.artificial_coverage.variable_indices.iter().copied().chain(aggregation.pricing_rows.artificial_indices()) {
                 model
                     .set_variable_range_by_index(index, VariableRange::fixed(0.0))
                     .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
             }
-            self.artificial_coverage.is_phase_two = true;
-            self.phase = PricingPhase::PhaseTwo;
+            aggregation.artificial_coverage.is_phase_two = true;
+            aggregation.phase = PricingPhase::PhaseTwo;
             model.flush(false);
-            self.refresh_objective(model)?;
+            aggregation.refresh_objective(model)?;
             Ok(())
-        });
-        if result.is_err() {
-            *self = aggregation_before;
-        }
-        result
+        })
     }
 
     /// 判断 Phase I 是否已经达到可行覆盖 / Check whether Phase I has achieved feasible coverage.
@@ -503,7 +572,7 @@ where
         let expanded = model.constraints().iter().map(|row| if row.inequality.relation == ConstraintRelation::Equal { 2 } else { 1 }).sum::<usize>();
         if compiled.objective_category != ObjectiveCategory::Minimum || compiled.A.rows.len() != expanded
             || compiled.c.iter().any(|value| !value.is_finite())
-            || model.objective_snapshot().sub_objectives.iter().any(|objective| !objective.weight.is_finite()
+            || model.objective().sub_objectives.iter().any(|objective| !objective.weight.is_finite()
                 || !objective.polynomial.constant_term().is_finite()
                 || objective.polynomial.monomials().iter().any(|term| !term.coefficient().is_finite()))
         {
@@ -578,64 +647,49 @@ where
             )
         })?;
         model.remove_constraints_by_group_id(group.id);
-        for customer in &self.instance.customers {
-            let mut coefficients = Vec::new();
-            let artificial_index = self
-                .artificial_coverage
-                .variable_indices
-                .get(self.instance.customer_by_id[&customer.id])
-                .copied()
-                .ok_or_else(|| {
-                    NetworkSchedulingError::contract(
-                        "人工变量索引不存在 / artificial variable index is missing",
-                    )
-                })?;
-            coefficients.push((artificial_index, 1.0));
-            for route in self.column_pool.routes() {
-                if !route.customer_ids().contains(&customer.id) {
-                    continue;
-                }
-                if let Some(index) = self.route_indices.get(&route.signature()) {
-                    coefficients.push((index.model_index, 1.0));
+        let mut coverage = Vec::with_capacity(self.instance.customers.len());
+        let mut customer_rows = HashMap::<_, Vec<usize>>::new();
+        for (row, customer) in self.instance.customers.iter().enumerate() {
+            let artificial = self.artificial_coverage.variable_indices
+                .get(self.instance.customer_by_id[&customer.id]).copied().ok_or_else(||
+                    NetworkSchedulingError::contract("人工变量索引不存在 / artificial variable index is missing"))?;
+            coverage.push(vec![(artificial, 1.0)]);
+            customer_rows.entry(&customer.id).or_default().push(row);
+        }
+        let mut fleets = vec![Vec::new(); self.instance.vehicle_types.len()];
+        let mut vehicle_rows = HashMap::<_, Vec<usize>>::new();
+        for (row, vehicle) in self.instance.vehicle_types.iter().enumerate() {
+            vehicle_rows.entry(&vehicle.id).or_default().push(row);
+        }
+        // 调用内按列投影；每行仍按列池顺序累加，重复停靠只贡献一次。 / Project columns within this call; retain pool order per row and count repeated stops once.
+        let mut last_route = vec![None; coverage.len()];
+        for (ordinal, route) in self.column_pool.routes().iter().enumerate() {
+            let Some(index) = self.route_indices.get(&route.signature()) else { continue; };
+            for customer in route.stops.iter().filter_map(|stop| stop.customer_id.as_ref()) {
+                if let Some(rows) = customer_rows.get(customer) {
+                    for &row in rows {
+                        if last_route[row] != Some(ordinal) {
+                            coverage[row].push((index.model_index, 1.0));
+                            last_route[row] = Some(ordinal);
+                        }
+                    }
                 }
             }
-            model
-                .add_linear_constraint_with_metadata(
-                    &coefficients,
-                    ConstraintRelation::Equal,
-                    1.0,
-                    &coverage_constraint_name(&customer.id),
-                    Some(group.clone()),
-                    false,
-                    0,
-                    Some("customer_coverage".to_owned()),
-                )
-                .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+            if let Some(rows) = vehicle_rows.get(&route.vehicle_type_id) {
+                for &row in rows { fleets[row].push((index.model_index, 1.0)); }
+            }
         }
-        for vehicle_type in &self.instance.vehicle_types {
-            let coefficients = self
-                .column_pool
-                .routes()
-                .iter()
-                .filter(|route| route.vehicle_type_id == vehicle_type.id)
-                .filter_map(|route| {
-                    self.route_indices
-                        .get(&route.signature())
-                        .map(|index| (index.model_index, 1.0))
-                })
-                .collect::<Vec<_>>();
-            model
-                .add_linear_constraint_with_metadata(
-                    &coefficients,
-                    ConstraintRelation::LessEqual,
-                    vehicle_type.amount as f64,
-                    &fleet_constraint_name(&vehicle_type.id),
-                    Some(group.clone()),
-                    false,
-                    0,
-                    Some("fleet_size".to_owned()),
-                )
-                .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+        for (customer, coefficients) in self.instance.customers.iter().zip(coverage) {
+            model.add_linear_constraint_with_metadata(
+                &coefficients, ConstraintRelation::Equal, 1.0, &coverage_constraint_name(&customer.id),
+                Some(group.clone()), false, 0, Some("customer_coverage".to_owned()),
+            ).map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+        }
+        for (vehicle, coefficients) in self.instance.vehicle_types.iter().zip(fleets) {
+            model.add_linear_constraint_with_metadata(
+                &coefficients, ConstraintRelation::LessEqual, vehicle.amount as f64, &fleet_constraint_name(&vehicle.id),
+                Some(group.clone()), false, 0, Some("fleet_size".to_owned()),
+            ).map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
         }
         self.pricing_rows.register_rows(model, group, &self.route_indices)?;
         Ok(())
@@ -888,24 +942,15 @@ where
 
     /// 注册基础模型和扩展 / Register the base model and extensions.
     pub fn register(&mut self, model: &mut MetaModel<f64>) -> Result<()> {
-        let aggregation_before = self.aggregation.clone();
-        let extensions_registered_before = self.extensions_registered;
-        let result = model.transaction(|model| {
-            self.aggregation.register(model)?;
-            if self.extensions_registered {
-                return Ok(());
+        self.aggregation.transaction(model, |aggregation, model, _| {
+            aggregation.register_inner(model)?;
+            if !self.extensions_registered {
+                for extension in &self.extensions { extension.register(model, aggregation)?; }
             }
-            for extension in &self.extensions {
-                extension.register(model, &self.aggregation)?;
-            }
-            self.extensions_registered = true;
             Ok(())
-        });
-        if result.is_err() {
-            self.aggregation = aggregation_before;
-            self.extensions_registered = extensions_registered_before;
-        }
-        result
+        })?;
+        self.extensions_registered = true;
+        Ok(())
     }
 
     /// 添加列并触发扩展生命周期 / Add columns and invoke extension lifecycle.
@@ -915,18 +960,13 @@ where
         routes: impl IntoIterator<Item = Route<V>>,
         model: &mut MetaModel<f64>,
     ) -> Result<Vec<Route<V>>> {
-        let aggregation_before = self.aggregation.clone();
-        let result = model.transaction(|model| {
-            let added = self.aggregation.add_columns(iteration, routes, model)?;
-            for extension in &self.extensions {
-                extension.add_columns(&added, model)?;
-            }
+        let _ = iteration;
+        self.aggregation.transaction(model, |aggregation, model, _| {
+            let candidates = aggregation.prepare_columns(routes, model)?;
+            let added = aggregation.commit_columns(candidates, model)?;
+            for extension in &self.extensions { extension.add_columns(&added, model)?; }
             Ok(added)
-        });
-        if result.is_err() {
-            self.aggregation = aggregation_before;
-        }
-        result
+        })
     }
 
     /// 删除列并触发扩展生命周期 / Remove columns and invoke extension lifecycle.
@@ -936,18 +976,13 @@ where
         model: &mut MetaModel<f64>,
     ) -> Result<()> {
         let routes = routes.into_iter().collect::<Vec<_>>();
-        let aggregation_before = self.aggregation.clone();
-        let result = model.transaction(|model| {
-            self.aggregation.remove_columns(routes.clone(), model)?;
-            for extension in &self.extensions {
-                extension.remove_columns(&routes, model)?;
-            }
+        self.aggregation.transaction(model, |aggregation, model, removed| {
+            aggregation.ensure_registered_on(model)?;
+            let canonical = routes.iter().cloned().map(|route| aggregation.canonicalize_route(route)).collect::<Result<Vec<_>>>()?;
+            aggregation.remove_inner(&canonical, model, removed)?;
+            for extension in &self.extensions { extension.remove_columns(&routes, model)?; }
             Ok(())
-        });
-        if result.is_err() {
-            self.aggregation = aggregation_before;
-        }
-        result
+        })
     }
 
     /// 提取影子价格和定价对偶 / Extract shadow prices and pricing duals.
@@ -1107,4 +1142,180 @@ where
         },
     )?;
     Ok(Quantity::new(zero, unit.clone()))
+}
+
+#[cfg(test)]
+mod transaction_tests {
+    use super::*;
+    use crate::domain::route_generation::InitialRouteGenerator;
+    use crate::domain::vrp::{DistanceArcCostCalculator, DistanceAsTravelTimeCalculator, EuclideanDistanceCalculator, FixedPlusArcCostPolicy};
+
+    fn refresh_constraints_reference(aggregation: &RouteCompilationAggregation<f64>, model: &mut MetaModel<f64>) -> Result<()> {
+        let group = aggregation.constraint_group.as_ref().ok_or_else(|| {
+            NetworkSchedulingError::contract(
+                "路线编译约束组未注册 / route-compilation constraint group is not registered",
+            )
+        })?;
+        model.remove_constraints_by_group_id(group.id);
+        for customer in &aggregation.instance.customers {
+            let mut coefficients = Vec::new();
+            let artificial_index = aggregation
+                .artificial_coverage
+                .variable_indices
+                .get(aggregation.instance.customer_by_id[&customer.id])
+                .copied()
+                .ok_or_else(|| {
+                    NetworkSchedulingError::contract(
+                        "人工变量索引不存在 / artificial variable index is missing",
+                    )
+                })?;
+            coefficients.push((artificial_index, 1.0));
+            for route in aggregation.column_pool.routes() {
+                if !route.customer_ids().contains(&customer.id) {
+                    continue;
+                }
+                if let Some(index) = aggregation.route_indices.get(&route.signature()) {
+                    coefficients.push((index.model_index, 1.0));
+                }
+            }
+            model
+                .add_linear_constraint_with_metadata(
+                    &coefficients,
+                    ConstraintRelation::Equal,
+                    1.0,
+                    &coverage_constraint_name(&customer.id),
+                    Some(group.clone()),
+                    false,
+                    0,
+                    Some("customer_coverage".to_owned()),
+                )
+                .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+        }
+        for vehicle_type in &aggregation.instance.vehicle_types {
+            let coefficients = aggregation
+                .column_pool
+                .routes()
+                .iter()
+                .filter(|route| route.vehicle_type_id == vehicle_type.id)
+                .filter_map(|route| {
+                    aggregation.route_indices
+                        .get(&route.signature())
+                        .map(|index| (index.model_index, 1.0))
+                })
+                .collect::<Vec<_>>();
+            model
+                .add_linear_constraint_with_metadata(
+                    &coefficients,
+                    ConstraintRelation::LessEqual,
+                    vehicle_type.amount as f64,
+                    &fleet_constraint_name(&vehicle_type.id),
+                    Some(group.clone()),
+                    false,
+                    0,
+                    Some("fleet_size".to_owned()),
+                )
+                .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
+        }
+        aggregation.pricing_rows.register_rows(model, group, &aggregation.route_indices)?;
+        Ok(())
+    }
+
+    fn registered_routes(count: usize) -> (RouteCompilationAggregation<f64>, MetaModel<f64>, Vec<Route<f64>>) {
+        let instance = crate::tests::multi_customer_instance(count);
+        let routes = InitialRouteGenerator::new(instance.clone(), EuclideanDistanceCalculator,
+            DistanceAsTravelTimeCalculator::new(EuclideanDistanceCalculator), DistanceArcCostCalculator,
+            FixedPlusArcCostPolicy).generate(None).unwrap();
+        let mut aggregation = RouteCompilationAggregation::new(instance);
+        let mut model = MetaModel::new("refresh-projection");
+        aggregation.register(&mut model).unwrap();
+        aggregation.add_columns(0, routes.clone(), &mut model).unwrap();
+        (aggregation, model, routes)
+    }
+
+    fn assert_reference_rows(aggregation: &RouteCompilationAggregation<f64>, model: &mut MetaModel<f64>) {
+        refresh_constraints_reference(aggregation, model).unwrap();
+        let reference = model.linear_source_snapshot();
+        aggregation.refresh_constraints(model).unwrap();
+        assert_eq!(reference, model.linear_source_snapshot());
+    }
+
+    #[test]
+    fn column_projection_matches_reference_across_edits_retirement_and_public_mutation() {
+        let (mut aggregation, mut model, routes) = registered_routes(4);
+        let external = model.register_auto_variable::<Continuous>("external").unwrap();
+        model.add_linear_constraint(&[(external, 2.0)], ConstraintRelation::LessEqual, 7.0, "external-row").unwrap();
+        model.add_sub_objective(SubObjective::new_with_weight(ObjectiveCategory::Maximum,
+            Linear::new(vec![LinearMonomial::new(3.0, external)], 5.0), "external-cost", 2.0));
+        assert_reference_rows(&aggregation, &mut model);
+        aggregation.switch_to_phase_two(&mut model).unwrap();
+        assert_reference_rows(&aggregation, &mut model);
+        aggregation.remove_columns([routes[2].clone(), routes[0].clone()], &mut model).unwrap();
+        assert_reference_rows(&aggregation, &mut model);
+        aggregation.add_columns(1, [routes[0].clone()], &mut model).unwrap();
+        assert_reference_rows(&aggregation, &mut model);
+        // 公开列池可以替换同签名载荷，不能跨调用缓存客户集合。 / The public pool can replace a payload with the same signature; customer sets must not be cached across calls.
+        let mut changed = aggregation.routes()[0].clone();
+        changed.stops[1].customer_id = Some("c4".into());
+        changed.stops.push(changed.stops[1].clone());
+        changed.stops.push(changed.stops[1].clone());
+        changed.stops.last_mut().unwrap().customer_id = Some("unknown".into());
+        let original = aggregation.routes()[0].clone();
+        aggregation.column_pool.remove_columns([original]);
+        aggregation.column_pool.add_columns([changed]);
+        let unindexed = crate::tests::bare_route("missing-vehicle", &["start", "end"], &["unindexed"]);
+        aggregation.column_pool.add_columns([unindexed]);
+        assert_reference_rows(&aggregation, &mut model);
+        Arc::make_mut(&mut aggregation.instance).customers.reverse();
+        assert_reference_rows(&aggregation, &mut model);
+        assert!(model.objective().sub_objectives.iter().any(|objective| objective.name == "external-cost"));
+    }
+
+    #[test]
+    #[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+    fn performance_b07_route_constraint_projection() {
+        use std::hint::black_box;
+        use std::time::Instant;
+        for count in [16, 64, 128] {
+            let (aggregation, mut model, _) = registered_routes(count);
+            for sample in 0..5 {
+                let start = Instant::now();
+                refresh_constraints_reference(&aggregation, black_box(&mut model)).unwrap();
+                let before = start.elapsed();
+                let reference = model.linear_source_snapshot();
+                let start = Instant::now();
+                aggregation.refresh_constraints(black_box(&mut model)).unwrap();
+                let after = start.elapsed();
+                assert_eq!(reference, model.linear_source_snapshot());
+                println!("route_constraint_projection customers={count} routes={count} sample={sample} before={before:?} after={after:?}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+    fn performance_b06_route_metadata_snapshot() {
+        use std::hint::black_box;
+        use std::time::Instant;
+        for count in [16, 64] {
+            let mut aggregation = RouteCompilationAggregation::new(crate::tests::multi_customer_instance(1));
+            for index in 0..count {
+                // 仅测量大载荷快照，不把此内存夹具用作可行路线。 / Measure large-payload snapshots only; this memory fixture is not a feasible route.
+                let mut route = crate::tests::bare_route("v1", &["start", "end"], &["arc"]);
+                route.stops = vec![route.stops[0].clone(); 2048];
+                route.arc_ids = vec![format!("arc-{index}").into(); 2047];
+                aggregation.column_pool.add_columns([route]);
+            }
+            for sample in 0..5 {
+                let start = Instant::now();
+                let complete = black_box(aggregation.clone());
+                let before = start.elapsed();
+                let start = Instant::now();
+                let metadata = black_box(aggregation.metadata_snapshot());
+                let after = start.elapsed();
+                assert_eq!(complete.column_pool.signatures, metadata.column_pool.signatures);
+                assert!(metadata.routes().is_empty());
+                println!("route_snapshot count={count} stops=2048 sample={sample} complete={before:?} metadata={after:?}");
+            }
+        }
+    }
 }

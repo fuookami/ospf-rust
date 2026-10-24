@@ -160,7 +160,7 @@ impl BunchCompilationContext {
     fn refresh_rules(&mut self, model: &mut MetaModel<f64>) -> GanttResult<()> {
         let columns = self.master.compilation.base.aggregation.bunches().iter().filter_map(|entry| {
             self.master.compilation.bunch_x_map.get(&entry.index).map(|index| (entry, *index))
-        }).map(|(entry, index)| self.candidates.get(&entry.id).cloned().map(|candidate| (index, candidate))
+        }).map(|(entry, index)| self.candidates.get(&entry.id).map(|candidate| (index, candidate))
             .ok_or_else(|| invalid("missing recovery payload for rule refresh"))).collect::<GanttResult<Vec<_>>>()?;
         self.rules.refresh(&columns, model)?;
         self.fleet.refresh(&columns, model)?;

@@ -1,6 +1,6 @@
 //! 对偶快照的有效性与 LP 证书来源是两个不同合同。 / Dual-snapshot validity and LP-certificate provenance are distinct contracts.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use ospf_rust_quantities::unit::UnitConversionValue;
 use ospf_rust_core::model::{ConstraintRelation, MetaModel};
 use ospf_rust_core::model::intermediate::LinearTriadModel;
@@ -20,7 +20,7 @@ impl PathModelState {
     pub fn capture(model: &MetaModel<f64>, compiled: &LinearTriadModel) -> Result<Self> {
         let fingerprint = linear_model_fingerprint(compiled).map_err(|error| NetworkSchedulingError::contract(error.to_string()))?;
         // 后端指纹之外保留常数、权重、变量身份及实际类型；不包含求解结果。 / Also retain constants, weights, variable identities and actual types, but not solution values.
-        let detail = format!("{:?}|{:?}|{:?}", model.objective_snapshot(),
+        let detail = format!("{:?}|{:?}|{:?}", model.objective(),
             model.tokens().iter().map(|token| token.id()).collect::<Vec<_>>(), compiled.var_types);
         Ok(Self { fingerprint, detail })
     }
@@ -69,9 +69,11 @@ where
     C: Clone + PartialEq,
 {
     let mut prices = aggregation.problem().rows().iter().map(|row| (row.id.clone(), 0.0)).collect::<BTreeMap<_, _>>();
+    let mut by_name = HashMap::with_capacity(aggregation.rows.len());
+    for row in &aggregation.rows { by_name.entry(row.name.as_str()).or_insert(row); }
     let mut offset = 0;
     for constraint in model.constraints() {
-        let row = aggregation.rows.iter().find(|row| row.name == constraint.name)
+        let row = by_name.get(constraint.name.as_str())
             .ok_or_else(|| NetworkSchedulingError::contract("定价报告含未映射约束 / pricing report contains an unmapped constraint"))?;
         let first = *duals.get(offset).filter(|value| value.is_finite())
             .ok_or_else(|| NetworkSchedulingError::contract("缺失或非有限 LP 展开行对偶 / missing or nonfinite expanded LP row dual"))?;

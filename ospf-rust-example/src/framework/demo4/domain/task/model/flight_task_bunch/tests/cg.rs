@@ -274,6 +274,85 @@ fn single<C: RecoveryCostPolicy>(problem: &RecoveryProblem<C>, aircraft: usize, 
 }
 
 #[test]
+#[ignore = "manual release-mode projection timings"]
+fn performance_b02_borrowed_rule_inputs() {
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    let problem = transfer_problem(30);
+    let candidate = single(&problem, 0, 0);
+    let candidates = (0..256).map(|_| candidate.clone()).collect::<Vec<_>>();
+    let ids = (0..256).map(|i| format!("flight-{i:04}")).collect::<Vec<_>>();
+    let owned_pairs = ids.windows(2).map(|pair| (pair[0].clone(), pair[1].clone())).collect::<HashSet<_>>();
+    let borrowed_pairs = ids.windows(2).map(|pair| (pair[0].as_str(), pair[1].as_str())).collect::<HashSet<_>>();
+    let measure = |name: &str, operation: &mut dyn FnMut()| {
+        let mut samples = Vec::new();
+        for _ in 0..5 {
+            let start = Instant::now();
+            for _ in 0..20 { operation(); }
+            samples.push(start.elapsed().as_nanos() / 20);
+        }
+        samples.sort_unstable();
+        println!("{name}: median={} ns/op; samples={samples:?}", samples[2]);
+    };
+    measure("P12 owned relation probes 256x256", &mut || {
+        let mut found = 0;
+        for left in &ids {
+            for right in &ids { found += usize::from(black_box(&owned_pairs).contains(&(left.clone(), right.clone()))); }
+        }
+        assert_eq!(black_box(found), 255);
+    });
+    measure("P12 borrowed relation probes 256x256", &mut || {
+        let mut found = 0;
+        for left in &ids {
+            for right in &ids { found += usize::from(black_box(&borrowed_pairs).contains(&(left.as_str(), right.as_str()))); }
+        }
+        assert_eq!(black_box(found), 255);
+    });
+    measure("P14 owned candidate projection 256", &mut || {
+        black_box(candidates.iter().enumerate().map(|(index, candidate)| (index, candidate.clone())).collect::<Vec<_>>());
+    });
+    measure("P14 borrowed candidate projection 256", &mut || {
+        black_box(candidates.iter().enumerate().collect::<Vec<_>>());
+    });
+}
+
+#[test]
+fn passenger_transfer_rows_preserve_directed_adjacency_deduplication_and_variant_order() {
+    use crate::framework::demo4::domain::bunch_compilation::rules::passenger_rows;
+
+    let problem = transfer_problem(30);
+    let tasks = problem.configuration().tasks.iter().map(|task| task.plan.id.as_str()).collect();
+    let variants = problem.domains().iter().flat_map(|domain| domain.candidates.iter()
+        .map(|candidate| candidate.recovery.clone())).collect::<Vec<_>>();
+    let mut repeated = passenger(10);
+    repeated.id = "repeated-pair".into();
+    let mut reverse = passenger(10);
+    reverse.id = "reverse-pair".into();
+    reverse.flights.reverse();
+    let passengers = vec![passenger(30), repeated, reverse];
+    let pairs = passengers.iter().flat_map(|passenger| passenger.flights.windows(2)
+        .map(|pair| (pair[0].0.clone(), pair[1].0.clone()))).collect::<HashSet<_>>();
+    let mut expected = vec!["recovery_passenger_cover_0".to_owned(), "recovery_passenger_cover_1".to_owned(),
+        "recovery_passenger_capacity_0".to_owned(), "recovery_passenger_capacity_1".to_owned()];
+    for (left_index, left) in variants.iter().enumerate() {
+        for (right_index, right) in variants.iter().enumerate() {
+            if pairs.contains(&(left.original().plan.id.clone(), right.original().plan.id.clone()))
+                && (left.route().arr != right.route().dep || right.time().0 - left.time().1 < left.route().arr.passenger_transfer_time)
+            {
+                expected.push(format!("recovery_passenger_transfer_{left_index}_{right_index}"));
+            }
+        }
+    }
+    let rows = passenger_rows(&tasks, &variants, &passengers).unwrap();
+    assert_eq!(rows.iter().map(|row| row.name()).collect::<Vec<_>>(), expected);
+    assert_eq!(passenger_rows(&tasks, &variants, &[]).unwrap().len(), 0);
+    let mut duplicate = passengers.clone();
+    duplicate.push(passengers[0].clone());
+    assert!(passenger_rows(&tasks, &variants, &duplicate).is_err());
+}
+
+#[test]
 fn passenger_master_rows_enforce_cross_bunch_transfers_capacity_and_real_cancellation_variables() {
     let problem = transfer_problem(60);
     let mut context = BunchCompilationContext::with_resolver(problem.configuration().clone(), problem.clone()).unwrap();

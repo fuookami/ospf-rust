@@ -320,7 +320,7 @@ pub(crate) struct RecoveryPassengerComponent {
 }
 
 impl RecoveryPassengerComponent {
-    pub fn refresh(&mut self, columns: &[(usize, RecoveryBunchCandidate)], model: &mut MetaModel<f64>) -> GanttResult<()> {
+    pub fn refresh(&mut self, columns: &[(usize, &RecoveryBunchCandidate)], model: &mut MetaModel<f64>) -> GanttResult<()> {
         let Some(definition) = &self.definition else { return Ok(()); };
         if definition.rows.is_empty() { return Ok(()); }
         if self.group.is_none() {

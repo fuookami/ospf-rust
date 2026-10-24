@@ -8,7 +8,7 @@ pub mod id;
 mod pricing_evidence;
 
 pub use constraint_index::{ConstraintIndexEntry, ConstraintIndexKey, ConstraintIndexMap};
-pub(crate) use pricing_evidence::PricingEvidence;
+pub(crate) use pricing_evidence::{PricingEvidence, PricingSnapshot};
 pub use id::{
     BunchId, ExecutorId, ExecutorIdTrait, GanttId, ProductionActionId, ProductionActionIdTrait,
     ProductionMaterialId, ProductionMaterialIdTrait, ResourceId, ResourceIdTrait, TaskId,

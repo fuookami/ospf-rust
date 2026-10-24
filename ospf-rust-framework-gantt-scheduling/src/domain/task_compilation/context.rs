@@ -15,6 +15,8 @@ use crate::domain::task::Cost;
 use crate::domain::task_compilation::iterative::{AddedTaskColumn, IterativeTaskCompilation};
 use crate::domain::task_generation::TaskPricingDomain;
 
+mod revision;
+
 /// 迭代任务编译上下文 trait / Iterative task compilation context trait
 ///
 /// 定义迭代列生成中任务编译上下文的接口。
@@ -28,6 +30,11 @@ pub trait IterativeTaskCompilationContext: Send + Sync {
     /// 可观测业务修订；未提供时不认证完整域，模型指纹仍须独立验证。 / Observable business revision; absence disables global certification, and model fingerprints still require independent validation.
     fn pricing_revision(&self) -> Option<String> {
         None
+    }
+
+    /// 单次只读阶段内（外部策略回调之前），定价域、行映射和修订投影是否无内部变化；默认仍逐次复核。 / Whether pricing domain, row mapping and revision projections remain stable within one read-only phase before external policy callbacks; defaults to repeated verification.
+    fn pricing_state_is_stable(&self) -> bool {
+        false
     }
 
     /// 任务到原模型行的显式映射，允许下游覆盖命名。 / Explicit task-to-original-row mapping, with downstream naming overrides.
@@ -143,14 +150,11 @@ impl IterativeTaskCompilationContext for BasicTaskCompilationContext {
     }
 
     fn pricing_revision(&self) -> Option<String> {
-        let mut removed: Vec<_> = self.compilation.removed_columns.iter().copied().collect();
-        removed.sort_unstable();
-        let mut fixed: Vec<_> = self.compilation.fixed_columns.iter().copied().collect();
-        fixed.sort_unstable();
-        Some(format!("{:?}:{removed:?}:{fixed:?}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}", self.compilation.columns,
-            self.compilation.task_assignment_terms, self.compilation.task_compilation_terms,
-            self.compilation.executor_compilation_terms, self.compilation.y_indices, self.compilation.z_indices,
-            self.compilation.task_cancel_enabled, self.compilation.with_executor_leisure))
+        Some(revision::encode(&self.compilation))
+    }
+
+    fn pricing_state_is_stable(&self) -> bool {
+        true
     }
 
     fn register(&mut self, model: &mut MetaModel<f64>) -> GanttResult<()> {
@@ -283,5 +287,19 @@ mod tests {
         assert_eq!(prices.get(&0), Some(&1.25));
         assert_eq!(prices.get(&2), Some(&3.5));
         assert!(!prices.contains_key(&1));
+    }
+}
+
+#[cfg(test)]
+impl BasicTaskCompilationContext {
+    pub(crate) fn pricing_revision_reference(&self) -> Option<String> {
+        let mut removed: Vec<_> = self.compilation.removed_columns.iter().copied().collect();
+        removed.sort_unstable();
+        let mut fixed: Vec<_> = self.compilation.fixed_columns.iter().copied().collect();
+        fixed.sort_unstable();
+        Some(format!("{:?}:{removed:?}:{fixed:?}:{:?}:{:?}:{:?}:{:?}:{:?}:{}:{}", self.compilation.columns,
+            self.compilation.task_assignment_terms, self.compilation.task_compilation_terms,
+            self.compilation.executor_compilation_terms, self.compilation.y_indices, self.compilation.z_indices,
+            self.compilation.task_cancel_enabled, self.compilation.with_executor_leisure))
     }
 }

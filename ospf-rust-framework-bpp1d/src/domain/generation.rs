@@ -48,7 +48,8 @@ struct SearchNode<V> {
     index: usize,
     used: V,
     weight: V,
-    amounts: BTreeMap<String, u64>,
+    count: u64,
+    occupied: bool,
 }
 
 impl<V, L, W> PackingContext<V, L, W>
@@ -69,33 +70,43 @@ where
         let mut patterns = BTreeSet::new();
         let mut visited_nodes = 0;
         for bin in self.problem.bin_types.iter().filter(|bin| bin.inventory != Some(0)) {
-            let mut stack = vec![SearchNode { index: 0, used: V::zero(), weight: V::zero(), amounts: BTreeMap::new() }];
+            // DFS 回到某层后会覆盖该层以下的计数，无需复制分支状态。 / DFS overwrites descendant counts after backtracking, avoiding branch-state copies.
+            let mut amounts = vec![0; items.len()];
+            let mut occupied_items = Vec::<usize>::new();
+            let mut stack = vec![SearchNode { index: 0, used: V::zero(), weight: V::zero(),
+                count: 0, occupied: false }];
             while let Some(node) = stack.pop() {
                 if visited_nodes == config.max_nodes || patterns.len() == config.max_patterns {
                     return Ok(PatternGenerationResult { patterns: patterns.into_iter().collect(), complete: false, visited_nodes });
                 }
                 visited_nodes += 1;
                 if node.index == items.len() {
-                    if !node.amounts.is_empty() {
-                        let pattern = PackingPattern { bin_type_id: bin.id.clone(), amounts: node.amounts };
+                    if node.occupied {
+                        // 只在公开候选边界物化业务键。 / Materialize business keys only at the candidate boundary.
+                        let mut pattern_amounts = BTreeMap::new();
+                        for &index in &occupied_items {
+                            pattern_amounts.insert(items[index].id.clone(), amounts[index]);
+                        }
+                        let pattern = PackingPattern { bin_type_id: bin.id.clone(), amounts: pattern_amounts };
                         self.validate_pattern(&pattern)?;
                         if policy.accept(&pattern)? { patterns.insert(pattern); }
                     }
                     continue;
                 }
                 let item = items[node.index];
-                let count = node.amounts.get(&item.id).copied().unwrap_or(0);
+                let count = node.count;
+                amounts[node.index] = count;
+                while occupied_items.last().is_some_and(|&index| index >= node.index) { occupied_items.pop(); }
+                if count > 0 { occupied_items.push(node.index); }
                 if count < item.amount {
-                    let gap = if node.amounts.is_empty() { V::zero() } else { self.problem.spacing.value.clone() };
+                    let gap = if node.occupied { self.problem.spacing.value.clone() } else { V::zero() };
                     let used = checked(checked(node.used.clone() + gap)? + item.length.value.clone())?;
                     let weight = checked(node.weight.clone() + item.weight.value.clone())?;
                     if used <= bin.length.value && weight <= bin.max_weight.value {
-                        let mut amounts = node.amounts.clone();
-                        amounts.insert(item.id.clone(), count + 1);
-                        stack.push(SearchNode { index: node.index, used, weight, amounts });
+                        stack.push(SearchNode { index: node.index, used, weight, count: count + 1, occupied: true });
                     }
                 }
-                stack.push(SearchNode { index: node.index + 1, ..node });
+                stack.push(SearchNode { index: node.index + 1, count: 0, ..node });
             }
         }
         Ok(PatternGenerationResult { patterns: patterns.into_iter().collect(), complete: true, visited_nodes })
@@ -146,5 +157,63 @@ where
             }
         }
         Ok(result.into_iter().collect())
+    }
+}
+
+#[cfg(test)]
+struct LegacySearchNode<V> {
+    index: usize,
+    used: V,
+    weight: V,
+    amounts: BTreeMap<String, u64>,
+}
+
+#[cfg(test)]
+impl<V, L, W> PackingContext<V, L, W>
+where
+    V: LinearModelValue + One,
+    L: UnitTrait + Clone,
+    W: UnitTrait + Clone,
+{
+    pub(crate) fn generate_patterns_reference(
+        &self,
+        config: PatternGenerationConfig,
+        policy: &dyn PatternPolicy,
+    ) -> Result<PatternGenerationResult> {
+        if config.max_nodes == 0 || config.max_patterns == 0 { return Err(invalid("BPP1D search budgets must be positive")); }
+        let items = self.problem.items.iter().filter(|item| item.amount > 0).collect::<Vec<_>>();
+        let mut patterns = BTreeSet::new();
+        let mut visited_nodes = 0;
+        for bin in self.problem.bin_types.iter().filter(|bin| bin.inventory != Some(0)) {
+            let mut stack = vec![LegacySearchNode { index: 0, used: V::zero(), weight: V::zero(), amounts: BTreeMap::new() }];
+            while let Some(node) = stack.pop() {
+                if visited_nodes == config.max_nodes || patterns.len() == config.max_patterns {
+                    return Ok(PatternGenerationResult { patterns: patterns.into_iter().collect(), complete: false, visited_nodes });
+                }
+                visited_nodes += 1;
+                if node.index == items.len() {
+                    if !node.amounts.is_empty() {
+                        let pattern = PackingPattern { bin_type_id: bin.id.clone(), amounts: node.amounts };
+                        self.validate_pattern(&pattern)?;
+                        if policy.accept(&pattern)? { patterns.insert(pattern); }
+                    }
+                    continue;
+                }
+                let item = items[node.index];
+                let count = node.amounts.get(&item.id).copied().unwrap_or(0);
+                if count < item.amount {
+                    let gap = if node.amounts.is_empty() { V::zero() } else { self.problem.spacing.value.clone() };
+                    let used = checked(checked(node.used.clone() + gap)? + item.length.value.clone())?;
+                    let weight = checked(node.weight.clone() + item.weight.value.clone())?;
+                    if used <= bin.length.value && weight <= bin.max_weight.value {
+                        let mut amounts = node.amounts.clone();
+                        amounts.insert(item.id.clone(), count + 1);
+                        stack.push(LegacySearchNode { index: node.index, used, weight, amounts });
+                    }
+                }
+                stack.push(LegacySearchNode { index: node.index + 1, ..node });
+            }
+        }
+        Ok(PatternGenerationResult { patterns: patterns.into_iter().collect(), complete: true, visited_nodes })
     }
 }

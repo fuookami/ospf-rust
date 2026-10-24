@@ -4,6 +4,8 @@
 //! SBX, differential crossover, and permutation crossovers (OX / CX). Permutation crossovers only reorder genes and
 //! keep the value multiset, while SBX and differential crossover clamp against the variable bounds.
 
+use std::any::TypeId;
+use std::collections::HashMap;
 use crate::model::callback::Solution;
 use crate::solver::heuristic::entropy::Entropy;
 use crate::solver::heuristic::iteration::Iteration;
@@ -241,16 +243,27 @@ where
 /// 单向循环交叉 / One-directional cycle crossover
 fn cycle_crossover_once<V: HeuristicValue>(cycle_source: &[V], other_source: &[V]) -> Vec<V> {
     let size = cycle_source.len();
+    // 小输入和自定义数值类型完全保留原比较路径。 / Small inputs and custom numeric types retain the original comparison path.
+    if size < 512 || (TypeId::of::<V>() != TypeId::of::<f32>() && TypeId::of::<V>() != TypeId::of::<f64>()) {
+        return cycle_crossover_linear(cycle_source, other_source);
+    }
+    let mut positions = None;
     let mut child = other_source.to_vec();
     let mut assigned = vec![false; size];
     let mut index = 0;
     let mut guard = 0;
     while index < size && !assigned[index] && guard <= size {
+        // 短循环不承担整套索引成本。 / Short cycles avoid building a full index.
+        if guard == 8 {
+            positions = cycle_positions(cycle_source, other_source);
+        }
         assigned[index] = true;
         child[index] = cycle_source[index];
-        let next = other_source
-            .iter()
-            .position(|value| *value == cycle_source[index]);
+        let next = if let Some(positions) = &positions {
+            Some(positions[index])
+        } else {
+            other_source.iter().position(|value| *value == cycle_source[index])
+        };
         match next {
             Some(next) => {
                 index = next;
@@ -260,6 +273,49 @@ fn cycle_crossover_once<V: HeuristicValue>(cycle_source: &[V], other_source: &[V
         }
     }
     child
+}
+
+fn cycle_crossover_linear<V: HeuristicValue>(cycle_source: &[V], other_source: &[V]) -> Vec<V> {
+    let size = cycle_source.len();
+    let mut child = other_source.to_vec();
+    let mut assigned = vec![false; size];
+    let mut index = 0;
+    let mut guard = 0;
+    while index < size && !assigned[index] && guard <= size {
+        assigned[index] = true;
+        child[index] = cycle_source[index];
+        match other_source.iter().position(|value| *value == cycle_source[index]) {
+            Some(next) => { index = next; guard += 1; }
+            None => break,
+        }
+    }
+    child
+}
+
+fn cycle_positions<V: HeuristicValue>(cycle_source: &[V], other_source: &[V]) -> Option<Vec<usize>> {
+    fn key<V: HeuristicValue>(value: V) -> Option<u64> {
+        let encoded = value.to_f64()?;
+        if encoded.is_nan() || <V as num_traits::NumCast>::from(encoded) != Some(value) {
+            return None;
+        }
+        Some(if encoded == 0.0 { 0 } else { encoded.to_bits() })
+    }
+
+    // 仅为可逆、唯一的同基因集合建索引，其他输入保持原首匹配行为。 / Index only reversible, unique matching gene sets; otherwise retain first-match behavior.
+    if cycle_source.len() != other_source.len() { return None; }
+    let mut indices = HashMap::with_capacity(other_source.len());
+    for (index, &value) in other_source.iter().enumerate() {
+        if indices.insert(key(value)?, index).is_some() { return None; }
+    }
+    let mut seen = vec![false; other_source.len()];
+    let mut positions = Vec::with_capacity(cycle_source.len());
+    for &value in cycle_source {
+        let &index = indices.get(&key(value)?)?;
+        if seen[index] || other_source[index] != value { return None; }
+        seen[index] = true;
+        positions.push(index);
+    }
+    Some(positions)
 }
 
 /// 循环交叉（CX），沿父代映射形成的循环逐个赋值 / Cycle crossover (CX) assigning genes along the cycles formed by the parents
@@ -412,4 +468,6 @@ mod tests {
         assert_eq!(cycle_children.len(), 2);
         assert_eq!(sorted_values(&cycle_children), expected);
     }
+
+    include!("advanced_crossovers/performance_tests.rs");
 }

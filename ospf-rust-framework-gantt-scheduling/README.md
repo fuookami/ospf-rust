@@ -172,6 +172,12 @@ batches, even when their output is empty.
   must include every pricing-relevant business change in its revision. Defaults
   deliberately opt out of global certification. The revision is only an additional
   lifecycle guard, never a replacement for actual model-bound LP verification.
+  Task contexts may opt into `pricing_state_is_stable` only when those projections
+  cannot change internally within one read-only phase before external policy callbacks.
+  The default remains false and retains repeated verification. The basic context opts
+  in and exactly encodes the observed public column/term/lifecycle state on every phase, rather than trusting a mutation
+  counter that direct field writes could bypass. Revisions are opaque equality tokens,
+  not persisted IDs; no projection is reused across a policy callback or a new request.
 - Only a matching exhaustive no-improvement batch and a reliable current LP
   certificate can produce `certified_lower_bound`. Restricted domains, fixing,
   retained columns, missing child-domain combinations, budgets and interruptions

@@ -79,6 +79,129 @@ fn fixture() -> (MetaModel<f64>, Algorithm) {
     (model, Algorithm::new(context, solver, ColumnGenerationPolicy::default()))
 }
 
+#[derive(Debug, Clone)]
+struct ExpansionProbe {
+    calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    changed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl std::fmt::Display for ExpansionProbe {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { formatter.write_str("expansion-probe") }
+}
+
+impl ospf_rust_math::symbol::DynSymbol for ExpansionProbe {
+    fn name(&self) -> &str { "expansion-probe" }
+    fn display_name(&self) -> &str { "expansion-probe" }
+    fn dyn_id(&self) -> ospf_rust_math::symbol::SymbolDynId<'_> { ospf_rust_math::symbol::SymbolDynId::standalone(900_101) }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+}
+
+impl ospf_rust_math::symbol::Symbol for ExpansionProbe {
+    type Id = ospf_rust_core::symbol::IntermediateSymbolId;
+    fn id(&self) -> Self::Id { Self::Id::new(900_101, "expansion-probe") }
+}
+
+impl ospf_rust_core::symbol::IntermediateSymbol for ExpansionProbe {
+    fn category(&self) -> ospf_rust_core::symbol::Category { ospf_rust_core::symbol::Category::Linear }
+    fn cached(&self) -> bool { false }
+    fn dependencies(&self) -> HashSet<std::sync::Arc<dyn ospf_rust_core::symbol::IntermediateSymbol>> { HashSet::new() }
+    fn flush(&self, _: bool) {}
+    fn prepare(&self, _: &HashMap<usize, f64>) -> Option<f64> { None }
+    fn to_raw_string(&self, _: u64) -> String { "expansion-probe".into() }
+    fn mechanism_constraints(&self, _: &HashMap<usize, usize>) -> CoreResult<Vec<ospf_rust_core::model::LinearConstraint>> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.changed.load(Ordering::SeqCst) {
+            return Err(ospf_rust_core::error::ModelError::InvalidConstraint("共享策略状态已改变 / shared policy state changed".into()).into());
+        }
+        Ok(Vec::new())
+    }
+}
+
+#[test]
+fn pricing_reuses_only_same_phase_expansion_and_rechecks_after_external_callback() {
+    use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize}};
+    let (mut model, mut algorithm) = fixture();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let changed = Arc::new(AtomicBool::new(false));
+    model.add_symbol(Arc::new(ExpansionProbe { calls: calls.clone(), changed: changed.clone() })).unwrap();
+    let evidence = PricingEvidence::new(&model, &algorithm.solver.0).unwrap();
+    calls.store(0, Ordering::SeqCst);
+    assert_eq!(evidence.lower_bound(&model).unwrap(), Some(-2.0));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let source = LPResult::try_from_solve_report(&algorithm.solver.0).unwrap();
+    calls.store(0, Ordering::SeqCst);
+    algorithm.accept_pricing_lp(&model, &source).unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    calls.store(0, Ordering::SeqCst);
+    generate(&mut algorithm, &model).unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    calls.store(0, Ordering::SeqCst);
+    assert_eq!(algorithm.certified_lower_bound(&model).unwrap(), Some(-2.0));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    calls.store(0, Ordering::SeqCst);
+    let policy = Policy(|request: &TaskPricingRequest| {
+        changed.store(true, Ordering::SeqCst);
+        complete(request)
+    });
+    assert!(algorithm.generate_task_batch(&model, TaskPricingDomain::unslotted(2, 2), &policy).is_err());
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(algorithm.certified_lower_bound(&model).unwrap(), None);
+}
+
+#[test]
+#[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+fn pricing_snapshot_timing() {
+    use std::hint::black_box;
+    use std::time::Instant;
+    let (mut model, mut algorithm) = fixture();
+    for index in 0..126 {
+        let x = model.register_auto_variable_with_range::<Continuous>(&format!("extra-{index}"), VariableRange::bounded(0.0, 10.0)).unwrap();
+        model.add_linear_constraint(&[(x, 1.0)], ConstraintRelation::LessEqual, 10.0, &format!("extra-row-{index}")).unwrap();
+    }
+    let mut values = vec![0.0; 128];
+    values[0] = 2.0;
+    let mut duals = vec![0.0; 129];
+    duals[0] = -1.0;
+    algorithm.solver.0 = report(&model, values, duals, -2.0);
+    let source = LPResult::try_from_solve_report(&algorithm.solver.0).unwrap();
+    let evidence = PricingEvidence::new(&model, &algorithm.solver.0).unwrap();
+    for sample in 0..5 {
+        let start = Instant::now();
+        for _ in 0..20 {
+            evidence.validate_for(black_box(&model)).unwrap();
+            let current = model.try_to_linear_triad_model().unwrap();
+            let value: f64 = current.c.iter().zip(&evidence.certificate.report().solution.as_ref().unwrap().values).map(|(cost, value)| cost * value).sum();
+            black_box(value);
+        }
+        let reference = start.elapsed();
+        let start = Instant::now();
+        for _ in 0..20 { black_box(evidence.lower_bound(black_box(&model)).unwrap()); }
+        println!("pricing lower_bound sample={sample} twenty_reference={reference:?} twenty_shared={:?}", start.elapsed());
+        let start = Instant::now();
+        for _ in 0..20 {
+            let mut session = TaskPricingSession::default();
+            for report in source.report.iter().chain(source.result.source_report.iter()) {
+                report.validate().unwrap();
+                let solution = report.solution.as_ref().unwrap();
+                assert_eq!(solution.values, source.result.solution);
+                assert_eq!(solution.objective_value.or(solution.objective), Some(source.result.obj));
+                assert_eq!(solution.dual_solution.as_ref(), Some(&source.dual_solution.constraints));
+                black_box(PricingEvidence::new(black_box(&model), report).unwrap());
+            }
+            session.accept_report(&model, &algorithm.context, source.report.as_ref().unwrap()).unwrap();
+            black_box(session);
+        }
+        let reference = start.elapsed();
+        let start = Instant::now();
+        for _ in 0..20 {
+            let mut session = TaskPricingSession::default();
+            session.accept_result(black_box(&model), &algorithm.context, &source).unwrap();
+            black_box(session);
+        }
+        println!("pricing accept_result sample={sample} twenty_reference={reference:?} twenty_shared={:?}", start.elapsed());
+    }
+}
+
 fn exhausted(scope: ColumnGenerationScope) -> ColumnGenerationBatch<TaskPricingColumn> {
     ColumnGenerationBatch { columns: Vec::new(), completion: ColumnGenerationCompletion::Exhausted,
         scope: Some(scope), no_improving_columns: Some(true), children: Vec::new() }
@@ -185,7 +308,7 @@ fn restricted_domains_fixing_and_retained_columns_do_not_certify_global_bounds()
 
 #[test]
 fn lp_projection_tampering_is_not_hidden_by_compatibility_conversion() {
-    for mutation in 0..5 {
+    for mutation in 0..6 {
         let (model, mut algorithm) = fixture();
         let mut result = algorithm.solve_rmp_lp(&model).unwrap();
         match mutation {
@@ -193,7 +316,8 @@ fn lp_projection_tampering_is_not_hidden_by_compatibility_conversion() {
             1 => result.result.solution[0] = 1.0,
             2 => result.result.obj = -1.0,
             3 => result.dual_solution.constraints[0] = f64::NAN,
-            _ => result.result.source_report.as_mut().unwrap().solution.as_mut().unwrap().dual_solution = Some(vec![0.0; 3]),
+            4 => result.result.source_report.as_mut().unwrap().solution.as_mut().unwrap().dual_solution = Some(vec![0.0; 3]),
+            _ => result.result.source_report.as_mut().unwrap().fingerprints.model = None,
         }
         assert!(algorithm.accept_pricing_lp(&model, &result).is_err());
         assert_eq!(algorithm.certified_lower_bound(&model).unwrap(), None);
@@ -457,3 +581,5 @@ fn native_scip_task_lp_supplies_current_model_bound_pricing_evidence() {
     algorithm.generate_task_batch(&model, TaskPricingDomain::unslotted(2, 2), &policy).unwrap();
     assert!((algorithm.certified_lower_bound(&model).unwrap().unwrap() + 2.0).abs() < 1e-8);
 }
+
+include!("tests/performance_revision.rs");

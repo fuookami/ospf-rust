@@ -72,7 +72,7 @@ pub(crate) fn passenger_rows(
             *amount = amount.checked_add(passenger.amount).ok_or_else(|| invalid("passenger demand overflow"))?;
             if *amount > (1_u64 << 53) { return Err(invalid("passenger demand not exactly representable by solver")); }
         }
-        for pair in passenger.flights.windows(2) { pairs.insert((pair[0].0.clone(), pair[1].0.clone())); }
+        for pair in passenger.flights.windows(2) { pairs.insert((pair[0].0.as_str(), pair[1].0.as_str())); }
     }
     for activity in variants {
         if activity.route().arr.passenger_transfer_time < time::Duration::ZERO {
@@ -97,7 +97,7 @@ pub(crate) fn passenger_rows(
     // 按稳定活动域顺序生成冲突行，不枚举路线；一行禁止同时选择不兼容的两个活动版本。 / Generate conflict rows in stable activity-domain order without route enumeration; each row forbids choosing two incompatible variants together.
     for (left_index, left) in variants.iter().enumerate() {
         for (right_index, right) in variants.iter().enumerate() {
-            if pairs.contains(&(left.original().plan.id.clone(), right.original().plan.id.clone()))
+            if pairs.contains(&(left.original().plan.id.as_str(), right.original().plan.id.as_str()))
                 && (left.route().arr != right.route().dep || right.time().0 - left.time().1 < left.route().arr.passenger_transfer_time)
             {
                 rows.push(RecoveryRuleRow { name: format!("recovery_passenger_transfer_{left_index}_{right_index}"),
@@ -117,7 +117,7 @@ pub(super) struct RecoveryRuleComponent {
 impl RecoveryRuleComponent {
     pub fn refresh(
         &mut self,
-        columns: &[(usize, RecoveryBunchCandidate)],
+        columns: &[(usize, &RecoveryBunchCandidate)],
         model: &mut MetaModel<f64>,
     ) -> GanttResult<()> {
         if self.rows.is_empty() { return Ok(()); }

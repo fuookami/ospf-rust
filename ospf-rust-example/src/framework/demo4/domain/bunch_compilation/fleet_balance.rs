@@ -186,7 +186,7 @@ pub(super) struct RecoveryFleetComponent {
 impl RecoveryFleetComponent {
     pub fn refresh(
         &mut self,
-        columns: &[(usize, RecoveryBunchCandidate)],
+        columns: &[(usize, &RecoveryBunchCandidate)],
         model: &mut MetaModel<f64>,
     ) -> GanttResult<()> {
         let Some(definition) = &self.definition else { return Ok(()); };

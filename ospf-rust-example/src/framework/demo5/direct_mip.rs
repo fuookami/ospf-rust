@@ -120,6 +120,8 @@ where
     let mut model = MetaModel::<f64>::new("demo5_direct_mip");
     let mut x_indices = vec![vec![None; nodes.len()]; nodes.len()];
     let mut arcs = Vec::new();
+    let mut incoming = vec![Vec::new(); nodes.len()];
+    let mut outgoing = vec![Vec::new(); nodes.len()];
     for from in 0..nodes.len() {
         for to in 0..nodes.len() {
             if from == end || to == start || from == to || (from == start && to == end) {
@@ -151,6 +153,8 @@ where
                 .register_auto_variable::<Binary>(&format!("x_{from}_{to}"))
                 .map_err(|error| error.to_string())?;
             x_indices[from][to] = Some(token_index);
+            outgoing[from].push((token_index, 1.0));
+            incoming[to].push((token_index, 1.0));
             arcs.push(ArcData {
                 from,
                 to,
@@ -200,17 +204,9 @@ where
     model.add_linear_objective(&objective, "direct_mip_cost");
     model.set_objective_category(ObjectiveCategory::Minimum);
 
-    let start_outgoing = arcs
-        .iter()
-        .filter(|arc| arc.from == start)
-        .map(|arc| (arc.token_index, 1.0))
-        .collect::<Vec<_>>();
-    let end_incoming = arcs
-        .iter()
-        .filter(|arc| arc.to == end)
-        .map(|arc| (arc.token_index, 1.0))
-        .collect::<Vec<_>>();
-    let depot_balance = difference(&start_outgoing, &end_incoming);
+    let start_outgoing = &outgoing[start];
+    let end_incoming = &incoming[end];
+    let depot_balance = difference(start_outgoing, end_incoming);
     add_constraint(
         &mut model,
         &depot_balance,
@@ -220,33 +216,23 @@ where
     )?;
     add_constraint(
         &mut model,
-        &start_outgoing,
+        start_outgoing,
         ConstraintRelation::LessEqual,
         vehicle.amount as f64,
         "fleet_size",
     )?;
 
     for customer in 1..end {
-        let incoming = arcs
-            .iter()
-            .filter(|arc| arc.to == customer)
-            .map(|arc| (arc.token_index, 1.0))
-            .collect::<Vec<_>>();
-        let outgoing = arcs
-            .iter()
-            .filter(|arc| arc.from == customer)
-            .map(|arc| (arc.token_index, 1.0))
-            .collect::<Vec<_>>();
         add_constraint(
             &mut model,
-            &incoming,
+            &incoming[customer],
             ConstraintRelation::Equal,
             1.0,
             &format!("customer_{customer}_in"),
         )?;
         add_constraint(
             &mut model,
-            &outgoing,
+            &outgoing[customer],
             ConstraintRelation::Equal,
             1.0,
             &format!("customer_{customer}_out"),
@@ -499,3 +485,9 @@ mod tests {
         assert!(result.best_bound.is_some_and(f64::is_finite));
     }
 }
+
+#[cfg(test)]
+mod reference;
+
+#[cfg(test)]
+mod regression;

@@ -64,6 +64,57 @@ impl Csp2dMasterDemand {
     }
 }
 
+// 调用内借用产品编号，不缓存公开可变的方案。 / Borrow product IDs per call; never cache publicly mutable plans.
+pub(crate) struct PlanCoverage<'a> {
+    products: BTreeMap<&'a str, (u64, Option<f64>)>,
+}
+
+impl<'a> PlanCoverage<'a> {
+    pub(crate) fn new(
+        plan: &'a CuttingPlan2<f64, ospf_rust_quantities::unit::derived::Meter>,
+        needs_area: bool,
+    ) -> Self {
+        let mut products = BTreeMap::new();
+        for placement in &plan.pattern.placements {
+            let Some(id) = placement.item_id.as_deref() else { continue; };
+            let entry = products.entry(id).or_insert_with(|| {
+                (0, needs_area.then(|| placement.shape.area().value))
+            });
+            entry.0 += 1;
+        }
+        Self { products }
+    }
+
+    pub(crate) fn coefficient(&self, demand: &Csp2dMasterDemand) -> f64 {
+        self.coefficient_if_present(demand).unwrap_or(0.0)
+    }
+
+    pub(crate) fn coefficient_if_present(&self, demand: &Csp2dMasterDemand) -> Option<f64> {
+        let (count, area) = self.products.get(demand.product_id.as_str())?;
+        Some(match demand.mode {
+            DemandMode2::Amount => *count as f64,
+            DemandMode2::Area => area.unwrap_or(0.0) * *count as f64,
+        })
+    }
+}
+
+/// 单次求解的需求主序覆盖矩阵。 / Demand-major coverage matrix for one solve.
+pub(crate) struct CoverageProjection {
+    rows: Vec<Vec<f64>>,
+}
+
+impl CoverageProjection {
+    pub(crate) fn coefficient(&self, plan_index: usize, demand_index: usize) -> f64 {
+        self.rows[demand_index][plan_index]
+    }
+
+    pub(crate) fn coverage(&self, usage: &[f64]) -> Vec<f64> {
+        self.rows.iter().map(|row| row.iter().enumerate()
+            .map(|(index, coefficient)| coefficient * usage.get(index).copied().unwrap_or(0.0))
+            .sum()).collect()
+    }
+}
+
 // ============================================================================
 // Csp2dPatternAssignment - 图案使用量 / Pattern usage
 // ============================================================================
@@ -129,29 +180,30 @@ impl Csp2dPatternAssignment {
         let Some(plan) = self.plans.get(plan_index) else {
             return 0.0;
         };
-        let amounts = plan.product_amounts();
-        let Some(count) = amounts.get(&demand.product_id).copied() else {
-            return 0.0;
-        };
-        match demand.mode {
-            DemandMode2::Amount => count as f64,
-            DemandMode2::Area => {
-                let unit_area = plan
-                    .pattern
-                    .placements
-                    .iter()
-                    .find(|placement| {
-                        placement
-                            .item_id
-                            .as_deref()
-                            .map(|id| id == demand.product_id.as_str())
-                            .unwrap_or(false)
-                    })
-                    .map(|placement| placement.shape.area().value)
-                    .unwrap_or(0.0);
-                unit_area * count as f64
+        let mut count = 0u64;
+        let mut unit_area = None;
+        for placement in &plan.pattern.placements {
+            if placement.item_id.as_deref() != Some(demand.product_id.as_str()) { continue; }
+            count += 1;
+            if demand.mode == DemandMode2::Area && unit_area.is_none() {
+                unit_area = Some(placement.shape.area().value);
             }
         }
+        match demand.mode {
+            DemandMode2::Amount => count as f64,
+            DemandMode2::Area => unit_area.unwrap_or(0.0) * count as f64,
+        }
+    }
+
+    pub(crate) fn coverage_projection(&self, demands: &[Csp2dMasterDemand]) -> CoverageProjection {
+        let plans = self.plan_coverages(demands);
+        CoverageProjection { rows: demands.iter().map(|demand| plans.iter()
+            .map(|plan| plan.coefficient(demand)).collect()).collect() }
+    }
+
+    fn plan_coverages(&self, demands: &[Csp2dMasterDemand]) -> Vec<PlanCoverage<'_>> {
+        let needs_area = demands.iter().any(|demand| demand.mode == DemandMode2::Area);
+        self.plans.iter().map(|plan| PlanCoverage::new(plan, needs_area)).collect()
     }
 
     /// 消耗量：方案 `plan_index` 消耗的料域面积 / Consumption: the region area consumed by a plan
@@ -187,17 +239,11 @@ impl Csp2dPatternAssignment {
         usage: &[f64],
         demands: &[Csp2dMasterDemand],
     ) -> Vec<f64> {
-        demands
-            .iter()
-            .map(|demand| {
-                (0..self.plans.len())
-                    .map(|index| {
-                        self.coverage_coefficient(index, demand)
-                            * usage.get(index).copied().unwrap_or(0.0)
-                    })
-                    .sum()
-            })
-            .collect()
+        if demands.is_empty() { return Vec::new(); }
+        let plans = self.plan_coverages(demands);
+        demands.iter().map(|demand| plans.iter().enumerate()
+            .map(|(index, plan)| plan.coefficient(demand) * usage.get(index).copied().unwrap_or(0.0))
+            .sum()).collect()
     }
 
     /// 需求是否全部被覆盖 / Whether every demand is covered

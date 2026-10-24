@@ -5,8 +5,11 @@
 //! Comparing performance between compile-time (Quantity<V, U: CTUnit>) and runtime (Quantity<V, Unit>) physical quantities
 
 use bigdecimal::BigDecimal;
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use ospf_rust_quantities::dimension::derived_quantity::DerivedQuantityBuilder;
+use ospf_rust_quantities::dimension::{FundamentalQuantity, FundamentalQuantityEnum};
 use ospf_rust_quantities::quantity::Quantity;
+use ospf_rust_quantities::scale::Scale;
 use ospf_rust_quantities::unit::derived::{Kilogram, Kilometer, Meter, Second};
 use ospf_rust_quantities::unit::{CTUnit, Unit};
 
@@ -497,6 +500,75 @@ fn bench_compound_operations(c: &mut Criterion) {
     group.finish();
 }
 
+// 单独计时消费自有缓冲的操作，不把输入复制计入结果。 / Time owned-buffer consumption separately from fixture cloning.
+fn bench_owned_buffers(c: &mut Criterion) {
+    let mut group = c.benchmark_group("owned_buffers");
+    for size in [1, 8, 32] {
+        let quantities = (0..size)
+            .map(|_| FundamentalQuantity::new(FundamentalQuantityEnum::Length, 1))
+            .collect::<Vec<_>>();
+        group.bench_with_input(
+            BenchmarkId::new("derived_build", size),
+            &size,
+            |b, _| {
+                b.iter_batched(
+                    || DerivedQuantityBuilder::new(quantities.clone()),
+                    |builder| black_box(builder.build()),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+
+        let scale = (2..size + 2).fold(Scale::new(), |scale, base| scale * Scale::from_int(base));
+        let rhs = Scale::from_int(2);
+        group.bench_with_input(
+            BenchmarkId::new("scale_mul_owned", size),
+            &size,
+            |b, _| {
+                b.iter_batched(
+                    || (scale.clone(), rhs.clone()),
+                    |(lhs, rhs)| black_box(lhs * rhs),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("scale_mul_borrowed", size),
+            &size,
+            |b, _| {
+                b.iter_batched(
+                    || scale.clone(),
+                    |lhs| black_box(lhs * black_box(&rhs)),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("scale_div_owned", size),
+            &size,
+            |b, _| {
+                b.iter_batched(
+                    || (scale.clone(), rhs.clone()),
+                    |(lhs, rhs)| black_box(lhs / rhs),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("scale_div_borrowed", size),
+            &size,
+            |b, _| {
+                b.iter_batched(
+                    || scale.clone(),
+                    |lhs| black_box(lhs / black_box(&rhs)),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_creation,
@@ -511,6 +583,7 @@ criterion_group!(
     bench_batch_operations,
     bench_negation,
     bench_compound_operations,
+    bench_owned_buffers,
 );
 
 criterion_main!(benches);

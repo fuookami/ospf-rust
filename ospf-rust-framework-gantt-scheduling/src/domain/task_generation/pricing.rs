@@ -8,7 +8,7 @@ use ospf_rust_core::solver::value::SolveValue;
 use ospf_rust_framework::model::{ColumnGenerationBatch, ColumnGenerationCompletion, ColumnGenerationScope, VerifiedPricingDuals};
 use ospf_rust_framework::solver::column_generation_solver::LPResult;
 use crate::{GanttError, GanttResult};
-use crate::domain::common::PricingEvidence;
+use crate::domain::common::{PricingEvidence, PricingSnapshot};
 use crate::domain::task::Cost;
 use crate::domain::task_compilation::context::IterativeTaskCompilationContext;
 
@@ -143,6 +143,8 @@ impl TaskPricingSession {
         let report = result.report.as_ref().or(result.result.source_report.as_ref())
             .ok_or_else(|| calculation("认证任务定价需要原始 LP 报告 / certified task pricing requires the original LP report"))?;
         // 不使用会改写原报告对偶的兼容转换。 / Do not use compatibility conversion that overwrites source duals.
+        let mut snapshot = None;
+        let mut selected_evidence = None;
         for source in result.report.iter().chain(result.result.source_report.iter()) {
             source.validate().map_err(calculation)?;
             let solution = source.solution.as_ref().ok_or_else(|| calculation("LP 投影缺少 incumbent / LP projection lacks an incumbent"))?;
@@ -152,9 +154,17 @@ impl TaskPricingSession {
             {
                 return Err(calculation("LP primal、目标或对偶投影已改变 / LP primal, objective or dual projection was changed"));
             }
-            if source.is_optimal() { PricingEvidence::new(model, source)?; }
+            if source.is_optimal() {
+                if snapshot.is_none() { snapshot = Some(PricingSnapshot::new(model)?); }
+                let evidence = PricingEvidence::from_snapshot(snapshot.as_ref().expect("snapshot initialized"), source)?;
+                if std::ptr::eq(source, report) { selected_evidence = Some(evidence); }
+            }
         }
-        self.accept_report(model, context, report)
+        self.evidence = selected_evidence;
+        if self.evidence.is_some() {
+            self.source_context = Some(PricingState::new(context, &HashSet::new(), &HashSet::new()));
+        }
+        Ok(())
     }
 
     pub fn generate<C: IterativeTaskCompilationContext>(
@@ -167,10 +177,18 @@ impl TaskPricingSession {
         self.bound = None;
         self.completion = None;
         let state = PricingState::new(context, &request.fixed_columns, &request.kept_columns);
-        if self.evidence.is_some()
-            && self.source_context.as_ref() != Some(&PricingState::new(context, &HashSet::new(), &HashSet::new()))
-        {
-            return Err(calculation("任务业务域或注册状态已改变 / task business domain or registration state changed"));
+        if self.evidence.is_some() {
+            // 仅在上下文明示只读投影稳定时复用，绝不跨策略回调或请求缓存。 / Reuse only explicitly stable read-only projections, never across policy callbacks or requests.
+            let matches_source = if context.pricing_state_is_stable() {
+                self.source_context.as_ref().is_some_and(|source| source.domain == state.domain
+                    && source.rows == state.rows && source.revision == state.revision
+                    && source.fixed.is_empty() && source.kept.is_empty())
+            } else {
+                self.source_context.as_ref() == Some(&PricingState::new(context, &HashSet::new(), &HashSet::new()))
+            };
+            if !matches_source {
+                return Err(calculation("任务业务域或注册状态已改变 / task business domain or registration state changed"));
+            }
         }
         if state.domain.as_ref().is_some_and(|domain| !domain.covers(&request.domain))
             || request.domain.executor_slots.iter().any(|(_, slot)| *slot != 0)
@@ -178,9 +196,8 @@ impl TaskPricingSession {
         {
             return Err(calculation("任务定价域超出上下文或包含不支持的时隙 / task-pricing domain exceeds context or contains unsupported slots"));
         }
-        let mut current = model.try_to_linear_triad_model().map_err(calculation)?;
-        current.linear_relax();
-        request.scope.model = format!("{}:{:?}", model.model_identity(), linear_model_fingerprint(&current).map_err(calculation)?);
+        let snapshot = PricingSnapshot::new(model)?;
+        request.scope.model = format!("{}:{:?}", model.model_identity(), linear_model_fingerprint(snapshot.current()).map_err(calculation)?);
         request.scope.request = format!("task-pricing-{}", NEXT_REQUEST.fetch_add(1, Ordering::Relaxed));
         request.scope.branch = format!("fixed={:?};kept={:?}", state.fixed, state.kept);
         request.scope.groups = request.domain.tasks.iter().map(|task| format!("task:{task}")).collect();
@@ -188,7 +205,7 @@ impl TaskPricingSession {
         request.scope.global = self.evidence.is_some() && state.domain.as_ref() == Some(&request.domain)
             && state.revision.is_some() && state.fixed.is_empty() && state.kept.is_empty();
         if let Some(evidence) = &self.evidence {
-            evidence.validate_for(model)?;
+            evidence.validate_snapshot(&snapshot)?;
             request.row_duals = evidence.row_duals.clone();
             request.shadow_prices = request.domain.tasks.iter().map(|task| {
                 let row = state.rows.get(task).ok_or_else(|| calculation("缺少任务行映射 / missing task-row mapping"))?;
@@ -205,6 +222,7 @@ impl TaskPricingSession {
                 return Err(calculation("启发式任务价格非有限 / non-finite heuristic task price"));
             }
         }
+        drop(snapshot);
         let batch = policy.generate_task_batch(&request)?;
         validate_batch(&batch, &request.scope, &request.domain)?;
         if batch.certifies_no_improving_columns(&request.scope) && let Some(evidence) = &self.evidence {

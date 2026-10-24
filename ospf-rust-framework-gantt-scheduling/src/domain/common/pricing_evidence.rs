@@ -2,9 +2,26 @@
 
 use std::collections::BTreeMap;
 use ospf_rust_core::model::{ConstraintRelation, MetaModel};
+use ospf_rust_core::model::intermediate::LinearTriadModel;
 use ospf_rust_core::solver::SolveReport;
 use ospf_rust_framework::model::VerifiedPricingDuals;
 use crate::{GanttError, GanttResult};
+
+// 同一只读阶段的准确展开；不可跨外部策略回调复用。 / Exact expansion for one read-only phase; never reuse across external policy callbacks.
+pub(crate) struct PricingSnapshot<'a> {
+    model: &'a MetaModel<f64>,
+    current: LinearTriadModel,
+}
+
+impl<'a> PricingSnapshot<'a> {
+    pub fn new(model: &'a MetaModel<f64>) -> GanttResult<Self> {
+        let mut current = model.try_to_linear_triad_model().map_err(calculation)?;
+        current.linear_relax();
+        Ok(Self { model, current })
+    }
+
+    pub fn current(&self) -> &LinearTriadModel { &self.current }
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct PricingEvidence {
@@ -16,9 +33,12 @@ pub(crate) struct PricingEvidence {
 
 impl PricingEvidence {
     pub fn new(model: &MetaModel<f64>, report: &SolveReport<f64>) -> GanttResult<Self> {
-        let mut current = model.try_to_linear_triad_model().map_err(calculation)?;
-        current.linear_relax();
-        let certificate = VerifiedPricingDuals::new(&current, report).map_err(calculation)?;
+        Self::from_snapshot(&PricingSnapshot::new(model)?, report)
+    }
+
+    pub fn from_snapshot(snapshot: &PricingSnapshot<'_>, report: &SolveReport<f64>) -> GanttResult<Self> {
+        let model = snapshot.model;
+        let certificate = VerifiedPricingDuals::new(&snapshot.current, report).map_err(calculation)?;
         let mut row_duals = BTreeMap::new();
         let mut index = 0;
         for row in model.constraints() {
@@ -47,14 +67,23 @@ impl PricingEvidence {
         if self.model_identity != model.model_identity() {
             return Err(calculation("Gantt LP 证书不能跨模型重放 / Gantt LP certificates cannot be replayed across models"));
         }
-        let mut current = model.try_to_linear_triad_model().map_err(calculation)?;
-        current.linear_relax();
-        self.certificate.validate_for(&current).map_err(calculation)
+        self.validate_snapshot(&PricingSnapshot::new(model)?)
+    }
+
+    pub fn validate_snapshot(&self, snapshot: &PricingSnapshot<'_>) -> GanttResult<()> {
+        if self.model_identity != snapshot.model.model_identity() {
+            return Err(calculation("Gantt LP 证书不能跨模型重放 / Gantt LP certificates cannot be replayed across models"));
+        }
+        self.certificate.validate_for(&snapshot.current).map_err(calculation)
     }
 
     pub fn lower_bound(&self, model: &MetaModel<f64>) -> GanttResult<Option<f64>> {
-        self.validate_for(model)?;
-        let current = model.try_to_linear_triad_model().map_err(calculation)?;
+        if self.model_identity != model.model_identity() {
+            return Err(calculation("Gantt LP 证书不能跨模型重放 / Gantt LP certificates cannot be replayed across models"));
+        }
+        let snapshot = PricingSnapshot::new(model)?;
+        self.validate_snapshot(&snapshot)?;
+        let current = &snapshot.current;
         if !current.objective_category.is_minimum() { return Ok(None); }
         let solution = self.certificate.report().solution.as_ref().ok_or_else(|| calculation("缺少证书 primal / missing certified primal"))?;
         let value = current.c.iter().zip(&solution.values).map(|(cost, value)| cost * value).sum::<f64>();

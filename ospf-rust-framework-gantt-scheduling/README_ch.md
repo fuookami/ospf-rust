@@ -156,6 +156,10 @@ task 和 bunch 定价均消费 `ospf_rust_framework::model::ColumnGenerationBatc
 - context 声明 `pricing_domain` 和 `pricing_revision`；task context 可通过 `task_pricing_rows`
   适配下游 pipeline 行名。自定义 context 的修订必须覆盖所有影响定价的业务变化；缺省实现不认证
   完整域。修订只是附加生命周期防护，不能代替实际模型绑定的 LP 来源验证。
+  task context 只有在外部策略回调前的同一只读阶段内，这些投影不会发生内部变化时，才可启用
+  `pricing_state_is_stable`。默认值为 false，仍逐次复核；基础 context 显式启用，每个阶段精确编码
+  所观测的公开列/项/生命周期状态，不依赖会漏掉直接字段写入的递增计数。修订只是不可解析的相等性令牌，不是持久化 ID；
+  不跨策略回调或新请求复用投影。
 - 只有匹配的穷尽无改进批次与可靠当前 LP 证书同时成立，才产生 `certified_lower_bound`。
   局部域、固定、保留列、子域组合覆盖缺失、预算及中断均不能认证完整域。每次调用生成新请求身份。
   该界只认证完整定价域 LP，不认证全局整数最优。

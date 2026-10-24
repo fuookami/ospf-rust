@@ -926,7 +926,7 @@ where
     {
         self.transaction(|model| {
             for symbol in symbols {
-                model.basic.add_symbol(symbol)?;
+                model.basic.add_symbol_inner(symbol)?;
             }
             Ok(())
         })
@@ -1958,6 +1958,89 @@ where
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn symbol_batches_keep_dependency_order_and_nested_rollback_boundaries() {
+        use std::sync::Arc;
+        use crate::symbol::{Category, ExpressionSymbol, IntermediateSymbol};
+        let mut model = MetaModel::<f64>::new("batch-symbol-boundaries");
+        let x = model.register_auto_variable_with_range::<crate::variable::Continuous>("x", VariableRange::bounded(-2.0, 3.0)).unwrap();
+        let baseline = Arc::new(AbsFunction::new(880_000, "baseline", Linear::new(vec![LinearMonomial::new(1.0, x)], 0.0)));
+        model.add_symbol(baseline).unwrap();
+        model.set_solution(&[2.0, 2.0, 1.0]);
+        assert_eq!(model.evaluate_registered_symbol(880_000), Some(2.0));
+        let token_count = model.tokens().len();
+        let original_solution = model.solution_by_solver_order();
+        let error: Result<()> = model.transaction(|model| {
+            model.register_auto_variable::<crate::variable::Continuous>("outer").unwrap();
+            let before = model.tokens().len();
+            for invalid in [
+                ExpressionSymbol::with_dependencies(880_002, "self", Category::Linear, vec![880_002]),
+                ExpressionSymbol::with_dependencies(880_002, "forward", Category::Linear, vec![880_003]),
+                ExpressionSymbol::new(880_001, "duplicate", Category::Linear),
+            ] {
+                let first = Arc::new(AbsFunction::new(880_001, "batch-aux", Linear::new(vec![LinearMonomial::new(1.0, x)], 0.0)));
+                let batch: Vec<Arc<dyn IntermediateSymbol>> = vec![first, Arc::new(invalid)];
+                assert!(model.add_symbols(batch).is_err());
+                assert_eq!(model.tokens().len(), before);
+                assert_eq!(model.symbols().len(), 1);
+                assert_eq!(model.evaluate_registered_symbol(880_000), Some(2.0));
+            }
+            let ordered: Vec<Arc<dyn IntermediateSymbol>> = vec![
+                Arc::new(ExpressionSymbol::new(880_010, "leaf", Category::Linear)),
+                Arc::new(ExpressionSymbol::with_dependencies(880_011, "parent", Category::Linear, vec![880_010])),
+            ];
+            model.add_symbols(ordered).unwrap();
+            assert_eq!(model.symbol_dependency_ids(880_011), vec![880_010]);
+            Err(crate::error::ModelError::InvalidConstraint("outer rollback".into()).into())
+        });
+        assert!(error.is_err());
+        assert_eq!(model.tokens().len(), token_count);
+        assert_eq!(model.symbols().len(), 1);
+        assert_eq!(model.solution_by_solver_order(), original_solution);
+        assert_eq!(model.evaluate_registered_symbol(880_000), Some(2.0));
+    }
+
+    #[test]
+    #[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+    fn performance_b06_symbol_batch_snapshots() {
+        use std::hint::black_box;
+        use std::sync::Arc;
+        use std::time::Instant;
+        use crate::symbol::{Category, ExpressionSymbol, IntermediateSymbol};
+        macro_rules! measure {
+            ($value:ty) => {
+                for count in [32, 128, 512] {
+                    let symbols = (0..count).map(|index| Arc::new(ExpressionSymbol::<$value>::new(index as u64,
+                        &format!("symbol-{index}"), Category::Linear)) as Arc<dyn IntermediateSymbol<$value>>).collect::<Vec<_>>();
+                    for sample in 0..5 {
+                        let mut models = [MetaModel::<$value>::new("reference"), MetaModel::<$value>::new("batch")];
+                        for model in &mut models {
+                            let variables = (0..128).map(|index| crate::variable::ContinuousVariableItem::auto(&format!("v{index}"))).collect::<Vec<_>>();
+                            model.register_variables(variables).unwrap();
+                        }
+                        let [mut reference, mut batch] = models;
+                        let input = symbols.clone();
+                        let start = Instant::now();
+                        reference.transaction(|model| -> Result<()> {
+                            for symbol in input { model.basic.add_symbol(symbol)?; }
+                            Ok(())
+                        }).unwrap();
+                        let before = start.elapsed();
+                        let input = symbols.clone();
+                        let start = Instant::now();
+                        batch.add_symbols(input).unwrap();
+                        let after = start.elapsed();
+                        assert_eq!(reference.symbols().len(), batch.symbols().len());
+                        black_box((reference, batch));
+                        println!("symbol_batch type={} count={count} sample={sample} nested={before:?} single={after:?}", stringify!($value));
+                    }
+                }
+            };
+        }
+        measure!(f64);
+        measure!(bigdecimal::BigDecimal);
+    }
+
     #[test]
     fn owned_objective_replacement_and_term_removal_preserve_other_components() {
         use super::*;

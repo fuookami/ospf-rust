@@ -16,6 +16,8 @@ use ospf_rust_quantities::unit::physical_unit::CTUnit;
 
 use crate::domain::item::model::SheetType;
 
+mod slice_sweep;
+
 // ============================================================================
 // Remnant2 - 余料矩形 / Remnant rectangle
 // ============================================================================
@@ -91,7 +93,11 @@ impl FreeSpaceAnalyzer {
         cuts.sort_by(|lhs, rhs| lhs.partial_cmp(rhs).unwrap_or(std::cmp::Ordering::Equal));
         cuts.dedup_by(|lhs, rhs| (*lhs - *rhs).abs() < 1e-9);
 
+        let mut sweep = if width.is_finite() && height.is_finite() {
+            slice_sweep::SliceSweep::new(placements, width)
+        } else { None };
         let mut remnants = Vec::new();
+        let mut used = Vec::new();
         for window in cuts.windows(2) {
             let bottom = window[0];
             let top = window[1];
@@ -100,24 +106,28 @@ impl FreeSpaceAnalyzer {
             }
             // 与本水平切片相交的放置，按左边界排序后扣减其 x 区间。
             // Placements intersecting this slice, ordered by their left edge, with their x-interval subtracted.
-            let mut used: Vec<(f64, f64)> = placements
-                .iter()
-                .filter_map(|placement| {
-                    let place_bottom = placement.y().value.to_f64()?;
-                    let place_top = placement.max_y().ok()?.value.to_f64()?;
-                    if place_top <= bottom + 1e-9 || place_bottom >= top - 1e-9 {
-                        return None;
-                    }
-                    let left = placement.x().value.to_f64()?;
-                    let right = placement.max_x().ok()?.value.to_f64()?;
-                    Some((left.clamp(0.0, width), right.clamp(0.0, width)))
-                })
-                .collect();
-            used.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap_or(std::cmp::Ordering::Equal));
+            used.clear();
+            if let Some(sweep) = &mut sweep {
+                sweep.write_used(bottom, top, &mut used);
+            } else {
+                used.extend(placements
+                    .iter()
+                    .filter_map(|placement| {
+                        let place_bottom = placement.y().value.to_f64()?;
+                        let place_top = placement.max_y().ok()?.value.to_f64()?;
+                        if place_top <= bottom + 1e-9 || place_bottom >= top - 1e-9 {
+                            return None;
+                        }
+                        let left = placement.x().value.to_f64()?;
+                        let right = placement.max_x().ok()?.value.to_f64()?;
+                        Some((left.clamp(0.0, width), right.clamp(0.0, width)))
+                    }));
+                used.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap_or(std::cmp::Ordering::Equal));
+            }
 
             let mut cursor = 0.0f64;
             let mut free_intervals: Vec<(f64, f64)> = Vec::new();
-            for (left, right) in used {
+            for &(left, right) in &used {
                 if left > cursor + 1e-9 {
                     free_intervals.push((cursor, left));
                 }
@@ -171,3 +181,6 @@ impl FreeSpaceAnalyzer {
         (remnants.len(), total)
     }
 }
+
+#[cfg(test)]
+mod tests;

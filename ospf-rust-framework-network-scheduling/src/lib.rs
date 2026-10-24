@@ -16,7 +16,9 @@ pub use error::{NetworkSchedulingError, Result};
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
 
+    mod route_graph;
     mod route_pricing_rows;
+    mod column_transactions;
 
     use std::collections::{BTreeMap, BTreeSet};
     use std::sync::Arc;
@@ -124,7 +126,7 @@ mod tests {
         )
     }
 
-    fn multi_customer_instance(customer_count: usize) -> Arc<VrptwInstance<f64>> {
+    pub(crate) fn multi_customer_instance(customer_count: usize) -> Arc<VrptwInstance<f64>> {
         assert!(customer_count > 0);
         let start = OffsetDateTime::UNIX_EPOCH;
         let end = start + TimeDuration::hours(24);
@@ -2205,7 +2207,7 @@ mod tests {
         ));
     }
 
-    fn bare_route(vehicle_type_id: &str, nodes: &[&str], arc_ids: &[&str]) -> Route<f64> {
+    pub(crate) fn bare_route(vehicle_type_id: &str, nodes: &[&str], arc_ids: &[&str]) -> Route<f64> {
         let epoch = OffsetDateTime::UNIX_EPOCH;
         let stops = nodes
             .iter()

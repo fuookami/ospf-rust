@@ -1,6 +1,6 @@
 //! 共享有限主问题注册、列生命周期和生产提取。 / Shared finite-master registration, column lifecycle and production extraction.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
 use ospf_rust_quantities::Quantity;
 use ospf_rust_quantities::unit::UnitConversionValue;
@@ -15,6 +15,11 @@ use super::compilation::{PathCompilation, PathCompilationRows};
 use super::model::{CompiledPathColumn, PathColumn, PathCompilationProblem, PathCompilationSolution, validate_same_column};
 
 static NEXT_CONTEXT: AtomicU64 = AtomicU64::new(0x5043_0000_0000_0000);
+
+pub(super) struct PathColumnUndo<V, C> {
+    added: Vec<String>,
+    removed: Vec<(String, CompiledPathColumn<V, C>)>,
+}
 
 /// 每模型独立的完整路径列聚合，不拥有求解循环。 / Per-model complete-path column aggregation without a solve loop.
 #[derive(Debug, Clone)]
@@ -79,7 +84,39 @@ where
 
     pub(super) fn is_registered(&self) -> bool { self.binding.is_some() }
 
-    pub(super) fn register(&mut self, model: &mut MetaModel<f64>) -> Result<()> {
+    pub(super) fn transaction<T, F>(
+        &mut self,
+        model: &mut MetaModel<f64>,
+        operation: F,
+    ) -> Result<T>
+    where
+        F: FnOnce(&mut Self, &mut MetaModel<f64>, &mut PathColumnUndo<V, C>) -> Result<T>,
+    {
+        // 不复制不可变问题或历史列载荷；仅保存元数据和本批撤销项。 / Save metadata and this batch's undo entries, never immutable problems or historical payloads.
+        let compilation = self.compilation.clone();
+        let rows = self.rows.clone();
+        let group = self.group.clone();
+        let revision = self.revision;
+        let binding = self.binding;
+        let mut undo = PathColumnUndo { added: Vec::new(), removed: Vec::new() };
+        let result = model.transaction(|model| operation(self, model, &mut undo));
+        if result.is_err() {
+            for id in undo.added { self.columns.remove(&id); }
+            for (id, column) in undo.removed { self.columns.insert(id, column); }
+            self.compilation = compilation;
+            self.rows = rows;
+            self.group = group;
+            self.revision = revision;
+            self.binding = binding;
+        }
+        result
+    }
+
+    pub(super) fn register(
+        &mut self,
+        model: &mut MetaModel<f64>,
+        undo: &mut PathColumnUndo<V, C>,
+    ) -> Result<()> {
         if self.binding.is_some() { return self.ensure_registered(model); }
         if model.objective().category != ObjectiveCategory::Minimum {
             return Err(NetworkSchedulingError::contract("完整路径费用主问题必须最小化 / whole-path cost master must minimize"));
@@ -91,12 +128,17 @@ where
             .map_err(|error| NetworkSchedulingError::model(error.to_string()))?);
         self.binding = Some(model.model_identity());
         let columns = self.problem.columns().to_vec();
-        self.add(model, columns)?;
+        self.add(model, columns, undo)?;
         // 空候选也必须注册常数行，不能静默丢掉必需覆盖。 / Empty pools must still register constant rows instead of dropping required coverage.
         self.refresh(model)
     }
 
-    pub(super) fn add(&mut self, model: &mut MetaModel<f64>, candidates: Vec<PathColumn<V, C>>) -> Result<Vec<PathColumn<V, C>>> {
+    pub(super) fn add(
+        &mut self,
+        model: &mut MetaModel<f64>,
+        candidates: Vec<PathColumn<V, C>>,
+        undo: &mut PathColumnUndo<V, C>,
+    ) -> Result<Vec<PathColumn<V, C>>> {
         self.ensure_registered(model)?;
         let mut additions = BTreeMap::<String, CompiledPathColumn<V, C>>::new();
         for candidate in candidates {
@@ -109,6 +151,7 @@ where
         let added = additions.values().map(|column| column.column.clone()).collect();
         for (id, column) in additions {
             self.compilation.add(model, &id, &self.name)?;
+            undo.added.push(id.clone());
             self.columns.insert(id, column);
         }
         self.advance_revision()?;
@@ -116,19 +159,25 @@ where
         Ok(added)
     }
 
-    pub(super) fn remove(&mut self, model: &mut MetaModel<f64>, ids: &BTreeSet<String>) -> Result<Vec<PathColumn<V, C>>> {
+    pub(super) fn remove(
+        &mut self,
+        model: &mut MetaModel<f64>,
+        ids: &BTreeSet<String>,
+        undo: &mut PathColumnUndo<V, C>,
+    ) -> Result<Vec<PathColumn<V, C>>> {
         self.ensure_registered(model)?;
         let mut removed = Vec::new();
         let mut indices = HashSet::new();
         for id in ids {
             if let Some(column) = self.columns.remove(id) {
+                removed.push(column.column.clone());
+                undo.removed.push((id.clone(), column));
                 let index = self.compilation.variables.remove(id)
                     .ok_or_else(|| NetworkSchedulingError::contract("路径变量索引缺失 / missing path-variable index"))?;
                 model.set_variable_range_by_index(index, VariableRange::fixed(0.0))
                     .map_err(|error| NetworkSchedulingError::model(error.to_string()))?;
                 self.compilation.retired.insert(index);
                 indices.insert(index);
-                removed.push(column.column);
             }
         }
         if removed.is_empty() { return Ok(removed); }
@@ -174,17 +223,22 @@ where
         if model.objective().category != ObjectiveCategory::Minimum {
             return Err(NetworkSchedulingError::contract("路径主问题目标不再是最小化 / path master is no longer minimizing"));
         }
-        for objective in &model.objective_snapshot().sub_objectives {
+        for objective in &model.objective().sub_objectives {
             if !objective.weight.is_finite() || !objective.polynomial.constant_term().is_finite()
                 || objective.polynomial.monomials().iter().any(|term| !term.coefficient().is_finite())
             { return Err(NetworkSchedulingError::contract("路径模型目标必须有限 / path-model objectives must be finite")); }
         }
+        // 保留重名约束的首次匹配语义，只在本次只读校验中建立索引。 / Preserve first-match semantics for duplicate names; index only this read-only validation.
+        let mut by_name = HashMap::with_capacity(model.constraints().len());
+        for constraint in model.constraints() {
+            by_name.entry(constraint.name.as_str()).or_insert(constraint);
+        }
         for row in &self.rows {
-            let actual = model.constraints().iter().find(|constraint| constraint.name == row.name)
+            let actual = by_name.get(row.name.as_str())
                 .ok_or_else(|| NetworkSchedulingError::contract("受管路径行已丢失 / managed path row is missing"))?;
-            let terms = actual.inequality.polynomial.monomials().iter().map(|term| (term.var_index(), *term.coefficient())).collect::<Vec<_>>();
             if actual.inequality.relation != row.relation || actual.inequality.rhs != row.rhs
-                || *actual.inequality.polynomial.constant_term() != 0.0 || terms != row.terms
+                || *actual.inequality.polynomial.constant_term() != 0.0
+                || !actual.inequality.polynomial.monomials().iter().map(|term| (term.var_index(), *term.coefficient())).eq(row.terms.iter().copied())
                 || actual.group.as_ref().map(|group| group.id) != Some(self.owner) || actual.lazy
             { return Err(NetworkSchedulingError::contract("受管路径行被外部修改 / managed path row was externally modified")); }
         }

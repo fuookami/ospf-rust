@@ -318,11 +318,141 @@ fn observable_objectives_rows_bounds_columns_and_context_identity_invalidate_sna
     assert!(first.register(&mut MetaModel::new("foreign")).is_err());
 }
 
+#[test]
+fn managed_row_name_index_handles_reordering_and_rejects_pipeline_tampering() {
+    for invalid_row in [false, true] {
+        let (mut context, mut model) = registered();
+        let row = model.constraints()[0].clone();
+        let mut inequality = row.inequality;
+        if invalid_row { inequality.rhs += 1.0; }
+        model.retain_constraints(|constraint| constraint.name != row.name);
+        model.add_inequality_with_metadata(inequality, &row.name, row.group, false, 0, None).unwrap();
+        assert_eq!(context.aggregation().validate_model(&model, false).is_err(), invalid_row);
+        assert_eq!(context.pricing_model(&model).is_err(), invalid_row);
+        if !invalid_row {
+            let report = report(&context, &model, vec![0.0, -3.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0]);
+            let request = scope(&context, &model);
+            let duals = context.refresh_shadow_prices(&model, &report, request.clone()).unwrap();
+            assert_eq!(duals.prices()["a"], 2.0);
+            assert_eq!(duals.prices()["b"], 3.0);
+            context.require_verified_pricing_duals(&model, &duals, &request).unwrap();
+        }
+    }
+
+    #[derive(Debug)]
+    struct Tamper(AtomicBool);
+
+    impl PathCompilationPipeline<f64, Payload> for Tamper {
+        fn add_columns(&self, model: &mut MetaModel<f64>, _: &PathCompilationAggregation<f64, Payload>, _: &[PathColumn<f64, Payload>]) -> Result<()> {
+            if self.0.load(Ordering::SeqCst) {
+                model.retain_constraints(|constraint| !constraint.name.ends_with("0_eq"));
+            }
+            Ok(())
+        }
+
+        fn remove_columns(&self, model: &mut MetaModel<f64>, _: &PathCompilationAggregation<f64, Payload>, _: &[PathColumn<f64, Payload>]) -> Result<()> {
+            if self.0.load(Ordering::SeqCst) {
+                model.add_sub_objective(SubObjective::minimize(Linear::new(Vec::new(), f64::NAN), "nonfinite-hook"));
+            }
+            Ok(())
+        }
+    }
+
+    let mut context = PathCompilationContext::new(problem(), "master").unwrap();
+    let tamper = Arc::new(Tamper(AtomicBool::new(true)));
+    context.add_pipeline(tamper.clone()).unwrap();
+    let mut model = MetaModel::new("post-hook-validation");
+    context.register(&mut model).unwrap();
+    let before = model.linear_source_snapshot();
+    assert!(context.add_columns(&mut model, vec![column("new", 4.0, [1.0, 1.0], 3.0)]).is_err());
+    assert_eq!(model.linear_source_snapshot(), before);
+    assert!(context.remove_columns(&mut model, &["a".into()].into()).is_err());
+    assert_eq!(model.linear_source_snapshot(), before);
+    tamper.0.store(false, Ordering::SeqCst);
+    context.add_columns(&mut model, vec![column("new", 4.0, [1.0, 1.0], 3.0)]).unwrap();
+    context.remove_columns(&mut model, &["a".into()].into()).unwrap();
+    context.pricing_model(&model).unwrap();
+}
+
 #[derive(Debug)]
 struct Extension {
     register: AtomicBool,
     add: AtomicBool,
     remove: AtomicBool,
+}
+
+#[test]
+#[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+fn performance_b06_path_column_transactions() {
+    use std::hint::black_box;
+    use std::time::Instant;
+    for count in [16, 64] {
+        for sample in 0..5 {
+            let columns = (0..count).map(|index| {
+                let mut candidate = column(&format!("p{index}"), 1.0, [1.0, 1.0], 1.0);
+                candidate.payload.arcs = vec!["long-history-arc-payload".to_owned(); 2048];
+                candidate
+            }).collect();
+            let problem = PathCompilationProblem::new(problem().rows().to_vec(), columns, NoneUnit::INSTANT.clone()).unwrap();
+            let mut context = PathCompilationContext::new(problem, "timing").unwrap();
+            let mut model = MetaModel::new("timing");
+            context.register(&mut model).unwrap();
+            let candidate = column("added", 1.0, [1.0, 1.0], 1.0);
+            let start = Instant::now();
+            let added = context.add_columns(black_box(&mut model), vec![candidate]).unwrap();
+            let add_time = start.elapsed();
+            let ids = ["p0".to_owned()].into();
+            let start = Instant::now();
+            let removed = context.remove_columns(black_box(&mut model), &ids).unwrap();
+            let remove_time = start.elapsed();
+            assert_eq!(added.len(), 1);
+            assert_eq!(removed.len(), 1);
+            black_box((added, removed));
+            println!("path_transaction count={count} payload_arcs=2048 sample={sample} add={add_time:?} remove={remove_time:?}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+fn performance_b07_path_verified_refresh() {
+    use std::hint::black_box;
+    use std::time::Instant;
+    for count in [16, 128, 512] {
+        let unit = NoneUnit::INSTANT.clone();
+        let rows = (0..count).map(|index| PathCompilationRow {
+            id: format!("r{index}"), unit: unit.clone(), lower: Some(Quantity::new(1.0, unit.clone())),
+            upper: Some(Quantity::new(1.0, unit.clone())),
+        }).collect::<Vec<_>>();
+        let candidate = PathColumn { id: "whole".into(), payload: (), cost: Quantity::new(2.0, unit.clone()),
+            coefficients: rows.iter().map(|row| (row.id.clone(), Quantity::new(1.0, unit.clone()))).collect() };
+        let problem = PathCompilationProblem::new(rows, vec![candidate], unit).unwrap();
+        let mut context = PathCompilationContext::new(problem, "verified-refresh").unwrap();
+        let mut model = MetaModel::new("verified-refresh");
+        context.register(&mut model).unwrap();
+        let lp = context.pricing_model(&model).unwrap();
+        let fingerprint = linear_model_fingerprint(&lp).unwrap();
+        let mut solution = SolveSolution::vector(vec![1.0]);
+        solution.objective = Some(2.0);
+        solution.objective_value = Some(2.0);
+        let mut duals = vec![0.0; lp.A.rows.len()];
+        duals[1] = -2.0;
+        solution.dual_solution = Some(duals);
+        let report = SolveReport::builder(ProblemStatus::Feasible, TerminationReason::Completed)
+            .solution(solution).proof(SolveProof::optimality())
+            .fingerprints(SolveFingerprints { model: Some(fingerprint.clone()), ..Default::default() }).build().unwrap();
+        let scope = ColumnGenerationScope { request: "request".into(), groups: BTreeSet::new(), model: fingerprint.value,
+            dual: "dual".into(), branch: "root".into(), global: true, executor_slots: BTreeSet::new() };
+        for sample in 0..5 {
+            let start = Instant::now();
+            let duals = context.refresh_shadow_prices(black_box(&model), &report, scope.clone()).unwrap();
+            let elapsed = start.elapsed();
+            assert!(duals.has_verified_lp_source());
+            assert_eq!(duals.prices()["r0"], 2.0);
+            black_box(duals);
+            println!("path_verified_refresh rows={count} sample={sample} elapsed={elapsed:?}");
+        }
+    }
 }
 
 impl PathCompilationPipeline<f64, Payload> for Extension {
@@ -381,6 +511,96 @@ fn downstream_constraints_and_objectives_survive_transactional_registration_addi
     assert_eq!(model.try_to_linear_triad_model().unwrap().c[3], 7.0);
     assert!(model.constraints().iter().any(|constraint| constraint.name == "business_no_whole"));
     assert!(context.add_pipeline(Arc::new(Extension { register: AtomicBool::new(false), add: AtomicBool::new(false), remove: AtomicBool::new(false) })).is_err());
+}
+
+#[derive(Debug)]
+struct CountedPayload {
+    values: Vec<usize>,
+    clones: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl Clone for CountedPayload {
+    fn clone(&self) -> Self {
+        self.clones.fetch_add(1, Ordering::SeqCst);
+        Self { values: self.values.clone(), clones: self.clones.clone() }
+    }
+}
+
+impl PartialEq for CountedPayload {
+    fn eq(&self, other: &Self) -> bool { self.values == other.values }
+}
+
+#[derive(Debug)]
+struct CountedFailure(Arc<AtomicBool>);
+
+impl PathCompilationPipeline<f64, CountedPayload> for CountedFailure {
+    fn add_columns(&self, model: &mut MetaModel<f64>, _: &PathCompilationAggregation<f64, CountedPayload>, _: &[PathColumn<f64, CountedPayload>]) -> Result<()> {
+        self.fail_once(model)
+    }
+
+    fn remove_columns(&self, model: &mut MetaModel<f64>, _: &PathCompilationAggregation<f64, CountedPayload>, _: &[PathColumn<f64, CountedPayload>]) -> Result<()> {
+        self.fail_once(model)
+    }
+}
+
+impl CountedFailure {
+    fn fail_once(&self, model: &mut MetaModel<f64>) -> Result<()> {
+        if self.0.swap(false, Ordering::SeqCst) {
+            model.register_auto_variable::<Continuous>("failed-path-hook").unwrap();
+            return Err(NetworkSchedulingError::validation("注入载荷回滚失败 / injected payload rollback failure"));
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn path_journal_does_not_clone_unchanged_payloads_and_restores_removed_objects() {
+    use std::sync::atomic::AtomicUsize;
+    let unit = NoneUnit::INSTANT.clone();
+    let make_column = |id: &str, clones: Arc<AtomicUsize>| PathColumn { id: id.to_owned(),
+        payload: CountedPayload { values: vec![17; 1024], clones }, cost: Quantity::new(1.0, unit.clone()), coefficients: BTreeMap::new() };
+    let a = Arc::new(AtomicUsize::new(0));
+    let b = Arc::new(AtomicUsize::new(0));
+    let added = Arc::new(AtomicUsize::new(0));
+    let fail = Arc::new(AtomicBool::new(false));
+    let problem = PathCompilationProblem::new(vec![PathCompilationRow { id: "row".into(), unit: unit.clone(), lower: None,
+        upper: Some(Quantity::new(1.0, unit.clone())) }], vec![make_column("a", a.clone()), make_column("b", b.clone())], unit.clone()).unwrap();
+    let mut context = PathCompilationContext::new(problem, "counted").unwrap();
+    context.add_pipeline(Arc::new(CountedFailure(fail.clone()))).unwrap();
+    let mut model = MetaModel::new("counted");
+    context.register(&mut model).unwrap();
+    let pointers = [context.aggregation().columns()["a"].column().payload.values.as_ptr(),
+        context.aggregation().columns()["b"].column().payload.values.as_ptr()];
+    for counter in [&a, &b, &added] { counter.store(0, Ordering::SeqCst); }
+    let original = linear_model_fingerprint(&model.try_to_linear_triad_model().unwrap()).unwrap();
+    fail.store(true, Ordering::SeqCst);
+    assert!(context.add_columns(&mut model, vec![make_column("new", added.clone())]).is_err());
+    assert_eq!(linear_model_fingerprint(&model.try_to_linear_triad_model().unwrap()).unwrap(), original);
+    assert_eq!(context.aggregation().columns().len(), 2);
+    assert_eq!(a.load(Ordering::SeqCst), 0);
+    assert_eq!(b.load(Ordering::SeqCst), 0);
+    context.add_columns(&mut model, vec![make_column("new", added.clone())]).unwrap();
+    let duplicate = context.aggregation().columns()["a"].column().clone();
+    for counter in [&a, &b, &added] { counter.store(0, Ordering::SeqCst); }
+    assert!(context.add_columns(&mut model, vec![duplicate]).unwrap().is_empty());
+    assert_eq!(a.load(Ordering::SeqCst), 0);
+    assert_eq!(b.load(Ordering::SeqCst), 0);
+    assert_eq!(added.load(Ordering::SeqCst), 0);
+    let original = linear_model_fingerprint(&model.try_to_linear_triad_model().unwrap()).unwrap();
+    fail.store(true, Ordering::SeqCst);
+    assert!(context.remove_columns(&mut model, &["b".into()].into()).is_err());
+    assert_eq!(linear_model_fingerprint(&model.try_to_linear_triad_model().unwrap()).unwrap(), original);
+    assert_eq!(a.load(Ordering::SeqCst), 0);
+    assert_eq!(added.load(Ordering::SeqCst), 0);
+    assert_eq!(b.load(Ordering::SeqCst), 1);
+    assert_eq!(context.aggregation().columns()["a"].column().payload.values.as_ptr(), pointers[0]);
+    assert_eq!(context.aggregation().columns()["b"].column().payload.values.as_ptr(), pointers[1]);
+    let old = context.aggregation().compilation().variables()["b"];
+    let removed = context.remove_columns(&mut model, &["b".into()].into()).unwrap();
+    context.add_columns(&mut model, removed).unwrap();
+    assert_ne!(context.aggregation().compilation().variables()["b"], old);
+    assert!(context.aggregation().compilation().retired_variables().contains(&old));
+    assert_eq!(a.load(Ordering::SeqCst), 0);
 }
 
 #[test]

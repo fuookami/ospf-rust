@@ -10,7 +10,7 @@
 //! 2. 行优先 vs 列优先存储顺序
 
 use ospf_rust_base::collection_traits::Iter;
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use ospf_rust_multiarray::*;
 
 // ============================================================================
@@ -394,6 +394,54 @@ fn bench_index_calculation_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+// 分别测量顺序一致与需要重排的构造路径。 / Measure matching-order and reordered construction separately.
+fn bench_from_list_order(c: &mut Criterion) {
+    let mut group = c.benchmark_group("from_list_order");
+    for size in [16, 128] {
+        let values = (0..size * (size + 1)).map(|value| value as f64).collect::<Vec<_>>();
+        group.throughput(Throughput::Elements(values.len() as u64));
+        for (name, storage_order, access_order) in [
+            ("row_matching", StorageOrder::RowMajor, AccessOrder::RowMajor),
+            ("column_matching", StorageOrder::ColumnMajor, AccessOrder::ColumnMajor),
+            ("row_to_column", StorageOrder::ColumnMajor, AccessOrder::RowMajor),
+        ] {
+            let shape = Shape::<2, StorageOrder>::new_with_order([size, size + 1], storage_order);
+            group.bench_with_input(
+                BenchmarkId::new(name, size),
+                &size,
+                |b, _| {
+                    b.iter_batched(
+                        || (shape.clone(), values.clone()),
+                        |(shape, values)| black_box(MultiArrayBuilder::from_list_with_order(
+                            shape,
+                            values,
+                            access_order,
+                        )),
+                        BatchSize::SmallInput,
+                    );
+                },
+            );
+        }
+        let shape: DynShape = DynShape::new_with_order(vec![size, size + 1], StorageOrder::ColumnMajor);
+        group.bench_with_input(
+            BenchmarkId::new("dynamic_column_matching", size),
+            &size,
+            |b, _| {
+                b.iter_batched(
+                    || (shape.clone(), values.clone()),
+                    |(shape, values)| black_box(MultiArrayBuilder::from_list_with_order(
+                        shape,
+                        values,
+                        AccessOrder::ColumnMajor,
+                    )),
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_dimension_benchmark,
@@ -402,6 +450,7 @@ criterion_group!(
     bench_view_benchmark,
     bench_combined_benchmark,
     bench_index_calculation_benchmark,
+    bench_from_list_order,
 );
 
 criterion_main!(benches);

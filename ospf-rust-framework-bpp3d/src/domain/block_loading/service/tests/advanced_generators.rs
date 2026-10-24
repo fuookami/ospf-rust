@@ -133,3 +133,58 @@
                 Block::Complex(_) => false,
             }));
     }
+
+    #[test]
+    fn complex_block_frontier_matches_reference_for_limits_and_full_payloads() {
+        let items = vec![make_cuboid_item("a", 1.0, 1.0, 1.0, 1.0),
+            make_cuboid_item("b", 2.0, 1.0, 1.0, 2.0),
+            make_cylinder_item("c", 0.5, 1.0, Axis3::Z, 1.0)];
+        let container = MetricSize3 { width: meters(8.0), height: meters(4.0), depth: meters(3.0) };
+        let mut blocks = SimpleBlockGenerator::default_generator().generate(&items, &[6, 4, 2], &container);
+        blocks.extend(ComplexBlockGenerator::default().generate(&[6, 4, 2], &container, &blocks, None).into_iter().take(2));
+        blocks.push(blocks[0].clone());
+        for mask in 0..8 {
+            for max_candidates in [0, 1, 2, 7, 100] {
+                for max_depth in [0, 1, 2, 4] {
+                    for rest_weight in [None, Some(0.0), Some(3.0), Some(30.0)] {
+                        let generator = ComplexBlockGenerator::new(ComplexBlockGeneratorConfig {
+                            with_x: mask & 1 != 0, with_y: mask & 2 != 0, with_z: mask & 4 != 0,
+                            max_candidates, max_depth,
+                        });
+                        for amounts in [&[6, 4, 2][..], &[0, 0, 0][..], &[1][..]] {
+                            let expected = generator.generate_reference(amounts, &container, &blocks, rest_weight);
+                            let actual = generator.generate(amounts, &container, &blocks, rest_weight);
+                            assert_eq!(format!("{actual:?}"), format!("{expected:?}"),
+                                "mask={mask} max={max_candidates} depth={max_depth} weight={rest_weight:?}");
+                        }
+                    }
+                }
+            }
+        }
+        assert!(ComplexBlockGenerator::default().generate(&[], &container, &[], None).is_empty());
+    }
+
+    #[test]
+    #[ignore = "manual release timing; run with --ignored --nocapture --test-threads=1"]
+    fn performance_b10_complex_generation() {
+        let items = vec![make_cuboid_item("a", 1.0, 1.0, 1.0, 1.0),
+            make_cuboid_item("b", 2.0, 1.0, 1.0, 1.0), make_cuboid_item("c", 1.0, 2.0, 1.0, 1.0)];
+        let amounts = [100, 100, 100];
+        let container = MetricSize3 { width: meters(20.0), height: meters(20.0), depth: meters(20.0) };
+        let blocks = SimpleBlockGenerator::default_generator().generate(&items, &amounts, &container);
+        for limit in [64, 256, 1024] {
+            let generator = ComplexBlockGenerator::new(ComplexBlockGeneratorConfig {
+                with_z: true, max_candidates: limit, max_depth: 4, ..Default::default()
+            });
+            for sample in 0..5 {
+                for reference in if sample % 2 == 0 { [true, false] } else { [false, true] } {
+                    let started = std::time::Instant::now();
+                    let result = if reference { generator.generate_reference(&amounts, &container, std::hint::black_box(&blocks), None) }
+                        else { generator.generate(&amounts, &container, std::hint::black_box(&blocks), None) };
+                    let elapsed = started.elapsed();
+                    eprintln!("complex_generation limit={limit} reference={reference} sample={sample} elapsed={elapsed:?} results={}", result.len());
+                    std::hint::black_box(result);
+                }
+            }
+        }
+    }

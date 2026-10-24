@@ -158,41 +158,9 @@ impl PrimeCache {
         self.is_prime[num]
     }
 
-    /// 快速素数检查（用于大数）
-    /// Quick prime check (for large numbers)
+    /// 不扩展缓存的确定性大数检查 / Deterministic large-number check without growing the cache.
     fn is_prime_quick_check(&self, n: usize) -> bool {
-        if n <= 1 {
-            return false;
-        }
-        if n <= 3 {
-            return true;
-        }
-        if n % 2 == 0 || n % 3 == 0 {
-            return false;
-        }
-
-        // 检查缓存中的素数
-        // Check against cached primes
-        for &p in &self.primes {
-            if p * p > n {
-                break;
-            }
-            if n % p == 0 {
-                return false;
-            }
-        }
-
-        // 使用 6k±1 方法继续检查
-        // Continue checking using 6k±1 method
-        let mut i = 5;
-        while i * i <= n {
-            if n % i == 0 || n % (i + 2) == 0 {
-                return false;
-            }
-            i += 6;
-        }
-
-        true
+        is_prime_deterministic(n as u64)
     }
 }
 
@@ -227,10 +195,13 @@ fn get_cache() -> &'static Mutex<PrimeCache> {
 /// assert!(!is_prime(4));
 /// ```
 pub fn is_prime(num: usize) -> bool {
-    get_cache()
-        .lock()
-        .expect("prime cache mutex poisoned / 素数缓存互斥锁已中毒")
-        .is_prime(num)
+    {
+        let mut cache = get_cache().lock()
+            .expect("prime cache mutex poisoned / 素数缓存互斥锁已中毒");
+        if num <= cache.current || num <= 1_000_000 { return cache.is_prime(num); }
+    }
+    // 缓存查询结束即释放锁，模幂计算不阻塞其他筛查询。 / Release the cache lock before modular powers so other sieve queries can proceed.
+    is_prime_deterministic(num as u64)
 }
 
 /// 获取小于等于 limit 的所有素数
@@ -262,36 +233,155 @@ pub fn get_primes(limit: usize) -> Vec<usize> {
 /// 判断一个 u64 数是否为素数
 /// Check if a u64 number is prime
 pub fn is_prime_u64(num: u64) -> bool {
-    if num <= usize::MAX as u64 {
-        is_prime(num as usize)
-    } else {
-        // 对于大于 usize 的数，使用简单方法
-        // For numbers larger than usize, use simple method
-        if num <= 1 {
-            return false;
-        }
-        if num <= 3 {
-            return true;
-        }
-        if num % 2 == 0 || num % 3 == 0 {
-            return false;
-        }
-
-        let mut i: u64 = 5;
-        while i * i <= num {
-            if num % i == 0 || num % (i + 2) == 0 {
-                return false;
-            }
-            i += 6;
-        }
-
-        true
+    match usize::try_from(num) {
+        Ok(num) => is_prime(num),
+        Err(_) => is_prime_deterministic(num),
     }
+}
+
+fn modular_power(
+    mut base: u64,
+    mut exponent: u64,
+    modulus: u64,
+) -> u64 {
+    let mut result = 1 % modulus;
+    base %= modulus;
+    // 32位模数的剩余数乘积可由u64精确容纳，避免不必要的宽除法。 / Residue products for 32-bit moduli fit exactly in u64, avoiding unnecessary wide division.
+    if modulus <= u32::MAX as u64 {
+        while exponent != 0 {
+            if exponent & 1 != 0 { result = result * base % modulus; }
+            base = base * base % modulus;
+            exponent >>= 1;
+        }
+        return result;
+    }
+    while exponent != 0 {
+        if exponent & 1 != 0 { result = (result as u128 * base as u128 % modulus as u128) as u64; }
+        base = (base as u128 * base as u128 % modulus as u128) as u64;
+        exponent >>= 1;
+    }
+    result
+}
+
+fn is_prime_deterministic(n: u64) -> bool {
+    if n < 2 { return false; }
+    for prime in [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37] {
+        if n % prime == 0 { return n == prime; }
+    }
+    let powers = (n - 1).trailing_zeros();
+    let odd = (n - 1) >> powers;
+    // 三见证覆盖u32，七见证覆盖u64；宽乘积不溢出，不是概率素性判断。 / Three witnesses cover u32 and seven cover u64; wide products avoid overflow, making this deterministic rather than probabilistic.
+    let witnesses: &[u64] = if n <= u32::MAX as u64 { &[2, 7, 61] }
+        else { &[2, 325, 9375, 28178, 450775, 9780504, 1795265022] };
+    for &witness in witnesses {
+        let base = witness % n;
+        if base == 0 { continue; }
+        let mut value = modular_power(base, odd, n);
+        if value == 1 || value == n - 1 { continue; }
+        let mut passed = false;
+        for _ in 1..powers {
+            value = (value as u128 * value as u128 % n as u128) as u64;
+            if value == n - 1 { passed = true; break; }
+        }
+        if !passed { return false; }
+    }
+    true
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn trial_prime(n: u64) -> bool {
+        if n < 2 { return false; }
+        let mut divisor = 2;
+        while divisor <= n / divisor {
+            if n % divisor == 0 { return false; }
+            divisor += 1;
+        }
+        true
+    }
+
+    #[test]
+    fn deterministic_witnesses_match_sieve_trial_and_full_width_cases() {
+        let mut sieve = vec![true; 100_001];
+        sieve[0] = false;
+        sieve[1] = false;
+        for divisor in 2..=316 {
+            if sieve[divisor] {
+                for multiple in (divisor * divisor..sieve.len()).step_by(divisor) { sieve[multiple] = false; }
+            }
+        }
+        for (number, expected) in sieve.into_iter().enumerate() {
+            assert_eq!(is_prime_deterministic(number as u64), expected, "{number}");
+        }
+        let mut random = 0x3141_5926_5358_9793u64;
+        for _ in 0..512 {
+            random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let number = random % 10_000_000_000;
+            assert_eq!(is_prime_u64(number), trial_prime(number), "{number}");
+        }
+        for number in [2, 37, 41, 1_000_000_007, 4_294_967_291, 2_305_843_009_213_693_951, 18_446_744_073_709_551_557] {
+            assert!(is_prime_u64(number), "{number}");
+        }
+        for number in [0, 1, 4, 561, 1105, 1729, 2465, 2821, 6601, 1_373_653, 9_080_191, 3_215_031_751, 4_759_123_141, 341_550_071_728_321,
+            3_825_123_056_546_413_051, 4_294_967_291u64 * 4_294_967_291, u64::MAX - 1, u64::MAX]
+        {
+            assert!(!is_prime_u64(number), "{number}");
+        }
+    }
+
+    #[test]
+    fn modular_powers_match_big_integer_oracle_without_overflow() {
+        use num_bigint::BigUint;
+        use num_traits::ToPrimitive;
+        for modulus in [1, 2, 41, 4_294_967_291, 4_294_967_295, 4_294_967_296, u64::MAX - 58, u64::MAX] {
+            for base in [0, 1, 2, 450775, u64::MAX - 1, u64::MAX] {
+                for exponent in [0, 1, 2, 63, u64::MAX] {
+                    let expected = BigUint::from(base).modpow(&BigUint::from(exponent), &BigUint::from(modulus)).to_u64().unwrap();
+                    assert_eq!(modular_power(base, exponent, modulus), expected);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn sieve_growth_cached_queries_and_concurrent_large_checks_remain_consistent() {
+        let mut cache = PrimeCache::new();
+        let primes = cache.get_primes(1_000_100);
+        assert_eq!(primes.last(), Some(&1_000_099));
+        let current = cache.current;
+        for number in [0, 1, 2, 997, 1009, 1_000_003, 1_000_099, 1_000_101] {
+            assert_eq!(cache.is_prime(number), trial_prime(number as u64));
+        }
+        assert_eq!(cache.current, current);
+        std::thread::scope(|scope| {
+            let workers = (0..4).map(|worker| scope.spawn(move || {
+                for iteration in 0..64 {
+                    assert!(is_prime_u64(18_446_744_073_709_551_557));
+                    assert!(!is_prime_u64(3_825_123_056_546_413_051));
+                    let limit = 1000 + worker * 100 + iteration;
+                    assert!(get_primes(limit).into_iter().all(|number| trial_prime(number as u64)));
+                }
+            })).collect::<Vec<_>>();
+            for worker in workers { worker.join().unwrap(); }
+        });
+    }
+
+    #[test]
+    #[ignore = "手动 release 性能测量 / Manual release performance measurement"]
+    fn performance_b09_prime_queries() {
+        use std::hint::black_box;
+        use std::time::Instant;
+        for number in [1_000_003, 1_000_000_007, 1_000_000_000_039u64] {
+            assert!(is_prime_u64(number));
+            for sample in 0..5 {
+                let start = Instant::now();
+                for _ in 0..10 { assert!(black_box(is_prime_u64(black_box(number)))); }
+                println!("prime_queries number={number} repetitions=10 sample={sample} elapsed={:?}", start.elapsed());
+            }
+        }
+    }
 
     #[test]
     fn test_is_prime() {

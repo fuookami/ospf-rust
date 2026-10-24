@@ -27,10 +27,12 @@
 //! println!("Generated {} triangles", triangles.triangles().len());
 //! ```
 
+use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
+use crate::algebra::Epsilon;
 use super::edge::{Edge, Edge2};
 use super::point::Point2;
 use super::triangle::Triangle2;
-use std::collections::{HashMap, HashSet};
 
 // ============================================================================
 // Delaunay 三角剖分结果
@@ -41,15 +43,37 @@ use std::collections::{HashMap, HashSet};
 ///
 /// 包含生成的三角形和原始点集。
 /// Contains the generated triangles and the original point set.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DelaunayTriangulation {
     /// 生成的三角形 / Generated triangles
     triangles: Vec<Triangle2>,
     /// 原始点集 / Original point set
     points: Vec<Point2>,
+    point_indices: OnceLock<Vec<[usize; 3]>>,
 }
 
 impl DelaunayTriangulation {
+    fn new(triangles: Vec<Triangle2>, points: Vec<Point2>) -> Self {
+        Self { triangles, points, point_indices: OnceLock::new() }
+    }
+
+    fn point_indices(&self) -> &[[usize; 3]] {
+        self.point_indices.get_or_init(|| {
+            if self.triangles.is_empty() { return Vec::new(); }
+            let points = &self.points;
+            let mut by_x = (0..points.len()).filter(|&index| points[index].x().is_finite()).collect::<Vec<_>>();
+            by_x.sort_by(|&lhs, &rhs| points[lhs].x().total_cmp(&points[rhs].x()));
+            let epsilon = <f64 as Epsilon>::epsilon();
+            self.triangles.iter().map(|triangle| triangle.vertices().map(|vertex| {
+                if !vertex.x().is_finite() || !vertex.y().is_finite() { return 0; }
+                // 用原减法谓词界定范围，避免容差边界加减的额外舍入。 / Bound candidates with the original subtraction predicate, avoiding extra rounding at tolerance boundaries.
+                let start = by_x.partition_point(|&index| points[index].x() - vertex.x() <= -epsilon);
+                let end = by_x.partition_point(|&index| points[index].x() - vertex.x() < epsilon);
+                by_x[start..end].iter().copied().filter(|&index| points[index].approx_eq(vertex)).max().unwrap_or(0)
+            })).collect()
+        })
+    }
+
     /// 获取三角形列表
     /// Get the list of triangles
     pub fn triangles(&self) -> &[Triangle2] {
@@ -68,14 +92,14 @@ impl DelaunayTriangulation {
         let mut edges: Vec<Edge2> = Vec::new();
         let mut seen: HashSet<(usize, usize)> = HashSet::new();
 
-        for triangle in &self.triangles {
-            for edge in triangle.edges() {
+        for (triangle, indices) in self.triangles.iter().zip(self.point_indices()) {
+            for (edge, (i1, i2)) in triangle.edges().into_iter().zip([
+                (indices[0], indices[1]), (indices[1], indices[2]), (indices[2], indices[0]),
+            ]) {
                 let (p1, p2) = edge.into_points();
-                let (i1, i2) = self.find_point_indices(&p1, &p2);
                 let key = if i1 < i2 { (i1, i2) } else { (i2, i1) };
 
-                if !seen.contains(&key) {
-                    seen.insert(key);
+                if seen.insert(key) {
                     edges.push(Edge::new(p1, p2));
                 }
             }
@@ -83,23 +107,12 @@ impl DelaunayTriangulation {
 
         edges
     }
+}
 
-    /// 查找点在原始点集中的索引
-    /// Find indices of points in the original point set
-    fn find_point_indices(&self, p1: &Point2, p2: &Point2) -> (usize, usize) {
-        let mut i1 = 0;
-        let mut i2 = 0;
-
-        for (i, p) in self.points.iter().enumerate() {
-            if p.approx_eq(p1) {
-                i1 = i;
-            }
-            if p.approx_eq(p2) {
-                i2 = i;
-            }
-        }
-
-        (i1, i2)
+impl std::fmt::Debug for DelaunayTriangulation {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_struct("DelaunayTriangulation")
+            .field("triangles", &self.triangles).field("points", &self.points).finish()
     }
 }
 
@@ -154,10 +167,7 @@ pub fn delaunay_triangulate(points: &[Point2]) -> Result<DelaunayTriangulation, 
             .any(|v| super_vertices.iter().any(|sv| v.approx_eq(sv)))
     });
 
-    Ok(DelaunayTriangulation {
-        triangles,
-        points: points.to_vec(),
-    })
+    Ok(DelaunayTriangulation::new(triangles, points.to_vec()))
 }
 
 /// 创建包含所有点的超级三角形
@@ -449,3 +459,6 @@ mod tests {
         assert_eq!(edges.len(), 3);
     }
 }
+
+#[cfg(test)]
+mod performance_tests;

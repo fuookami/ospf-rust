@@ -186,30 +186,21 @@ pub trait AbstractShape {
 
     /// 将线性索引转换为向量
     /// Convert linear index to vector
-    fn vector_of(&self, mut index: usize) -> Result<Self::VectorType, IndexCalculationError> {
+    fn vector_of(&self, index: usize) -> Result<Self::VectorType, IndexCalculationError> {
         let mut vector = self.zero();
-
-        // 根据存储顺序决定遍历方向
-        // Determine traversal direction based on storage order
-        // RowMajor: 从高维到低维计算 (Calculate from high to low dimension)
-        // ColumnMajor: 从低维到高维计算 (Calculate from low to high dimension)
-        match self.storage_order() {
-            crate::concept::StorageOrder::RowMajor => {
-                for i in 0..self.dimension() {
-                    let offset = self.offset_of_dimension(i)?;
-                    vector[i] = index / offset;
-                    index = index % offset;
-                }
-            }
-            crate::concept::StorageOrder::ColumnMajor => {
-                for i in (0..self.dimension()).rev() {
-                    let offset = self.offset_of_dimension(i)?;
-                    vector[i] = index / offset;
-                    index = index % offset;
-                }
-            }
-        }
+        write_standard_vector(self, index, &mut vector)?;
         Ok(vector)
+    }
+
+    /// 将坐标写入调用方缓冲；默认保留自定义映射。 / Write coordinates into caller storage; preserve custom mappings by default.
+    /// 缓冲须与形状维数一致；内置形状复用其存储。 / The buffer must match the shape dimension; built-in shapes reuse its storage.
+    fn vector_of_into(
+        &self,
+        index: usize,
+        vector: &mut Self::VectorType,
+    ) -> Result<(), IndexCalculationError> {
+        *vector = self.vector_of(index)?;
+        Ok(())
     }
 
     /// 生成下一个向量（按字典序）
@@ -266,6 +257,35 @@ pub trait AbstractShape {
     /// 将映射向量转换为迭代器向量
     /// Convert map vector to iterator vector
     fn map_to_iterator_vector(&self, map_vector: &Self::MapVectorType) -> Self::IteratorVectorType;
+}
+
+#[inline]
+fn write_standard_vector<S: AbstractShape + ?Sized>(
+    shape: &S,
+    mut index: usize,
+    vector: &mut S::VectorType,
+) -> Result<(), IndexCalculationError> {
+    // 根据存储顺序决定遍历方向
+    // Determine traversal direction based on storage order
+    // RowMajor: 从高维到低维计算 (Calculate from high to low dimension)
+    // ColumnMajor: 从低维到高维计算 (Calculate from low to high dimension)
+    match shape.storage_order() {
+        crate::concept::StorageOrder::RowMajor => {
+            for i in 0..shape.dimension() {
+                let offset = shape.offset_of_dimension(i)?;
+                vector[i] = index / offset;
+                index = index % offset;
+            }
+        }
+        crate::concept::StorageOrder::ColumnMajor => {
+            for i in (0..shape.dimension()).rev() {
+                let offset = shape.offset_of_dimension(i)?;
+                vector[i] = index / offset;
+                index = index % offset;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// 形状索引迭代器 / Shape index iterator.
@@ -499,6 +519,15 @@ impl<const D: usize, SO: StorageOrderTrait> AbstractShape for Shape<D, SO> {
     type ShapeVectorType = [usize; D];
     type IteratorVectorType = [DummyIndexIterator; D];
     type ShapeWithStorageOrder<NewSO: StorageOrderTrait> = Shape<D, NewSO>;
+
+    #[inline]
+    fn vector_of_into(
+        &self,
+        index: usize,
+        vector: &mut Self::VectorType,
+    ) -> Result<(), IndexCalculationError> {
+        write_standard_vector(self, index, vector)
+    }
 
     #[inline]
     fn zero(&self) -> Self::VectorType {
@@ -751,6 +780,15 @@ impl<C: DynShapeContainer, SO: StorageOrderTrait> AbstractShape for DynShape<C, 
     type ShapeVectorType = <C as DynShapeContainer>::Type<usize>;
     type IteratorVectorType = <C as DynShapeContainer>::Type<DummyIndexIterator>;
     type ShapeWithStorageOrder<NewSO: StorageOrderTrait> = DynShape<C, NewSO>;
+
+    #[inline]
+    fn vector_of_into(
+        &self,
+        index: usize,
+        vector: &mut Self::VectorType,
+    ) -> Result<(), IndexCalculationError> {
+        write_standard_vector(self, index, vector)
+    }
 
     #[inline]
     fn zero(&self) -> Self::VectorType {

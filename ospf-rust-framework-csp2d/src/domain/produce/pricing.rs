@@ -20,6 +20,7 @@
 use std::collections::BTreeMap;
 
 use crate::domain::material::{CuttingPlan2, ProductId2};
+use crate::domain::produce::master_problem::PlanCoverage;
 use crate::domain::produce::{Csp2dMasterDemand, Csp2dPatternAssignment};
 
 /// 默认检验数容差 / Default reduced-cost tolerance
@@ -92,12 +93,14 @@ pub fn reduced_cost_of(
     } else {
         assignment.consumed_area(plan_index)
     };
+    let needs_area = demands.iter().any(|demand| demand.mode == crate::domain::material::DemandMode2::Area);
+    let projection = assignment.plans.get(plan_index).map(|plan| PlanCoverage::new(plan, needs_area));
     let mut revenue = 0.0;
     for demand in demands {
         let Some(price) = shadow_prices.get(&demand.product_id) else {
             continue;
         };
-        revenue += assignment.coverage_coefficient(plan_index, demand) * price;
+        revenue += projection.as_ref().map(|plan| plan.coefficient(demand)).unwrap_or(0.0) * price;
     }
     Csp2dReducedCost {
         plan_index,
@@ -158,34 +161,14 @@ pub fn estimate_reduced_cost(
     } else {
         plan.consumed_area().value
     };
-    let amounts = plan.product_amounts();
+    let needs_area = demands.iter().any(|demand| demand.mode == crate::domain::material::DemandMode2::Area);
+    let projection = PlanCoverage::new(plan, needs_area);
     let mut revenue = 0.0;
     for demand in demands {
-        let Some(count) = amounts.get(&demand.product_id).copied() else {
-            continue;
-        };
         let Some(price) = shadow_prices.get(&demand.product_id) else {
             continue;
         };
-        let coefficient = match demand.mode {
-            crate::domain::material::DemandMode2::Amount => count as f64,
-            crate::domain::material::DemandMode2::Area => {
-                let unit_area = plan
-                    .pattern
-                    .placements
-                    .iter()
-                    .find(|placement| {
-                        placement
-                            .item_id
-                            .as_deref()
-                            .map(|id| id == demand.product_id.as_str())
-                            .unwrap_or(false)
-                    })
-                    .map(|placement| placement.shape.area().value)
-                    .unwrap_or(0.0);
-                unit_area * count as f64
-            }
-        };
+        let Some(coefficient) = projection.coefficient_if_present(demand) else { continue; };
         revenue += coefficient * price;
     }
     Csp2dReducedCost {

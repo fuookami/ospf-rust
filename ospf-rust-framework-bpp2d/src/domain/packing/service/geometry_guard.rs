@@ -22,6 +22,8 @@ use ospf_rust_quantities::unit::physical_unit::CTUnit;
 
 use crate::infrastructure::validation_error;
 
+mod overlap_sweep;
+
 // ============================================================================
 // 旋转合法性规则 / Rotation legality rule
 // ============================================================================
@@ -171,29 +173,21 @@ impl PackingGeometryGuard {
             }
         }
 
-        for lhs_index in 0..placements.len() {
-            for rhs_index in (lhs_index + 1)..placements.len() {
-                if Self::overlapped_with_kerf(
-                    &placements[lhs_index],
-                    &placements[rhs_index],
-                    kerf,
-                ) {
-                    return Err(validation_error(format!(
-                        "{} 在 {} 的第 {} 与第 {} 个放置重叠（{}；{}）/ placements {} and {} in sheet {} overlap ({}; {})",
-                        source,
-                        sheet_name,
-                        lhs_index,
-                        rhs_index,
-                        placement_shape_diagnostic(&placements[lhs_index]),
-                        placement_shape_diagnostic(&placements[rhs_index]),
-                        lhs_index,
-                        rhs_index,
-                        sheet_name,
-                        placement_shape_diagnostic(&placements[lhs_index]),
-                        placement_shape_diagnostic(&placements[rhs_index])
-                    )));
-                }
-            }
+        if let Some((lhs_index, rhs_index)) = Self::first_overlap(placements, kerf) {
+            return Err(validation_error(format!(
+                "{} 在 {} 的第 {} 与第 {} 个放置重叠（{}；{}）/ placements {} and {} in sheet {} overlap ({}; {})",
+                source,
+                sheet_name,
+                lhs_index,
+                rhs_index,
+                placement_shape_diagnostic(&placements[lhs_index]),
+                placement_shape_diagnostic(&placements[rhs_index]),
+                lhs_index,
+                rhs_index,
+                sheet_name,
+                placement_shape_diagnostic(&placements[lhs_index]),
+                placement_shape_diagnostic(&placements[rhs_index])
+            )));
         }
         Ok(())
     }
@@ -297,3 +291,6 @@ where
         String::new()
     }
 }
+
+#[cfg(test)]
+mod tests;
