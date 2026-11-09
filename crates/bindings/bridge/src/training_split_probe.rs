@@ -30,8 +30,8 @@
 //! **a repeated problem inside one split is accepted**, and **the problem equality is structural**, so a differing version or a
 //! single differing parameter makes it a different problem. **The id check fires before the leak check.**
 
-use ospf_rust_core::solver::hyper_heuristic::learning::{TrainingCase, TrainingSplit};
-use ospf_rust_core::solver::hyper_heuristic::config::ComponentSpec;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::learning::{TrainingCase, TrainingSplit};
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::config::ComponentSpec;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

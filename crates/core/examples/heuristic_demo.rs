@@ -6,9 +6,9 @@
 use std::sync::Arc;
 
 use ospf_rust_core::model::callback::{AbstractCallBackModel, Solution};
-use ospf_rust_core::solver::heuristic::composition::SearchConfig;
-use ospf_rust_core::solver::heuristic::facade::hill_climbing;
-use ospf_rust_core::solver::heuristic::{HeuristicSolver, Iteration, SeededEntropy};
+use ospf_rust_core_plugin_heuristic::heuristic::composition::SearchConfig;
+use ospf_rust_core_plugin_heuristic::heuristic::facade::hill_climbing;
+use ospf_rust_core_plugin_heuristic::heuristic::{HeuristicSolver, Iteration, SeededEntropy};
 use ospf_rust_core::variable::new_standalone_id;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

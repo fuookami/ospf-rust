@@ -27,14 +27,14 @@
 //! Finally **`RawNumberMatrixCodec` is deliberately asymmetric**: it emits **JSON numbers** but decodes **both numbers and
 //! strings** ("tolerate older snapshots"), so its decoder is wider than its encoder — not a bug.
 
-use ospf_rust_core::solver::heuristic::session::codecs::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::codecs::{
     format_number, parse_number, NumberMatrixCodec, NumberVectorCodec, RawNumberMatrixCodec,
     TextNumberCodec,
 };
-use ospf_rust_core::solver::heuristic::session::json::numbers as json_numbers;
-use ospf_rust_core::solver::heuristic::session::JsonValue;
-use ospf_rust_core::solver::heuristic::session::SearchCodec;
-use ospf_rust_core::solver::heuristic::HeuristicError;
+use ospf_rust_core_plugin_heuristic::heuristic::session::json::numbers as json_numbers;
+use ospf_rust_core_plugin_heuristic::heuristic::session::JsonValue;
+use ospf_rust_core_plugin_heuristic::heuristic::session::SearchCodec;
+use ospf_rust_core_plugin_heuristic::heuristic::HeuristicError;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

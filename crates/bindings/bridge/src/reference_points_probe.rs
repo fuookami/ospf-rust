@@ -30,7 +30,7 @@
 //! output is deterministic. **The distance ignores objectives past the reference.** **A missing objective or a zero
 //! reference is infinite.** And **the distance is invariant to reference scaling**.
 
-use ospf_rust_core::solver::heuristic::operator::multi_objective::reference_points::ReferencePoints;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::multi_objective::reference_points::ReferencePoints;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

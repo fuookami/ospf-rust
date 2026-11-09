@@ -30,7 +30,7 @@
 //! list never dominates.** **`MinimizationDominance` is a pure delegation** and its inner field is private with no
 //! accessor. And **mixed directions leave two vectors incomparable**.
 
-use ospf_rust_core::solver::heuristic::operator::multi_objective::dominance::{
+use ospf_rust_core_plugin_heuristic::heuristic::operator::multi_objective::dominance::{
     Dominance, MinimizationDominance, ParetoDominance,
 };
 use serde::{Deserialize, Serialize};

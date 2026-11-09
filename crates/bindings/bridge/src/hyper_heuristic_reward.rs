@@ -19,8 +19,8 @@
 //! returned too. A freshly built instance always has an empty `lastMeasurement` (nothing measured yet) and
 //! `calibrated == false`.
 
-use ospf_rust_core::solver::hyper_heuristic::components::RecoverableComponent;
-use ospf_rust_core::solver::hyper_heuristic::reward::{
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::components::RecoverableComponent;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::reward::{
     ExtremeValueReward, HypervolumeConfig, HypervolumeDeltaReward, HypervolumeMode, TimeNormalizedReward,
 };
 use serde::{Deserialize, Serialize};

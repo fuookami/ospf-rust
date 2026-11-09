@@ -20,7 +20,7 @@
 //! **at least one** global stop limit with positive slice allowances; parallelism and both capacities must be positive; and
 //! `everyDecisions > 0` **requires** persistence enabled **and** a checkpoint path.
 
-use ospf_rust_core::solver::hyper_heuristic::config::{
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::config::{
     AlgorithmConfig, BudgetConfig, ConfigurationFormat, ConfigurationFormats, ExecutionConfig,
     HyperHeuristicConfig, LearningConfig, MemoryConfig, PersistenceConfig,
 };

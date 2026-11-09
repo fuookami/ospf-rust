@@ -29,11 +29,11 @@
 //! entropy source makes a whole selection sequence reproducible. Sizes are capped (`states × actions <= 4096`,
 //! transitions <= 1024, selection queries <= 256) as **trust boundaries**.
 
-use ospf_rust_core::solver::heuristic::operator::rl::action_selector::{
+use ospf_rust_core_plugin_heuristic::heuristic::operator::rl::action_selector::{
     ActionSelector, EpsilonGreedyActionSelector, GreedyActionSelector,
 };
-use ospf_rust_core::solver::heuristic::operator::rl::q_table::QTable;
-use ospf_rust_core::solver::heuristic::SeededEntropy;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::rl::q_table::QTable;
+use ospf_rust_core_plugin_heuristic::heuristic::SeededEntropy;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

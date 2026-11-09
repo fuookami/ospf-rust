@@ -36,9 +36,9 @@
 //! tie.
 
 use ospf_rust_core::model::callback::Solution;
-use ospf_rust_core::solver::heuristic::individual::Individual;
-use ospf_rust_core::solver::heuristic::model::{ObjectiveModel, VariableModel};
-use ospf_rust_core::solver::heuristic::operator::archive::{
+use ospf_rust_core_plugin_heuristic::heuristic::individual::Individual;
+use ospf_rust_core_plugin_heuristic::heuristic::model::{ObjectiveModel, VariableModel};
+use ospf_rust_core_plugin_heuristic::heuristic::operator::archive::{
     Archive, BestArchive, HistoryBestArchive,
 };
 use ospf_rust_core::variable::VariableId;

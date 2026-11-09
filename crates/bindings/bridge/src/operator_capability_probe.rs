@@ -31,8 +31,8 @@
 //! **a duplicate operator id is refused**. **The capability check precedes the id check**, and **each face keeps its own
 //! capabilities**.
 
-use ospf_rust_core::solver::heuristic::session::SearchEncoding;
-use ospf_rust_core::solver::hyper_heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::SearchEncoding;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::{
     ComponentSpec, MutationComponent, NeighborhoodComponent, OperatorCapabilities, OperatorRegistry,
     UpdateComponent,
 };
@@ -145,17 +145,17 @@ pub fn verify_operator_capability(
         let outcome = match spec.face.as_str() {
             "update" => registry.register_update_with_capabilities(spec.id.clone(),
                 capabilities, |_spec: &ComponentSpec| {
-                    Err(not_exercised()) as ospf_rust_core::solver::heuristic::result::Result<
+                    Err(not_exercised()) as ospf_rust_core_plugin_heuristic::heuristic::result::Result<
                         Box<dyn UpdateComponent<f64>>>
                 }),
             "mutation" => registry.register_mutation_with_capabilities(spec.id.clone(),
                 capabilities, |_spec: &ComponentSpec| {
-                    Err(not_exercised()) as ospf_rust_core::solver::heuristic::result::Result<
+                    Err(not_exercised()) as ospf_rust_core_plugin_heuristic::heuristic::result::Result<
                         Box<dyn MutationComponent<f64>>>
                 }),
             "neighborhood" => registry.register_neighborhood_with_capabilities(spec.id.clone(),
                 capabilities, |_spec: &ComponentSpec| {
-                    Err(not_exercised()) as ospf_rust_core::solver::heuristic::result::Result<
+                    Err(not_exercised()) as ospf_rust_core_plugin_heuristic::heuristic::result::Result<
                         Box<dyn NeighborhoodComponent<f64>>>
                 }),
             _ => return Err(BridgeError::new("InvalidInput", "operator capability probe failed \
@@ -188,8 +188,8 @@ pub fn verify_operator_capability(
 }
 
 /// 工厂不会被调用；这里给一个明确的错误。 / The factory is never called; hand back a clear error.
-fn not_exercised() -> ospf_rust_core::solver::heuristic::result::HeuristicError {
-    ospf_rust_core::solver::heuristic::result::HeuristicError::InvalidArgument(
+fn not_exercised() -> ospf_rust_core_plugin_heuristic::heuristic::result::HeuristicError {
+    ospf_rust_core_plugin_heuristic::heuristic::result::HeuristicError::InvalidArgument(
         "probe factory is never invoked".to_owned())
 }
 

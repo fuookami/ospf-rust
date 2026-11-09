@@ -1,0 +1,25 @@
+[package]
+name = "ospf-rust-core-plugin-heuristic"
+version = "1.1.0"
+edition = "2024"
+description = "Heuristic solver plugin for ospf-rust: metaheuristic framework and selection hyper-heuristic"
+authors = ["fuookami <wfuookami@gmail.com>"]
+license.workspace = true
+homepage = "https://github.com/fuookami/ospf-rust"
+repository = "https://github.com/fuookami/ospf-rust"
+readme = "README.md"
+
+[dependencies]
+ospf-rust-core = { path = "../../core", version = "1.1.0", default-features = false }
+ospf-rust-math = { path = "../../math", version = "1.1.0", default-features = false }
+num-traits = "0.2.19"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["preserve_order", "float_roundtrip", "raw_value"] }
+serde_yaml_ng = "0.10.0"
+toml = "0.9"
+thiserror = "2.0.20"
+sha2 = "0.11.0"
+libm = { version = "=0.2.16", default-features = false }
+
+[features]
+default = []

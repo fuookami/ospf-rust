@@ -32,9 +32,9 @@
 //! points**.
 
 use ospf_rust_core::model::callback::Solution;
-use ospf_rust_core::solver::heuristic::individual::Individual;
-use ospf_rust_core::solver::heuristic::model::{ObjectiveModel, VariableModel};
-use ospf_rust_core::solver::heuristic::operator::ranking::{
+use ospf_rust_core_plugin_heuristic::heuristic::individual::Individual;
+use ospf_rust_core_plugin_heuristic::heuristic::model::{ObjectiveModel, VariableModel};
+use ospf_rust_core_plugin_heuristic::heuristic::operator::ranking::{
     IdentityRanking, ObjectiveRanking, Ranking, ReversedObjectiveRanking,
 };
 use ospf_rust_core::variable::VariableId;

@@ -28,10 +28,10 @@
 //! last values, the extremes and whether everything stayed finite. The sample count is capped at 1..=4096 — a **trust-boundary**
 //! limit, since a payload must not be able to request a billion samples.
 
-use ospf_rust_core::solver::heuristic::operator::evolution::{
+use ospf_rust_core_plugin_heuristic::heuristic::operator::evolution::{
     ConstantSource, ExponentialSource, GeometricSource, JitteredSource, LinearSource, ParameterSource,
 };
-use ospf_rust_core::solver::heuristic::{Iteration, SeededEntropy};
+use ospf_rust_core_plugin_heuristic::heuristic::{Iteration, SeededEntropy};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

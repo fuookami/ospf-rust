@@ -35,11 +35,11 @@
 //! ranker is reproducible for a fixed seed**, and **feasible pairs are always compared by objective** because the
 //! `violation == 0.0` bypass skips the probability gate.
 
-use ospf_rust_core::solver::heuristic::entropy::Entropy;
-use ospf_rust_core::solver::heuristic::operator::fitness::constraint_ranking::{
+use ospf_rust_core_plugin_heuristic::heuristic::entropy::Entropy;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::fitness::constraint_ranking::{
     ConstraintAssessment, EpsilonConstraintEvaluator, StochasticRanking,
 };
-use ospf_rust_core::solver::heuristic::session::SearchRandom;
+use ospf_rust_core_plugin_heuristic::heuristic::session::SearchRandom;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

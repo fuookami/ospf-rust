@@ -34,8 +34,8 @@
 //! twice** until discarded. **A full-rate pursuit lands on the floor**, **a terminal completion clears the predecessor**, and
 //! **a non-learning selector validates without writing**.
 
-use ospf_rust_core::solver::heuristic::session::SearchRandom;
-use ospf_rust_core::solver::hyper_heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::SearchRandom;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::{
     ComponentSpec, NonStationarySelector, PolicySnapshot, SelectionContext, SelectionPolicy,
     SelectionTransition,
 };

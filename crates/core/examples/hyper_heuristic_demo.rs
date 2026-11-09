@@ -1,8 +1,8 @@
 //! 配置、双层学习、并行与恢复示例 / Configuration, two-level learning, parallelism, and recovery example
 
 use ospf_rust_core::model::callback::Solution;
-use ospf_rust_core::solver::heuristic::session::SearchProblem;
-use ospf_rust_core::solver::hyper_heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::SearchProblem;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::{
     AlgorithmConfig, ComponentSpec, ConfigurationFormats, ExecutionMode, HyperHeuristicConfig,
     HyperHeuristicSolver, ImportMode, RunOptions, SearchRegistry,
 };
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 每次工厂调用都拥有新的变量身份和回调实例 / Every factory call owns fresh variable identities and callbacks
     registry.register_problem("quadratic", |spec, _| {
         if spec.version != 1 || !spec.parameters.is_empty() { return Err(
-            ospf_rust_core::solver::heuristic::result::HeuristicError::InvalidArgument("unsupported quadratic definition".into())
+            ospf_rust_core_plugin_heuristic::heuristic::result::HeuristicError::InvalidArgument("unsupported quadratic definition".into())
         ); }
         Ok(Box::new(Quadratic { x: new_standalone_id() }))
     })?;

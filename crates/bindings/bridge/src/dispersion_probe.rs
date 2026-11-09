@@ -33,10 +33,10 @@
 //! **crowding reads the first point for the axis count**, ignoring any extra axes on later points — while the mirror case
 //! (a shorter first point) would panic out of bounds, which is why the boundary refuses ragged input.
 
-use ospf_rust_core::solver::heuristic::operator::multi_objective::dominance::{
+use ospf_rust_core_plugin_heuristic::heuristic::operator::multi_objective::dominance::{
     Dominance, ParetoDominance,
 };
-use ospf_rust_core::solver::heuristic::operator::multi_objective::non_dominated_sort::{
+use ospf_rust_core_plugin_heuristic::heuristic::operator::multi_objective::non_dominated_sort::{
     CrowdingDistance, FastNonDominatedSort,
 };
 use serde::{Deserialize, Serialize};

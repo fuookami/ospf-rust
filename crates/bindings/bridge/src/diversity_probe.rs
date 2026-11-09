@@ -35,7 +35,7 @@
 //! degenerate population to zero**, where `unwrap_or(0.0)` makes a computation failure indistinguishable from a real zero.
 
 use ospf_rust_core::model::callback::Solution;
-use ospf_rust_core::solver::heuristic::operator::diversity::{
+use ospf_rust_core_plugin_heuristic::heuristic::operator::diversity::{
     DiversityMetric, FractalDimensionDiversity, MeanPairwiseDistance,
 };
 use ospf_rust_core::variable::VariableId;

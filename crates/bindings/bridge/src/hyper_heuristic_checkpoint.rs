@@ -23,7 +23,7 @@
 //! `previousAction` replay metadata, adaptive rewards, adaptive acceptance policies, local update components, native
 //! constraint state, and explicit `numerics` contracts.
 
-use ospf_rust_core::solver::hyper_heuristic::persistence::{PolicyArchive, RunCheckpoint};
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::persistence::{PolicyArchive, RunCheckpoint};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -221,8 +221,8 @@ fn count(value: usize) -> u32 { u32::try_from(value).unwrap_or(u32::MAX) }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ospf_rust_core::solver::heuristic::session::SearchSessionSnapshot;
-    use ospf_rust_core::solver::hyper_heuristic::selection::PolicySnapshot;
+    use ospf_rust_core_plugin_heuristic::heuristic::session::SearchSessionSnapshot;
+    use ospf_rust_core_plugin_heuristic::hyper_heuristic::selection::PolicySnapshot;
     use std::collections::BTreeMap;
 
     /// 一个最小的合法策略快照（手写文本在这里是**被测对象**）。

@@ -31,10 +31,10 @@
 //! **An empty increment is zero**, **bad coordinates are refused**, **the geometry budget is hardcoded**, and **a failure keeps
 //! the last measurement**.
 
-use ospf_rust_core::solver::hyper_heuristic::reward::{
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::reward::{
     HypervolumeConfig, HypervolumeDeltaReward, HypervolumeMode,
 };
-use ospf_rust_core::solver::hyper_heuristic::{RecoverableComponent, RewardContext, RewardPolicy};
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::{RecoverableComponent, RewardContext, RewardPolicy};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -160,7 +160,7 @@ fn context_of(spec: &HypervolumeMeasurementSpec) -> RewardContext {
 }
 
 /// 一次读数的行。 / One reading row.
-fn row_of(ok: bool, error: String, measurement: Option<&ospf_rust_core::solver::hyper_heuristic::reward::HypervolumeMeasurement>) -> HypervolumeMeasureRow {
+fn row_of(ok: bool, error: String, measurement: Option<&ospf_rust_core_plugin_heuristic::hyper_heuristic::reward::HypervolumeMeasurement>) -> HypervolumeMeasureRow {
     match measurement {
         Some(measurement) => HypervolumeMeasureRow {
             ok, error, delta: measurement.delta, exact: measurement.exact,

@@ -11,9 +11,10 @@ members = [
     "crates/framework",
     # 核心与框架插件 / Core and framework plugins
     "crates/core-plugin/gurobi",
+    "crates/core-plugin/heuristic",
     "crates/core-plugin/scip",
     "crates/framework-plugin/persistence",
-    # 领域插件 / Domain plugins
+    # 领域框架 / Domain frameworks
     "crates/frameworks/geometry2d",
     "crates/frameworks/bpp",
     "crates/frameworks/bpp1d",

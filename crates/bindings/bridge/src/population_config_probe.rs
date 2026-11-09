@@ -33,17 +33,17 @@
 //! evaluator.** And **`IslandConfig` has no constructor**, so it can only be built from a literal and `migration_period`
 //! validates nothing.
 
-use ospf_rust_core::solver::heuristic::composition::population::{
+use ospf_rust_core_plugin_heuristic::heuristic::composition::population::{
     IslandConfig, PopulationConfig, SwarmConfig,
 };
-use ospf_rust_core::solver::heuristic::entropy::SeededEntropy;
-use ospf_rust_core::solver::heuristic::operator::initializer::ModelInitializer;
-use ospf_rust_core::solver::heuristic::operator::migration::NoMigration;
-use ospf_rust_core::solver::heuristic::operator::mutation::GaussianMutation;
-use ospf_rust_core::solver::heuristic::operator::stopping::IterationLimit;
-use ospf_rust_core::solver::heuristic::operator::survivor::ElitistSurvivor;
-use ospf_rust_core::solver::heuristic::operator::topology::GlobalTopology;
-use ospf_rust_core::solver::heuristic::operator::update::SinglePointCrossover;
+use ospf_rust_core_plugin_heuristic::heuristic::entropy::SeededEntropy;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::initializer::ModelInitializer;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::migration::NoMigration;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::mutation::GaussianMutation;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::stopping::IterationLimit;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::survivor::ElitistSurvivor;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::topology::GlobalTopology;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::update::SinglePointCrossover;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

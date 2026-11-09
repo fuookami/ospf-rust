@@ -26,10 +26,9 @@
 //!
 //! # 启发式算法 / Heuristic Algorithms
 //!
-//! - [`heuristic::HeuristicSolver`] - 启发式求解器契约
-//! - [`heuristic::Individual`] - 带适应度的个体
-//! - [`heuristic::runner`] - 生命周期骨架 / Lifecycle skeletons
-//! - [`heuristic::operator`] - 算子族 / Operator families
+//! 元启发式与选择型超启发式已迁移到 `ospf-rust-core-plugin-heuristic`。
+//! The metaheuristic framework and selection hyper-heuristic moved to
+//! `ospf-rust-core-plugin-heuristic`.
 
 pub mod audit;
 pub mod cancellation;
@@ -37,8 +36,6 @@ pub mod checkpoint;
 pub mod config;
 pub mod constraint_programming;
 pub mod fingerprint;
-pub mod heuristic;
-pub mod hyper_heuristic;
 pub mod iis;
 pub mod linear_certificate;
 pub mod output;

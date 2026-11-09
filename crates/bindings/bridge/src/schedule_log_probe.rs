@@ -32,7 +32,7 @@
 
 use std::collections::BTreeMap;
 
-use ospf_rust_core::solver::hyper_heuristic::{ScheduleEvent, ScheduleLog};
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::{ScheduleEvent, ScheduleLog};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};

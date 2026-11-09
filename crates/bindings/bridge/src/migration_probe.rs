@@ -35,11 +35,11 @@
 //! best-to-worst**, while the ring keeps migrating around it.
 
 use ospf_rust_core::model::callback::Solution;
-use ospf_rust_core::solver::heuristic::entropy::SeededEntropy;
-use ospf_rust_core::solver::heuristic::individual::Individual;
-use ospf_rust_core::solver::heuristic::iteration::Iteration;
-use ospf_rust_core::solver::heuristic::model::{ObjectiveModel, VariableModel};
-use ospf_rust_core::solver::heuristic::operator::migration::{
+use ospf_rust_core_plugin_heuristic::heuristic::entropy::SeededEntropy;
+use ospf_rust_core_plugin_heuristic::heuristic::individual::Individual;
+use ospf_rust_core_plugin_heuristic::heuristic::iteration::Iteration;
+use ospf_rust_core_plugin_heuristic::heuristic::model::{ObjectiveModel, VariableModel};
+use ospf_rust_core_plugin_heuristic::heuristic::operator::migration::{
     BestToWorstMigration, IslandMigration, RingMigration,
 };
 use ospf_rust_core::variable::VariableId;

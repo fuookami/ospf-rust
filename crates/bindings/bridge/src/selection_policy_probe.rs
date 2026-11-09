@@ -32,8 +32,8 @@
 //! nothing**, and **only three kinds accumulate**. **Only `q-learning` exports a table**, and **six illegal definitions are
 //! refused**.
 
-use ospf_rust_core::solver::heuristic::session::SearchRandom;
-use ospf_rust_core::solver::hyper_heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::SearchRandom;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::{
     ComponentSpec, PolicySnapshot, SelectionContext, SelectionPolicy, SelectionTransition,
     TabularSelectionPolicy,
 };

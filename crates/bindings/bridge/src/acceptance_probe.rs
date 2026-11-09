@@ -38,14 +38,14 @@
 //! rate shrinks as `Δ` grows**.
 
 use ospf_rust_core::model::callback::Solution;
-use ospf_rust_core::solver::heuristic::entropy::{Entropy, SeededEntropy};
-use ospf_rust_core::solver::heuristic::individual::Individual;
-use ospf_rust_core::solver::heuristic::iteration::Iteration;
-use ospf_rust_core::solver::heuristic::model::{HeuristicValue, ObjectiveModel, VariableModel};
-use ospf_rust_core::solver::heuristic::operator::acceptance::{
+use ospf_rust_core_plugin_heuristic::heuristic::entropy::{Entropy, SeededEntropy};
+use ospf_rust_core_plugin_heuristic::heuristic::individual::Individual;
+use ospf_rust_core_plugin_heuristic::heuristic::iteration::Iteration;
+use ospf_rust_core_plugin_heuristic::heuristic::model::{HeuristicValue, ObjectiveModel, VariableModel};
+use ospf_rust_core_plugin_heuristic::heuristic::operator::acceptance::{
     Acceptance, AlwaysAcceptance, BetterOnlyAcceptance, MetropolisAcceptance, NotWorseAcceptance,
 };
-use ospf_rust_core::solver::heuristic::operator::evolution::GeometricSource;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::evolution::GeometricSource;
 use ospf_rust_core::variable::VariableId;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

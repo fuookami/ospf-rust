@@ -30,8 +30,8 @@
 //! half-open**: inside it all three agree, yet sitting exactly on the upper bound sends wrapping back to the lower bound
 //! while clamping and reflection stay put.
 
-use ospf_rust_core::solver::heuristic::iteration::Iteration;
-use ospf_rust_core::solver::heuristic::operator::boundary::{
+use ospf_rust_core_plugin_heuristic::heuristic::iteration::Iteration;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::boundary::{
     BoundaryHandler, ClampBoundary, ReflectBoundary, WrapBoundary,
 };
 use serde::{Deserialize, Serialize};

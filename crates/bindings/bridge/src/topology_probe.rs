@@ -42,8 +42,8 @@
 //! random topology is reproducible per seed and always keeps the index inside the set**, targeting
 //! `amount.min(size).max(1)` sorted and deduped.
 
-use ospf_rust_core::solver::heuristic::entropy::SeededEntropy;
-use ospf_rust_core::solver::heuristic::operator::topology::{
+use ospf_rust_core_plugin_heuristic::heuristic::entropy::SeededEntropy;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::topology::{
     GlobalTopology, RingKTopology, RingTopology, Topology, VonNeumannTopology,
 };
 use serde::{Deserialize, Serialize};
@@ -115,7 +115,7 @@ fn neighbours(index: usize, size: usize, radius: usize, width: usize, amount: us
     let ring_k = as_u32(RingKTopology::new(radius).neighbours(index, size, &mut entropy));
     let von_neumann = as_u32(VonNeumannTopology::new(width).neighbours(index, size, &mut entropy));
     let mut random_stream = SeededEntropy::new(seed);
-    let random = as_u32(ospf_rust_core::solver::heuristic::operator::topology::RandomTopology::new(
+    let random = as_u32(ospf_rust_core_plugin_heuristic::heuristic::operator::topology::RandomTopology::new(
         amount).neighbours(index, size, &mut random_stream));
     (global, ring, ring_k, von_neumann, random)
 }

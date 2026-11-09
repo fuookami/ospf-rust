@@ -16,6 +16,7 @@ gurobi12 = ["dep:ospf-rust-core-plugin-gurobi", "ospf-rust-core-plugin-gurobi/gu
 [dependencies]
 ospf-rust-core = { path = "../../core", features = ["serde"] }
 ospf-rust-core-plugin-gurobi = { path = "../../core-plugin/gurobi", version = "1.1.0", optional = true }
+ospf-rust-core-plugin-heuristic = { path = "../../core-plugin/heuristic", version = "1.1.0" }
 ospf-rust-math = { path = "../../math" }
 ospf-rust-framework = { path = "../../framework", features = ["remote-codec"] }
 ospf-rust-framework-bpp = { path = "../../frameworks/bpp" }

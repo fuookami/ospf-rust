@@ -16,9 +16,9 @@ use std::sync::Arc;
 use ospf_rust_core::model::ObjectiveCategory;
 use ospf_rust_core::model::callback::AbstractCallBackModel;
 use ospf_rust_core::model::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
-use ospf_rust_core::solver::heuristic::composition::SearchConfig;
-use ospf_rust_core::solver::heuristic::facade::particle_swarm;
-use ospf_rust_core::solver::heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::composition::SearchConfig;
+use ospf_rust_core_plugin_heuristic::heuristic::facade::particle_swarm;
+use ospf_rust_core_plugin_heuristic::heuristic::{
     HeuristicSolutionStatus, HeuristicSolver, Iteration, SeededEntropy,
 };
 use ospf_rust_core_plugin_gurobi::GurobiSolver;

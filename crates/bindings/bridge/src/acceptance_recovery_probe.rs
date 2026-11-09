@@ -32,11 +32,11 @@
 //! **The record ratio range is hardcoded**, and **the record best is bounded by its own scale**. **The auto span is derived**,
 //! **the auto span and improvements are bounded**, and **the auto history matches its decisions**.
 
-use ospf_rust_core::solver::heuristic::session::{NumberVectorCodec, SearchCodec};
-use ospf_rust_core::solver::hyper_heuristic::memory::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::{NumberVectorCodec, SearchCodec};
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::memory::{
     AutoAcceptance, LateAcceptance, RecordToRecordAcceptance,
 };
-use ospf_rust_core::solver::hyper_heuristic::RecoverableComponent;
+use ospf_rust_core_plugin_heuristic::hyper_heuristic::RecoverableComponent;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use ts_rs::TS;

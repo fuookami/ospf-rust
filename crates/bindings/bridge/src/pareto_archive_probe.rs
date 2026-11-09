@@ -34,8 +34,8 @@
 //! offers agree on the probe battery** — `offer` trims once at the end while `offer_one` trims after every insert, and
 //! because the trim is a deterministic function of the current set the two paths land on the same archive.
 
-use ospf_rust_core::solver::heuristic::operator::multi_objective::dominance::ParetoDominance;
-use ospf_rust_core::solver::heuristic::operator::multi_objective::pareto_archive::ParetoArchive;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::multi_objective::dominance::ParetoDominance;
+use ospf_rust_core_plugin_heuristic::heuristic::operator::multi_objective::pareto_archive::ParetoArchive;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

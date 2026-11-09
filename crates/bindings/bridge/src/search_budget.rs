@@ -33,7 +33,7 @@
 
 use std::sync::Arc;
 
-use ospf_rust_core::solver::heuristic::session::budget::{
+use ospf_rust_core_plugin_heuristic::heuristic::session::budget::{
     SearchBudget, SearchRandom, SearchSlice,
 };
 use ospf_rust_math::distribution::Entropy;
