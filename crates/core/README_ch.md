@@ -1,0 +1,553 @@
+# OSPF Rust Core
+
+:us: [English](README.md) | :cn: 简体中文
+
+## 简介
+
+`ospf-rust-core` 是 OSPF Rust workspace 的核心建模 crate。它拥有从变量和符号表达式，到 `MetaModel` 构建与展开，再到 solver 抽象、结果输出、IIS diagnostics 和 feature-gated backend adapter 的优化模型生命周期。
+
+## 作用范围
+
+本 crate 覆盖：
+
+1. 变量与 token 系统。
+2. 符号表达式和函数符号系统。
+3. `MetaModel`、mechanism model、intermediate standard-form model 和 callback model 层。
+4. solver trait、options、outputs、value conversion、启发式求解器、IIS diagnostics 和 Gurobi/SCIP adapter 边界。
+
+明确非目标：
+
+1. framework 层 column-generation 编排、Benders 组合器、持久化和远程求解；这些属于 `ospf-rust-framework`。
+2. 分切、装箱或排程等领域专用建模。
+3. solver 安装和许可证管理，除 backend setup notes 外不在本 crate 处理。
+
+## 模块结构
+
+### 线性结构状态
+
+`MetaModel::linear_model_snapshot()` 在原数值域内生成完整展开快照（包含函数辅助列和
+deferred 的通用线性语义），按 `VariableId` 保存系数、复制变量范围，统一为最小化目标，
+保留子目标权重并且只计一次目标常数。`LinearModelValue` 默认支持 f32、f64、BigDecimal
+和 BigRational；自定义数值域可以实现该 trait，不要求先转换到 f64。
+
+`register_linear_row(id, inequality)` 只接受已有变量上的线性行，合并重复项并删除精确零。
+同 ID 同内容幂等；不同内容、未知变量、非有限值及删除后的身份复用均报错。
+普通源行具有独立于名称和位置的会话身份。模型变换可以通过
+`register_variable_data` 保留精确变量范围和身份，并重新分配目标模型的列序号。
+
+`require_linear_model_revision(revision)` 显式刷新并拒绝跨模型或过期版本。
+直接修改行、目标或变量范围会在刷新边界被检测；解值和缓存不推进版本。
+失败事务恢复行注册但不回滚已发布版本，避免旧版本被复用。不监听任意可变对象，
+不支持刷新期间并发修改；二次约束不能进入线性快照。快照不证明割有效性，也不负责列生成编排。
+
+f64 快照的 `compile_flt64()` 在生成标准行时记录实际源行身份和正负乘数，包括等式拆行，
+并将目标常数与 backend c*x 分开。泛型 `LinearObjectiveInput` 及 expression builder 均保留
+权重和常数；结构快照不能代替本次求解来源或证明跨数值域有效性。
+
+`LinearVariableState::relaxed()` 松弛整数性之前先取隐式类型边界与显式边界的交集。
+`solver::validate_linear_farkas_ray` 独立计算包含完整边界的矛盾
+`min (lambda*A)*x - lambda*b`，绝不因存在有限边界就接受射线。该接口显式使用的数值
+容差不意味着可以把 f64 证明转移到其它源数值域。
+最优 LP 与 Farkas 证书门禁将二进制 f64 操作数精确表示为有理数后累加，包括原始行／
+目标、转置对偶活动值及极值边界 support；无界方向的微小非零残差不因容差、下溢或
+大项抵消被抹掉。显式容差只用于可行性／目标间隙，不用于无界方向驻点。
+完整快照解复核也将 f32/f64 行和边界按精确二进制有理值比较，避免大项抵消漏掉源可行性
+违反；其它支持的数值域仍使用原域运算，不经 f64 转换。
+`LinearObjectiveEvaluationFlt64` 集中精确求值变量项／常数并比较报告目标。
+`snapshot.evaluate_objective_flt64(values)` 供应用统一使用：候选目标向上、master 下界
+向下舍入，常数只计一次。无常数报告目标与完整目标分别从精确和舍入，调用方不得将已
+舍入的分量相加来重建完整目标。
+
+| Rust 模块 | Kotlin 边界 | 职责 |
+| --- | --- | --- |
+| `variable` | `core/variable` | 变量类型系统、变量项、组合和范围。 |
+| `token` | `core/token` | 变量-token 映射、token list/table、缓存值和 solver result access。 |
+| `symbol` | `core/symbol` | 表达式符号、monomial cell、函数符号、中间符号和 flattening helper。 |
+| `model` | `core/model` | `MetaModel`、mechanism model、intermediate triad/tetrad model、callback model、constraint/objective DSL 和 model state。 |
+| `solver` | `core/solver` | solver trait、options、backend config、output type、value conversion、启发式求解器、IIS diagnostics 和 backend adapter。 |
+| `error` | `core/error` | core error 和 result 类型。 |
+
+
+## 子包概览
+
+### solver/
+
+| 子包 | 描述 |
+|------|------|
+| config | 求解器特定配置（COPT、Gurobi、SCIP）。 |
+| `heuristic` | 元启发式框架：生命周期骨架、18 个算子族、组合工厂与算法入口。 |
+| [`hyper_heuristic`](src/solver/hyper_heuristic/README_ch.md) | 选择型超启发式：双层自适应信用、原生约束、计费局部搜索与业务破坏修复、HV奖励、JSON/YAML/TOML配置、持久化会话与调度重放；兼容性边界见模块文档。 |
+| `iis` | 不可约不可行子系统诊断。 |
+| `output` | 求解器输出数据结构（可行/不可行）。 |
+| `value` | 值类型转换（IntoValue trait）。 |
+| `backend` | 特性门控后端适配器（Gurobi、SCIP）。 |
+
+### model/
+
+| 子包 | 描述 |
+|------|------|
+| asic | 基础接口、枚举和视图类型。 |
+| mechanism | MetaModel、MechanismModel、约束/目标 DSL。 |
+| intermediate | 标准形式模型（triad/tetrad）、稀疏矩阵。 |
+| callback | 启发式求解器的回调模型接口。 |
+
+### symbol/
+
+| 子包 | 描述 |
+|------|------|
+| unction | 30+ 函数符号（Slack、If、Max、Piecewise 等）。 |
+| latten | 表达式展平工具。 |
+## 架构概览
+
+`ospf-rust-core` 遵循 Kotlin 对齐的模型生命周期：
+
+```text
+用户定义层      ->  MetaModel<V>
+    -> 机理层   ->  MechanismModel<V>
+    -> 标准形式 ->  LinearTriadModel / QuadraticTetradModel
+    -> solver层 ->  SolveReport（SolverOutput 仅作兼容 facade）
+```
+
+本 crate 显式保留模型构建、表达式展开、solver-order token 映射和结果提取，使上层 framework crate 可以组合它们，而不拥有底层建模细节。
+
+
+## 约束规划
+
+`model::constraint_programming` 模块提供整数域 CP 模型，支持不可变快照、稳定 ID 和来源验证。关键组件：
+
+- **布尔字面量和变量**：`CpBoolVar`、`CpBoolLiteral` 用于布尔决策变量。
+- **区间**：`CpInterval` 用于建模具有开始/结束/持续时间的时间区间。
+- **全局约束**：`AllDifferent`、`Element`、`Table`（支持程度因后端而异）。
+- **不可变快照**：`CpSnapshot` 捕获完整 CP 模型状态用于检查点/重启。
+- **身份作用域**：当 ID 必须在模型重建后存活时，使用 `scope = "stable"`
+- **可移植编解码器**：`ConstraintProgrammingCheckpointCodec` 写入可移植检查点信封。
+
+### 求解器集成
+
+`solver::constraint_programming` 模块提供：
+
+- **求解器/会话 SPI**：CP 求解器后端的 trait 定义。
+- **伪契约求解器**：用于测试和小规模穷举预言机。
+- **SCIP 集成**：特性门控的 SCIP CP 后端（有限 MIP 支持门面）。
+- **MIP 支持的降阶**：有限整数子集的精确降阶，验证边界；对不支持的约束返回结构化错误。
+
+### 基于逻辑的 Benders
+
+对于基于逻辑的 Benders 分解，使用 `ospf-rust-framework` 中的 `LogicBasedBendersEngine`。该引擎组合线性主问题和 CP 子问题，具有显式扩展点：
+
+- 变量绑定和冲突/最优性切割预言机。
+- 整数 no-good 编码。
+- 迭代追踪和 `Exact`/`Heuristic` 证明门控。
+## 核心概念
+
+1. 变量描述 binary、integer 和 continuous 等 solver decision domain。
+2. token 把变量和符号连接到 solver-order index 与缓存结果。
+3. symbol 表达线性/二次表达式、函数符号和中间值。
+4. `MetaModel` 是面向用户的装配层；mechanism 与 intermediate model 为 solver 消费而生成。
+5. solver trait 和 backend adapter 把 standard-form model 转为后端调用并返回结构化 output。
+
+## Public API
+
+| API | 职责 | 稳定性 |
+| --- | --- | --- |
+| `MetaModel<V>` | 主要用户侧模型装配对象。 | stable within migration |
+| `Variable`、`VariableRange`、`VariableType` | 决策变量定义和范围。 | stable within migration |
+| `Token`、`TokenList`、`TokenTable` | solver-order token 映射和 result/cache access。 | stable within migration |
+| `symbol::function` | 推荐函数符号路径。 | stable within migration |
+| `symbol::flatten` | 推荐表达式展开路径。 | stable within migration |
+| `model::mechanism` | mechanism model 与 constraint/objective lowering。 | migration |
+| `LinearTriadModel`、`QuadraticTetradModel` | standard-form solver input model。 | migration |
+| `Solver`、`SolverExt`、`SolveOptions` | 统一 solver trait 和 solve options。 | migration |
+| `solver::backend::{GurobiSolver, ScipSolver}` | feature-gated backend adapter。 | migration |
+
+## 泛型数值边界
+
+`MetaModel<V>` 对建模值类型泛型化。backend adapter 当前通过后端数值域求解，最常见为 `f64`。转换应保留在 solver、flattening 和 extraction 边界。`big-rational` 与 `big-decimal` feature path 通过 core/framework conversion policy 支持协同。
+
+## 求解生命周期
+
+常见求解路径：
+
+1. 使用变量、符号、约束和目标构建 `MetaModel<V>`。
+2. 通过 mechanism 与 flattening 层降低符号表达式。
+3. dump 为线性或二次 standard form。
+4. 调用 `Solver` 实现。
+5. 把 solver-order value 写回 token，并暴露结构化 output。
+
+## 使用方式
+
+添加依赖：
+
+```toml
+[dependencies]
+ospf-rust-core = { path = "path/to/ospf-rust-core" }
+```
+
+### 统一求解入口
+
+完整的 report、proof、取消、身份和 legacy 迁移合同见下文的
+[统一求解合同](#统一求解合同)。
+
+原生 feature 和许可证证据遵循下文的
+[Solver 原生验收矩阵](#solver-原生验收矩阵)；source commit
+覆盖见 [Source 追踪](#source-追踪)。只编译 feature
+不构成原生 solver 证据。
+
+高频路径建议直接从 `MetaModel` 调用：
+
+```rust
+use ospf_rust_core::model::MetaModel;
+use ospf_rust_core::solver::{SolveOptions, SolveReport, SolverExt};
+
+fn solve_model<S: ospf_rust_core::solver::Solver>(
+    meta_model: &MetaModel<f64>,
+    solver: &S,
+) -> ospf_rust_core::error::Result<SolveReport<f64>> {
+    let _report = meta_model.solve_report(solver)?;
+
+    let options = SolveOptions::new();
+    solver.solve_report_with_options(meta_model, &options)
+}
+```
+
+精确消费方必须使用 report certificate helper。limit 或 interruption 可以保留 incumbent，
+但不能据此当作最优证明。原生 License 失败归类为 `LICENSE`；缺少动态库和环境配置仍归类为
+`ENVIRONMENT`。
+
+### 约束规划边界
+
+core crate 同时提供整数 CP AST，包括布尔文字、整数表达式、不可变 snapshot、规范化
+snapshot artifact，以及 `NoOverlap` 等全局约束。CP 值域和目标求值使用精确 `i64`，
+CP 路径不会静默把整数语义降为 `f64`。
+
+Gurobi 和 SCIP 通过 feature-gated、MIP-backed 的 `ExactLowering` 暴露 CP facade。
+这是一条带 snapshot 校验和统一 `SolveReport` proof 校验的精确 formulation 路径，
+不代表 backend 提供 native CP search。native optional-interval tree、增量 CP session，
+以及没有显式 lowering 的全局约束不属于该 facade；在能力门禁关闭前，它们保持
+`Conditional` 或 `Unsupported`。选择 backend 前应先检查 capability matrix。
+
+启用 `nightly` feature 时，还可使用 callable wrapper：
+
+```rust
+#[cfg(feature = "nightly")]
+fn solve_with_callable<S: ospf_rust_core::solver::Solver>(
+    meta_model: &MetaModel<f64>,
+    solver: &S,
+) -> ospf_rust_core::error::Result<ospf_rust_core::solver::SolverOutput> {
+    let f = solver.as_fn();
+    f(meta_model)
+}
+```
+
+启用 `async` feature 时，可把阻塞式求解调用移到 Tokio blocking 线程池：
+
+```rust
+use std::sync::Arc;
+use ospf_rust_core::model::MetaModel;
+use ospf_rust_core::solver::{solve_async_with_callback, SolvingStatusCallback, Solver};
+
+#[cfg(feature = "async")]
+async fn solve_in_background<S: Solver + 'static>(
+    meta_model: MetaModel<f64>,
+    solver: Arc<S>,
+    callback: SolvingStatusCallback,
+) -> ospf_rust_core::error::Result<ospf_rust_core::solver::SolverOutput> {
+    solve_async_with_callback(solver, meta_model, callback).await
+}
+```
+
+### 条件函数契约
+
+条件函数使用以下稳定命名：`IfFunction` 是旧三元表达式，`IfElseFunction` 是首选的
+显式二值条件三元形式，`ConditionalIndicatorFunction` 是可注册关系指示器，
+`ConditionalIfFunction` 是不注册模型的分类器。`semantic::if_` 与 `semantic::if_named`
+构造范围驱动指示器，`if_legacy` 保留旧阈值行为。`InValuesFunction` 仍表示离散集合成员，
+`IfInRangeFunction` 与 `RegisterableIfInRangeFunction` 表示并注册闭区间。
+`ConditionalThenFunction`、`ConditionalImplyFunction` 是范围驱动的可注册形式，
+`IfThenConstraintFunction`、`imply_constraint` 保留为旧 Big-M 兼容入口。
+`SigmoidFunction` 是可注册关系阶跃形式，`LogisticFunction` 仍是连续 PWL 形式。Kotlin 基线的 `Sigmoid` 对应阶跃形式；连续 PWL 形式无 Kotlin 对应。
+
+令 `d = lhs - rhs`，关系指示器只在未定义间隔之外判定：
+
+| 关系 | 真 | 假 |
+| --- | --- | --- |
+| `Greater` | `d >= g` | `d <= 0` |
+| `GreaterEqual` | `d >= 0` | `d <= -g` |
+| `Less` | `d <= -g` | `d >= 0` |
+| `LessEqual` | `d <= 0` | `d >= g` |
+
+`g` 是业务 `strict_boundary`，不是 solver 容差。可注册指示器不会推断 Big-M；调用方
+必须提供覆盖条件多项式的有限有序范围，完全落在未定义间隔中的范围会被拒绝。
+`evaluate` 返回 `None` 可能表示未定义或输入不可用，需要区分时使用 `classify`。
+非恒定条件分支同样必须提供显式有限范围。
+
+离散条件会根据线性系数和已注册 token 元数据推导格点证明：参与变量必须是整数，系数
+必须是有限整数，`delta` 是绝对系数 gcd，常数按 `delta` 取模归一化。
+`MetaModel::add_symbols` 与 `register_combination` 是原子事务；失败会恢复 token、符号、
+约束和缓存绑定。第三方 `MutableTokenList`/`MutableTokenTable` 实现必须显式提供批量
+原子实现，并使用 `try_add_tokens` 观察校验失败。并发 token 集合通过持有 `read()` guard
+暴露借用的 trait 视图。旧 Big-M 工具拒绝非有限、零和负值；`IfInRangeFunction` 只接受
+一个共享变量及有限有序的两侧边界。
+
+## 统一求解合同
+
+新的 solver 代码消费 `solver::SolveReport<V>`。`SolverOutput`、`FeasibleSolution`、
+`SolveResult` 和 `SerializedSolution` 仅是兼容投影，不能用于推断证明或取消语义。
+report 将 `problem_status`、`termination_reason`、已校验 incumbent、proof、统计、
+diagnostics、provenance、fingerprint 和 trace 分开保存。可行 report 必须有 incumbent；
+不可行/无界 report 不能携带 incumbent；最优证明必须有完成的终止状态和可靠完整证书。
+limit 或 interruption 返回的 incumbent 只能作为候选解，不能关闭精确 bound。
+
+`SolverErrorClass` 是稳定错误边界：`INPUT`、`MODELING`、`ENVIRONMENT`、`LICENSE`、
+`CALLBACK`、`BACKEND`、`PARSING`、`NUMERICAL`、`INTERNAL_CONTRACT`、
+`TERMINAL_PROJECTION` 和 `UNSUPPORTED`。取消是正常 report 终态，旧入口可将其投影为
+`SolverError::Cancelled`。每次求解拥有幂等 `SolveHandle`；异步包装使用 Tokio blocking
+线程池，资源释放需要 `cancel_and_wait`。report 使用确定性的模型、配置和 solver 环境
+fingerprint；callback 属于 provenance 并标记为不可 replay。远程 report/checkpoint
+保留 schema、run/attempt identity、父链、artifact digest、provenance、fingerprint、
+proof、incumbent 和取消链；未知 schema 或身份不匹配会在恢复前拒绝。
+
+声明的原生 backend 只有 Gurobi 和 SCIP。feature 编译只能证明 wiring；原生能力必须有
+匹配的库、运行时和许可证探针。Gurobi 许可证错误（含代码 `10009`）归类为 `LICENSE`，
+缺少动态库归类为 `ENVIRONMENT`。
+
+### 函数符号支持矩阵
+
+函数符号的迁移按「语义 → 结构 → 原生」四级推进。默认仍是**即时展开（EAGER）**：不设置策略
+时，所有函数符号都在 `MetaModel -> MechanismModel` 阶段写入通用约束，行为与历史版本一致。
+延迟与原生路径都需要显式开启，且任何原生写入失败都会回退整模型的通用展开，不会留下部分
+原生的模型。
+
+| 级别 | 内容 | 当前状态 |
+| --- | --- | --- |
+| 1 通用语义 | 所有函数符号的 EAGER 展开、边界收紧、Big-M 推导与布尔 hull | 已实现，默认路径 |
+| 2 延迟结构 | 求解器无关的 `DeferredFunctionStructure`（符号句柄、辅助列、固定 Big-M、版本化指纹） | 已实现：ABS、NOT、AND、OR、MAX、MIN、SEMI、二值化、关系指示、平衡三值化、Logistic、IF、二值掩码、Sin、Cos、多项式掩码、极值转发（MinMax/MaxMin）、范围松弛、IF-THEN、蕴含、InValues（离散值集合；Kotlin 的 `IfIn` 为区间语义，对应 Rust `RegisterableIfInRangeFunction`）；其余函数继续 EAGER |
+| 3 调度与策略 | `FunctionExpansionPolicy`（EAGER/deferred/Auto）、求解器能力门、`NativeFunctionWriter` registry、模型级 lowering、失败原子性、版本化指纹 | 已实现（求解器无关） |
+| 4 原生 writer | 具体 SDK 的原生写入 | Gurobi 已接入十四类原生 writer：ABS（`add_genconstr_abs`）、MAX/MIN（`add_genconstr_max/min`）、分段线性 Sin/Cos/Logistic（`add_genconstr_pwl`）、关系指示（`add_genconstr_indicator`）、InValues（`add_genconstr_indicator` 每候选值 4 条 + `add_genconstr_or` 聚合）、二值 AND/OR（`add_genconstr_and/or`）、二值化（`add_genconstr_indicator` + Big-M 冗余证明）、蕴含（`add_genconstr_indicator`：每个内部子指示器 2 条 + 耦合 3 条）、条件值（`add_genconstr_indicator`：条件关系 + 两分支等式指示）、二值掩码与多项式掩码（`add_genconstr_indicator` + `M ≥ |x|` 包含证明）、IF 分支选择（`add_genconstr_indicator`：条件行经分支等式归约）、平衡三值化（2 条普通行经容器 `add_linear_row` + 4 条 band 指示）与逻辑非（1 条恒等普通等式行），均通过 `GurobiSolver::solve_linear_with_native_lowering` 进入建模流程并在**真实求解中生效**（由 `tests/gurobi_native_function_lowering.rs` 端到端验证，需许可证）。所有 writer 共用同一组门控（结果列被固定、辅助列被外部引用、无法精确表达的形态），并在**原生形式会丢掉即时路径所依赖的行**时额外要求显式的范围证明或 Big-M 冗余证明；**真正写入失败**时求解器会丢弃 SDK 模型并对**整模型回退**；其余 writer 待补 |
+
+每个结构的物化都调用手写路径的同一个公式生成器（不存在第二份公式），因此延迟路径与 EAGER
+逐列一致；每个结构在测试中都被覆盖两次：结构层一次，贯穿
+`MetaModel -> MechanismModel -> 线性模型` 管线一次，断言 `Eager` 与 `DeferredNativeFirst`
+产出的行名完全相同。只在语义等价处提供结构：非精确极值保持其 epigraph/hypograph 语义继续
+EAGER，完全无法推导 Big-M 的情形由 EAGER 路径报错，而不是推迟到物化阶段才暴露。
+
+策略入口：求解侧通过 `SolverConfig::function_expansion_policy` 与
+`SolverConfig::resolved_function_expansion_policy` 决定，建模侧用
+`MetaModel::apply_solver_config` 采用同一取值；机制模型会带着解析后的策略离开建模阶段。
+`Auto` 只在求解器声明 `NativeIndicator` 能力时保留结构，否则退回 EAGER。
+
+验证口径：`cargo test -p ospf-rust-core` 是语义证据；`cargo check --features gurobi10/11/12`
+只是编译证据，**不等于真实求解通过**。延迟与原生路径的准入判定断言可在没有许可证的机器上
+运行；原生写入本身需要匹配的库与许可证。在有匹配库与许可证的机器上，验收证据来自此前被忽略的
+原生测试，必须用 `-- --include-ignored` 运行，`cargo check` 全绿不能替代它们。本机 SCIP 只有
+Java 版，`--features scip` 需改用 `--features scip-bundled`。
+
+### Solver 原生验收矩阵
+
+`cargo check` 只是编译证据。无法加载 backend 的原生测试应记为 `unsupported`（主动要求
+时记为 `failed`），被忽略测试必须使用 `-- --include-ignored`。golden/replay 比较必须
+包含状态、终止原因、incumbent objective、best bound、gap、解向量、残差、fingerprint
+和 provenance。主要 gate 如下：
+
+| 范围 | 命令形态 |
+| --- | --- |
+| Core 合同 | `cargo test -p ospf-rust-core --test native_contract_suite` |
+| Gurobi | 同一 target 加 `--features gurobi10`/`gurobi11`/`gurobi12` |
+| SCIP | 同一 target 加 `--features scip`，bundled/from-source 必须明确指定 |
+| 终态矩阵 | 原生 backend 下运行 `native_release_matrix` 并加 `-- --include-ignored` |
+| Framework report | `cargo test -p ospf-rust-framework --no-default-features` 及 `async`/`remote-solver` |
+| Network 与 Demo5 | 对应 crate README 的验证命令及选定 native feature |
+
+### CP 能力边界
+
+CP AST 使用精确 `i64` 值和不可变 snapshot。Gurobi、SCIP 仅通过精确有限
+MIP-backed `ExactLowering` facade 暴露 CP，不宣称 native CP search。安全线性整数/布尔
+变量、正 literal indicator、SOS1、状态元数据、取消、event handler 和作用域 probing，
+只有显式探针成功时才是 Native。布尔重化、稀疏域、AllDifferent、Element、table 和有限
+NoOverlap 属于 `ExactLowering`；Circuit、Automaton、Reservoir、增量 session、可选/变长
+原生 interval 以及 CP 原生 conflict graph 属于 `Unsupported`。raw Cumulative 仅为
+`Conditional` 研究路径，不构成生产能力。缺少库、许可证、bundled 下载或源码构建时，
+必须记为 `not executed/unsupported`，不能把编译结果当作 Native。
+
+### Solver 终态信息丢失清单
+
+report 层在所有边界补回了原先丢失的终态信息：
+
+| 边界 | 当前归属 |
+| --- | --- |
+| Core 状态/值投影 | `ProblemStatus`、`TerminationReason`、`SolveReport`、校验 builder 与显式旧投影 |
+| Column Generation/Benders | report 聚合及 LP/dual/Farkas 证明 gate |
+| Branch-and-Price | node conclusion、pricing 完成标记、继承/认证 bound 与证书 gate |
+| 组合求解包装器 | 父子 attempt identity、完成线性化、loser trace 和取消快照 |
+| 远程/checkpoint | 版本化 DTO、artifact/fingerprint 校验、provenance、父 attempt 和取消来源 |
+
+### Source 追踪
+
+统一迁移追踪以下 11 个不可变 Kotlin source commit 及其 Rust 归属：`b8d67c96`（report/progress）、
+`5f616747`（终止传播）、`25bcb176`（Benders/branch-and-price 证明 gate）、`32f7d5aa`
+（LP 不可行）、`e0bca1eb`（identity/fingerprint/remote/checkpoint）、`4efac629`
+（capability/provenance）、`58930764`（聚合 provenance）、`e5089f18`（聚合 identity）、
+`b9db32a8`（进行中取消）、`ae0b01fb`（完成点冻结）和 `b5b83d7d`（并行取消测试）。
+Core report、proof、diagnostics、identity、fingerprint、progress、cancellation 和
+checkpoint 在本 crate 实现；Gurobi/SCIP 通过 feature gate；framework 的组合、Benders
+和 remote 路径在 `ospf-rust-framework` 实现；CPLEX、COPT、Hexaly、MindOPT、MOSEK 及
+native CP search 明确排除。完整 manifest 可针对这些不可变 hash 使用
+`git show --no-renames` 重现，命令输出不纳入版本控制。
+
+完整 hash 依次为：`b8d67c96be2d29e6477838adbbb3ee6fec27ddf5`、
+`5f61674788ae9543c4769b1eacbc74d24296012b`、
+`25bcb176ebe3c4380f84eac6c3777f930f9ba47e`、
+`32f7d5aa76fb9f7f5982d856497b480bbf7f3b3f`、
+`e0bca1eb4d04e99fa8048deb9b2bb1731a1ac6b4`、
+`4efac629a57571497695352cf8448980be4e418b`、
+`589307646757d7f43afda299b866b2cfcf874ac2`、
+`e5089f1886b0fb924b8f721966cf1bb511be7395`、
+`b9db32a86af51e8ea976b81c2c15cbc3126dd006`、
+`ae0b01fbb516a4fbd834adda5643b9a16d4b8041` 和
+`b5b83d7d6f470c363e1044cd6b0266604ad5aaa1`。
+
+### MetaModel 快捷接口
+
+`MetaModel` 提供高频建模快捷入口：
+
+1. 带元数据的线性约束快捷添加（`group/lazy/priority/args`）。
+2. symbolic 约束批量添加。
+3. 按系数或索引列表构造 partition 约束。
+
+```rust,ignore
+use std::sync::Arc;
+use ospf_rust_core::symbol::flatten::{Linear, LinearMonomial};
+use ospf_rust_core::model::{
+    ConstraintGroup, ConstraintRelation, LinearInequality, MetaModel, SymbolicLinearInequality,
+};
+
+let mut model = MetaModel::<f64>::new("shortcut_demo");
+
+let g = Arc::new(ConstraintGroup::new(1001, "logic"));
+let ineq = LinearInequality::new(
+    Linear::new(vec![LinearMonomial::new(1.0, 0)], 0.0),
+    ConstraintRelation::LessEqual,
+    10.0,
+);
+model.add_inequality_with_metadata(
+    ineq,
+    "c_meta",
+    Some(g),
+    true,
+    20,
+    Some("{\"tag\":\"demo\"}".to_string()),
+)?;
+
+model.add_symbolic_inequalities(vec![
+    (
+        SymbolicLinearInequality::new(Linear::new(vec![LinearMonomial::new(1.0, 0)], 0.0), ConstraintRelation::GreaterEqual, 0.0),
+        "sym_lb",
+    ),
+    (
+        SymbolicLinearInequality::new(Linear::new(vec![LinearMonomial::new(1.0, 1)], 0.0), ConstraintRelation::LessEqual, 5.0),
+        "sym_ub",
+    ),
+]);
+
+model.partition_linear_coefficients(&[(0, 1.0), (1, 1.0)], "p_coeff")?;
+model.partition_linear_indices(&[2, 3, 4], "p_idx")?;
+```
+
+### Builder 输入
+
+`MetaModel` 也提供 Kotlin 对齐 builder 输入，减少手写稀疏数组：
+
+```rust,ignore
+use ospf_rust_core::model::{LinearExpressionBuilder, MetaModel, ObjectiveCategory};
+
+let mut model = MetaModel::<f64>::new("builder_demo");
+
+let c = LinearExpressionBuilder::new()
+    .term(0, 1.0)
+    .term(1, 2.0)
+    .constant(-3.0)
+    .le(0.0, "capacity");
+model.add_linear_constraint_input(c)?;
+
+let objective = LinearExpressionBuilder::new()
+    .term(0, 4.0)
+    .term(1, 5.0)
+    .maximize("profit")
+    .category(ObjectiveCategory::Maximum);
+model.set_linear_objective_input(objective);
+```
+
+## Feature Flags
+
+- `async`：启用 async 支持。
+- `serde`：启用序列化/反序列化。
+- `nightly`：启用 callable solver wrapper（`as_fn`）。
+- `gurobi`：`gurobi10` 的别名。
+- `gurobi10`、`gurobi11`、`gurobi12`：Gurobi 版本特定绑定。
+- `scip`：启用 SCIP solver binding。
+- `scip-bundled`：启用来自 `russcip` 的 bundled SCIP。
+- `scip-from-source`：通过 `russcip` 从源码构建 SCIP。
+- `scip-quadratic`：启用 SCIP 二次支持。
+
+## Solver Backend
+
+Rust 不按 Maven module 拆分 solver backend。依赖哪个 crate，就在该 crate 上通过 Cargo feature 启用对应后端。
+
+后端专用说明：
+
+1. Gurobi: [solver/solvers/gurobi/README_ch.md](src/solver/solvers/gurobi/README_ch.md)
+2. SCIP: [solver/solvers/scip/README_ch.md](src/solver/solvers/scip/README_ch.md)
+
+常见 feature 示例：
+
+```toml
+[dependencies]
+ospf-rust-core = { path = "../../core", features = ["gurobi10"] }
+# 或
+ospf-rust-core = { path = "../../core", features = ["scip-bundled"] }
+```
+
+```bash
+cargo test -p ospf-rust-core --features gurobi10
+cargo test -p ospf-rust-core --features scip
+cargo test -p ospf-rust-core --features scip-bundled
+```
+
+推荐后端导入：
+
+```rust,ignore
+use ospf_rust_core::solver::backend::{GurobiSolver, ScipSolver};
+```
+
+`SCIPSolver` 和 `SCIPConfig` 作为兼容名称保留。新的 Rust 代码建议使用 `ScipSolver` 和 `ScipConfig`。
+
+## Kotlin 对齐公共路径
+
+- `symbol::function` 是新的推荐入口；旧 `symbol::functions` 保留兼容。
+- `symbol::flatten` 是新的推荐入口；旧 `model::flatten` 保留兼容。
+- 已引入 `solver::config`、`solver::output`、`solver::value` 和 `solver::backend` 对齐路径。
+
+## 本地验证
+
+```powershell
+cargo check -p ospf-rust-core
+cargo test -p ospf-rust-core --no-run
+cargo test -p ospf-rust-core --lib
+```
+
+## 依赖
+
+- `ospf-rust-base`
+- `ospf-rust-math`
+- `ospf-rust-multiarray`
+- `thiserror`
+
+## 相关模块
+
+- [根 README](../../README_ch.md)
+- [Framework README](../framework/README_ch.md)
+- [Kotlin core README](../../../ospf-kotlin/ospf-kotlin-core/README_ch.md)
+
+## 许可证
+
+本项目与主 OSPF Rust 项目使用相同许可证。

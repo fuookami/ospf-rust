@@ -5,7 +5,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$nodeRoot = Join-Path $root 'ospf-rust-node'
+$nodeRoot = Join-Path $root 'crates/bindings/node'
 $metadata = cargo "+$Toolchain" metadata --no-deps --format-version=1 --manifest-path (Join-Path $root 'Cargo.toml')
 if ($LASTEXITCODE) { throw 'Cargo metadata failed' }
 $target = ($metadata | ConvertFrom-Json).target_directory

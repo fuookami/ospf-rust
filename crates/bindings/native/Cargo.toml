@@ -1,0 +1,31 @@
+[package]
+name = "ospf-rust-native"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Shared native execution engine for OSPF HTTP and Node bindings"
+
+[dependencies]
+ospf-rust-bridge = { path = "../bridge" }
+ospf-rust-core = { path = "../../core", features = ["serde"] }
+ospf-rust-framework = { path = "../../framework", default-features = false }
+ospf-rust-framework-bpp = { path = "../../plugins/bpp" }
+ospf-rust-framework-bpp1d = { path = "../../plugins/bpp1d" }
+ospf-rust-framework-bpp2d = { path = "../../plugins/bpp2d" }
+ospf-rust-framework-gantt-scheduling = { path = "../../plugins/gantt-scheduling" }
+ospf-rust-framework-network-scheduling = { path = "../../plugins/network-scheduling" }
+ospf-rust-framework-bpp3d = { path = "../../plugins/bpp3d", features = ["serde"] }
+ospf-rust-framework-csp1d = { path = "../../plugins/csp1d" }
+ospf-rust-framework-csp2d = { path = "../../plugins/csp2d" }
+serde_json = "1"
+serde = "1"
+
+[features]
+default = []
+gurobi10 = ["ospf-rust-core/gurobi10", "ospf-rust-framework/gurobi10"]
+gurobi11 = ["ospf-rust-core/gurobi11", "ospf-rust-framework/gurobi11"]
+gurobi12 = ["ospf-rust-core/gurobi12", "ospf-rust-framework/gurobi12"]
+scip = ["ospf-rust-core/scip", "ospf-rust-framework/scip"]
+scip-bundled = ["scip", "ospf-rust-core/scip-bundled"]
+scip-from-source = ["scip", "ospf-rust-core/scip-from-source"]
+scip-quadratic = ["scip", "ospf-rust-core/scip-quadratic"]

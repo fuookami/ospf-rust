@@ -42,7 +42,7 @@ Gantt 活动调度的桥接源协议（`ospf_rust_bridge::GanttActivityProblem`�
 
 原生执行入口 `solver: "gantt-activity"` 要求 `modelKind: ganttActivity` 与独占的 `ganttActivityOptions { backend }`，复用原 `ActivitySchedulingApplicationService` 单 MILP 流程并共享时间预算、取消与进度；报告 `GanttActivityExecutionReport` 保留原问题状态、终止原因、派生目标与 `solverModelOnly`，且只有通过 `ActivityPreparation::validate` 独立复验的 incumbent 才携带分配，否则只保留失败原因（不伪造方案）。WASM 侧 `GanttActivityContext` 提供源校验、`sourceSummaryJson` 候选展开、`replayJson` 方案复验与 `readExecutionReport` 报告复验；SDK `ospf-wasm/gantt` 提供对应类与 `GanttActivitySolver`（能力门禁 `ganttActivity`，`modelKind: ganttActivity`，独占 `ganttActivityOptions`）。
 
-BPP2D 原领域 context 已有 RMP／归一化短缺 Phase I／整数主问题的事务性共享 MetaModel 注册，支持硬需求上下界、受检数值转换及原快照结果复验。`Bpp2dNativeBackend` 与 CSP1D 共用 framework `LinearReportExecutor`，校验实际模型／报告身份、完整 primal／整数性／目标及 LP 证书，共享总预算、原始进度和独立子取消。`solve_bpp2d_column_generation` 串接 Phase I 恢复、认证后的普通整板面积定价及同后端 final MILP；观察到的排布通过源目录／旋转／刀缝校验，保留完整池、实际子模型／报告及池前缀映射，检查迭代／池／报告／总时间／取消预算。原生成器仍是启发式，`candidate_complete` 始终为 false，不把受限最优／不可行提升为源问题全局结论。默认规则循环暂不支持非零质量／承重或附加规则定价修正。旧闭包执行器保持兼容，不被标记为真实报告路径。详见[原生列生成边界](../ospf-rust-framework-bpp2d/README_ch.md#报告驱动的原生列生成)。
+BPP2D 原领域 context 已有 RMP／归一化短缺 Phase I／整数主问题的事务性共享 MetaModel 注册，支持硬需求上下界、受检数值转换及原快照结果复验。`Bpp2dNativeBackend` 与 CSP1D 共用 framework `LinearReportExecutor`，校验实际模型／报告身份、完整 primal／整数性／目标及 LP 证书，共享总预算、原始进度和独立子取消。`solve_bpp2d_column_generation` 串接 Phase I 恢复、认证后的普通整板面积定价及同后端 final MILP；观察到的排布通过源目录／旋转／刀缝校验，保留完整池、实际子模型／报告及池前缀映射，检查迭代／池／报告／总时间／取消预算。原生成器仍是启发式，`candidate_complete` 始终为 false，不把受限最优／不可行提升为源问题全局结论。默认规则循环暂不支持非零质量／承重或附加规则定价修正。旧闭包执行器保持兼容，不被标记为真实报告路径。详见[原生列生成边界](../crates/plugins/bpp2d/README_ch.md#报告驱动的原生列生成)。
 
 `encode_bpp2d_problem`／`decode_bpp2d_problem` 提供 schema 1.0 canonical 源封装与领域分离指纹；完整执行 codec 将全部物理列及每个实际子模型／报告绑定到源问题。验证器重建原 context，严格比较数学／类型／边界／目标／执行元数据，不替换实际报告身份；复验 LP／不可行证明、Phase I→RMP→定价→final 生命周期及新增列实算检验数。生产量仅从真实 final 整数 incumbent 派生，checked u128 汇总转十进制文本，件数不经 JS number；圆仍按外接方形进行几何判定，产出面积使用原形状实际面积。数学一致性不是来源认证。
 
@@ -70,7 +70,7 @@ CSP2D 的 `ProduceContext` 共用 RMP／归一化短缺 Phase I／整数主问�
 和 `csp2dOptions`，拒绝混用其他策略。SDK 检查领域／算法及所选 SCIP/Gurobi 的 LP/MIP 能力，不隐式回退 HTTP 或 WASM。
 目录一致性不是外部来源认证；部分旧 shelf 断头台树缺少匹配成品叶子，
 严格门禁会拒绝而非静默修复。重量、设备、最小余料阈值、副产物规则明确拒绝，附加 pipeline 需匹配定价修正。
-详见[原生列生成边界](../ospf-rust-framework-csp2d/README_ch.md#报告驱动的原生列生成)。
+详见[原生列生成边界](../crates/plugins/csp2d/README_ch.md#报告驱动的原生列生成)。
 
 共享 bridge 已生成 CSP2D 源 DTO，`encode_csp2d_problem`／`decode_csp2d_problem` 提供 schema 1.0 canonical
 原文及领域分离 SHA-256 指纹。SDK `ospf-wasm/csp2d` 开放 `CuttingContext` 构造、`fromArtifact`、`toArtifact`、

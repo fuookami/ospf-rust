@@ -1,28 +1,33 @@
 [workspace]
 resolver = "3"
 members = [
-    "ospf-rust-bridge",
-    "ospf-wasm",
-    "ospf-rust-native",
-    "ospf-rust-host",
-    "ospf-rust-node",
-    "ospf-rust-base",
-    "ospf-rust-multiarray",
-    "ospf-rust-math",
-    "ospf-rust-quantities",
-    "ospf-rust-core",
-    "ospf-rust-framework",
-    "ospf-rust-framework-geometry2d",
-    "ospf-rust-framework-bpp",
-    "ospf-rust-framework-bpp1d",
-    "ospf-rust-framework-bpp2d",
-    "ospf-rust-framework-bpp3d",
-    "ospf-rust-framework-csp1d",
-    "ospf-rust-framework-csp2d",
-    "ospf-rust-framework-gantt-scheduling",
-    "ospf-rust-framework-gantt-network",
-    "ospf-rust-framework-network-scheduling",
-    "ospf-rust-example"
+    # 基础层 / Foundation
+    "crates/base",
+    "crates/multiarray",
+    "crates/math",
+    "crates/quantities",
+    # 建模核心与框架 / Core and framework
+    "crates/core",
+    "crates/framework",
+    # 领域插件 / Domain plugins
+    "crates/plugins/geometry2d",
+    "crates/plugins/bpp",
+    "crates/plugins/bpp1d",
+    "crates/plugins/bpp2d",
+    "crates/plugins/bpp3d",
+    "crates/plugins/csp1d",
+    "crates/plugins/csp2d",
+    "crates/plugins/gantt-scheduling",
+    "crates/plugins/gantt-network",
+    "crates/plugins/network-scheduling",
+    # 运行时绑定 / Runtime bindings
+    "crates/bindings/bridge",
+    "crates/bindings/wasm",
+    "crates/bindings/native",
+    "crates/bindings/host",
+    "crates/bindings/node",
+    # 组装点 / Assembly point
+    "apps/example",
 ]
 
 [workspace.package]

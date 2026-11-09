@@ -21,6 +21,6 @@ htmlReport
 *.tmp
 node_modules/
 *.tgz
-ospf-rust-node/*.node
-ospf-rust-node/index.js
-ospf-rust-node/index.d.ts
+crates/bindings/node/*.node
+crates/bindings/node/index.js
+crates/bindings/node/index.d.ts
