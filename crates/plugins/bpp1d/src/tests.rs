@@ -694,7 +694,7 @@ mod native {
     #[cfg(feature = "scip")]
     #[test]
     fn scip_native_milp_optimal_lp_duals_and_inventory_seed_recovery() {
-        use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+        use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
         verify_backend(&SCIPSolver::with_config(SCIPConfig::new().with_lp_subproblem_defaults().with_output(false)));
     }
 

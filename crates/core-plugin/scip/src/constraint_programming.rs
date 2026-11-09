@@ -7,14 +7,14 @@
 //! therefore exposes only `MipBackedConstraintProgrammingSolver<SCIPSolver>` and never claims
 //! native SCIP CP support.
 
-use super::{
+use ospf_rust_core::solver::constraint_programming::{
     ConstraintProgrammingSession, ConstraintProgrammingSolveOptions, ConstraintProgrammingSolver,
     ConstraintProgrammingSupportReport, MipBackedConstraintProgrammingSolver, MipLoweringOptions,
 };
-use crate::error::Result;
-use crate::model::constraint_programming::ConstraintProgrammingSnapshot;
-use crate::solver::solvers::scip::{SCIPConfig, SCIPSolver};
-use crate::solver::{
+use ospf_rust_core::error::Result;
+use ospf_rust_core::model::constraint_programming::ConstraintProgrammingSnapshot;
+use crate::{SCIPConfig, SCIPSolver};
+use ospf_rust_core::solver::{
     ConstraintProgrammingAssumption, SolveReport, SolverCapability, SolverDescriptor, SolverInfo,
 };
 
@@ -82,7 +82,7 @@ impl SolverInfo for ScipConstraintProgrammingSolver {
         descriptor.display_name = "SCIP CP (exact finite lowering)".to_owned();
         descriptor.capabilities.levels.insert(
             "constraint_programming".to_owned(),
-            crate::solver::CapabilitySupport::Conditional,
+            ospf_rust_core::solver::CapabilitySupport::Conditional,
         );
         descriptor.warnings.push(
             "SCIP CP uses the exact finite MIP lowering path; native CP constraints are not exposed"
@@ -133,7 +133,7 @@ impl ConstraintProgrammingSolver for ScipConstraintProgrammingSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::constraint_programming::{
+    use ospf_rust_core::model::constraint_programming::{
         ConstraintDefinition, ConstraintProgrammingConstraint, ConstraintProgrammingModel,
         IntegerDomain, IntegerExpression, IntegerObjective, IntegerRelation, IntegerTerm, IntegerVariable,
     };
@@ -161,7 +161,7 @@ mod tests {
         let descriptor = solver.descriptor();
         assert_eq!(
             descriptor.capabilities.levels.get("constraint_programming"),
-            Some(&crate::solver::CapabilitySupport::Conditional)
+            Some(&ospf_rust_core::solver::CapabilitySupport::Conditional)
         );
         assert!(
             descriptor
@@ -185,8 +185,8 @@ mod tests {
         assert_eq!(
             report
                 .constraints
-                .get(&crate::solver::StableConstraintId::from("constraint")),
-            Some(&super::super::ConstraintProgrammingSupport::ExactLowering)
+                .get(&ospf_rust_core::solver::StableConstraintId::from("constraint")),
+            Some(&ospf_rust_core::solver::constraint_programming::ConstraintProgrammingSupport::ExactLowering)
         );
     }
 
@@ -201,7 +201,7 @@ mod tests {
             let snapshot = model.freeze().unwrap();
             let observed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
             let captured = std::sync::Arc::clone(&observed);
-            let reporter: crate::solver::SolveProgressReporter = std::sync::Arc::new(move |progress| {
+            let reporter: ospf_rust_core::solver::SolveProgressReporter = std::sync::Arc::new(move |progress| {
                 captured.lock().unwrap().push(progress.clone());
                 Ok(())
             });
@@ -222,8 +222,8 @@ mod tests {
 
     #[test]
     fn scip_cp_intermediate_progress_includes_the_objective_constant() {
-        use crate::solver::ProgressValue;
-        use crate::solver::solvers::scip::PresolvingMode;
+        use ospf_rust_core::solver::ProgressValue;
+        use crate::PresolvingMode;
         use std::sync::{Arc, Mutex};
 
         let mut model = ConstraintProgrammingModel::new("scip-cp-progress");
@@ -247,7 +247,7 @@ mod tests {
         let snapshot = model.freeze().unwrap();
         let events = Arc::new(Mutex::new(Vec::new()));
         let recorded = events.clone();
-        let reporter: crate::solver::SolveProgressReporter = Arc::new(move |event| {
+        let reporter: ospf_rust_core::solver::SolveProgressReporter = Arc::new(move |event| {
             recorded.lock().unwrap().push(event.clone());
             Ok(())
         });

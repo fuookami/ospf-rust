@@ -860,7 +860,7 @@ fn run_actual_grouped_traced_csv_multiple_bins(solver: std::sync::Arc<dyn ospf_r
 #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
 #[test]
 fn actual_scip_grouped_traced_csv_preserves_demand_in_both_rmp_reports_and_final() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     run_actual_grouped_traced_csv_application(std::sync::Arc::new(SCIPSolver::with_config(
         SCIPConfig::default().with_output(false).with_lp_subproblem_defaults(),
     )));
@@ -869,7 +869,7 @@ fn actual_scip_grouped_traced_csv_preserves_demand_in_both_rmp_reports_and_final
 #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
 #[test]
 fn actual_scip_grouped_traced_csv_reuses_a_layer_across_distinct_bins() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     run_actual_grouped_traced_csv_multiple_bins(std::sync::Arc::new(SCIPSolver::with_config(
         SCIPConfig::default().with_output(false).with_lp_subproblem_defaults(),
     )));
@@ -896,7 +896,7 @@ fn actual_gurobi_grouped_traced_csv_reuses_a_layer_across_distinct_bins() {
 #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
 #[test]
 fn actual_scip_traced_csv_application_uses_original_reports_and_physical_evidence() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     run_actual_traced_csv_application(std::sync::Arc::new(SCIPSolver::with_config(
         SCIPConfig::default().with_output(false).with_lp_subproblem_defaults(),
     )));
@@ -914,7 +914,7 @@ fn actual_gurobi_traced_csv_application_uses_original_reports_and_physical_evide
 #[cfg(all(feature = "scip", not(feature = "async")))]
 #[test]
 fn actual_scip_traced_final_retains_actual_report_and_requires_physical_evidence() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     let solver = std::sync::Arc::new(SCIPSolver::with_config(
         SCIPConfig::default().with_output(false).with_lp_subproblem_defaults(),
     ));

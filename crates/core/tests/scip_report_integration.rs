@@ -2,12 +2,12 @@
 
 use ospf_rust_core::model::ObjectiveCategory;
 use ospf_rust_core::model::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
-use ospf_rust_core::solver::solvers::SCIPSolver;
+use ospf_rust_core_plugin_scip::SCIPSolver;
 use ospf_rust_core::solver::{
     ProblemStatus, linear_model_fingerprint, require_infeasibility_certificate_for_model,
     require_optimal_lp_certificate_for_linear_model, require_optimal_lp_certificate_for_model,
 };
-use ospf_rust_core::solvers::scip::SCIPConfig;
+use ospf_rust_core_plugin_scip::SCIPConfig;
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{ContinuousVariableItem, VariableId, VariableType};
 

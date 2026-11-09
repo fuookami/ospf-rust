@@ -17,6 +17,7 @@ ospf-rust-framework-network-scheduling = { path = "../../plugins/network-schedul
 ospf-rust-framework-bpp3d = { path = "../../plugins/bpp3d", features = ["serde"] }
 ospf-rust-framework-csp1d = { path = "../../plugins/csp1d" }
 ospf-rust-framework-csp2d = { path = "../../plugins/csp2d" }
+ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", version = "1.1.0", optional = true }
 serde_json = "1"
 serde = "1"
 
@@ -25,7 +26,7 @@ default = []
 gurobi10 = ["ospf-rust-core/gurobi10", "ospf-rust-framework/gurobi10"]
 gurobi11 = ["ospf-rust-core/gurobi11", "ospf-rust-framework/gurobi11"]
 gurobi12 = ["ospf-rust-core/gurobi12", "ospf-rust-framework/gurobi12"]
-scip = ["ospf-rust-core/scip", "ospf-rust-framework/scip"]
-scip-bundled = ["scip", "ospf-rust-core/scip-bundled"]
-scip-from-source = ["scip", "ospf-rust-core/scip-from-source"]
-scip-quadratic = ["scip", "ospf-rust-core/scip-quadratic"]
+scip = ["dep:ospf-rust-core-plugin-scip"]
+scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
+scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
+scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]

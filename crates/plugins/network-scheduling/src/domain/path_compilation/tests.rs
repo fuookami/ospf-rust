@@ -694,7 +694,7 @@ fn invalid_new_columns_scope_and_retired_token_reactivation_are_rejected_without
 #[cfg(feature = "scip")]
 #[test]
 fn scip_path_compilation_service_executes_finite_optimum_and_current_lp_certificate() {
-    use ospf_rust_core::solver::solvers::SCIPSolver;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
     use crate::application::PathCompilationApplicationService;
     let service = PathCompilationApplicationService::new(SCIPSolver::new());
     let report = service.solve(&problem()).unwrap();

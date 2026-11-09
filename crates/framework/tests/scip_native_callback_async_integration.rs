@@ -11,8 +11,10 @@ use ospf_rust_core::model::{
     BasicMechanismModel, Linear, LinearConstraint, LinearInequality, LinearMonomial,
     MechanismModel, ObjectiveCategory,
 };
-use ospf_rust_core::solvers::scip::{
+use ospf_rust_core_plugin_scip::{
     SCIPConfig, SCIPNativeCallback, SCIPNativeControl, SCIPNativeObserver, SCIPNativeWhere,
+    ScipColumnGenerationSolver, ScipLinearBendersDecompositionSolver,
+    ScipQuadraticBendersDecompositionSolver,
 };
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{
@@ -20,8 +22,7 @@ use ospf_rust_core::variable::{
 };
 use ospf_rust_framework::{
     ColumnGenerationSolver, LinearBendersDecompositionSolver, QuadraticBendersDecompositionSolver,
-    ScipColumnGenerationSolver, ScipLinearBendersDecompositionSolver,
-    ScipQuadraticBendersDecompositionSolver, SolveOptions,
+    SolveOptions,
 };
 
 fn build_mip_model(name: &str) -> LinearTriadModel {

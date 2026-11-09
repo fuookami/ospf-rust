@@ -388,7 +388,7 @@ mod native {
     #[cfg(feature = "scip")]
     #[test]
     fn scip_ordinary_partition_phase_one_pricing_completion_and_final() {
-        use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+        use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
         verify(&SCIPSolver::with_config(SCIPConfig::new().with_lp_subproblem_defaults().with_output(false)));
     }
 

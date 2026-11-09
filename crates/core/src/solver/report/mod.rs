@@ -1552,8 +1552,7 @@ pub fn require_optimal_lp_certificate_for_linear_model<'a, C: Copy + Ord + TryFr
     Ok(certificate)
 }
 
-#[cfg(feature = "scip")]
-pub(crate) fn linear_dual_certificate_is_valid(
+pub fn linear_dual_certificate_is_valid(
     model: &LinearTriadModel,
     values: &[f64],
     dual: &[f64],

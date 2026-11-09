@@ -4,8 +4,7 @@
 
 ## Prerequisites
 
-`ospf-rust-core` uses `russcip/scip-sys` under the `scip` feature.  
-You must make SCIP headers and libraries discoverable before running tests.
+`ospf-rust-core-plugin-scip` uses `russcip/scip-sys` directly. You must make SCIP headers and libraries discoverable before building or running tests.
 This workspace pins `russcip` to `0.9.1`, which is the compatibility path for SCIP 9.x.
 Use `scip-bundled` or `scip-from-source` only when the selected `russcip` feature provides
 the matching SCIP build.
@@ -46,28 +45,30 @@ From workspace root:
 
 ```powershell
 # Windows PowerShell
-.\ospf-rust-core\src\solver\solvers\scip\check_non_bundled_env.ps1
-.\ospf-rust-core\src\solver\solvers\scip\run_non_bundled_regression.ps1
+.\crates\core-plugin\scip\scripts\check_non_bundled_env.ps1
+.\crates\core-plugin\scip\scripts\run_non_bundled_regression.ps1
 ```
 
 ```bash
 # Linux/macOS
-bash ./crates/core/src/solver/solvers/scip/check_non_bundled_env.sh
-bash ./crates/core/src/solver/solvers/scip/run_non_bundled_regression.sh
+bash ./crates/core-plugin/scip/scripts/check_non_bundled_env.sh
+bash ./crates/core-plugin/scip/scripts/run_non_bundled_regression.sh
 ```
 
 Or run commands manually:
 
 ```bash
+cargo test -p ospf-rust-core-plugin-scip --features scip -- --nocapture
 cargo test -p ospf-rust-core scip:: --features scip -- --nocapture
-cargo test -p ospf-rust-framework scip_extension --features scip -- --nocapture
+cargo test -p ospf-rust-framework scip_native_callback --features scip -- --nocapture
 ```
 
 Use bundled SCIP when local SCIP is unavailable:
 
 ```bash
+cargo test -p ospf-rust-core-plugin-scip --features scip-bundled -- --nocapture
 cargo test -p ospf-rust-core scip:: --features scip-bundled -- --nocapture
-cargo test -p ospf-rust-framework scip_extension --features scip-bundled -- --nocapture
+cargo test -p ospf-rust-framework scip_native_callback --features scip-bundled -- --nocapture
 ```
 
 ## Typical Failure
@@ -84,9 +85,8 @@ If you see `Unable to find libclang`, set `LIBCLANG_PATH` to LLVM `bin`/`lib`.
 
 ```rust,ignore
 use std::sync::Arc;
-use ospf_rust_core::solver::solvers::SCIPSolver;
-use ospf_rust_core::solvers::scip::{
-    SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPNativeWhere
+use ospf_rust_core_plugin_scip::{
+    SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPNativeWhere, SCIPSolver,
 };
 
 let observer: SCIPNativeObserver = Arc::new(|snapshot| {

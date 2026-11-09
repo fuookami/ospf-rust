@@ -1,0 +1,25 @@
+[package]
+name = "ospf-rust-core-plugin-scip"
+version = "1.1.0"
+edition = "2024"
+description = "SCIP solver plugin for ospf-rust: core adapter, constraint-programming facade and framework extensions"
+authors = ["fuookami <wfuookami@gmail.com>"]
+license.workspace = true
+homepage = "https://github.com/fuookami/ospf-rust"
+repository = "https://github.com/fuookami/ospf-rust"
+readme = "README.md"
+
+[dependencies]
+ospf-rust-core = { path = "../../core", version = "1.1.0", default-features = false }
+ospf-rust-framework = { path = "../../framework", version = "1.1.0", default-features = false }
+russcip = { version = "0.9.1" }
+async-trait = "0.1"
+
+[features]
+default = []
+# 兼容下游 feature 名 / Compatibility marker for downstream features
+scip = []
+scip-bundled = ["russcip/bundled"]
+scip-from-source = ["russcip/from-source"]
+scip-quadratic = []
+async = ["ospf-rust-framework/async"]

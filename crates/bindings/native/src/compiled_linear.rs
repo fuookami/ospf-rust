@@ -12,7 +12,7 @@ impl NativeEngine {
         // Only this explicit child-LP entry uses SCIP defaults retaining duals; ordinary linear execution stays unchanged.
         #[cfg(feature = "scip")]
         let solver: std::sync::Arc<dyn ospf_rust_core::solver::Solver> = if request.solver == "scip" && !model.has_integer_variables() {
-            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
             std::sync::Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults()))
         } else { solver };
         self.start(request, solver, model)

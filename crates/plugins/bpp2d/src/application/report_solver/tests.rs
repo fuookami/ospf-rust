@@ -209,7 +209,7 @@ fn real_backend_contract(solver: Arc<dyn LinearSolver>) {
 #[cfg(any(feature = "scip", feature = "scip-bundled", feature = "scip-from-source"))]
 #[test]
 fn real_scip_report_driven_masters() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     real_backend_contract(Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults())));
 }
 

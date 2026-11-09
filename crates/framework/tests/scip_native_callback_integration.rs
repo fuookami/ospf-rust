@@ -5,14 +5,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use ospf_rust_core::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
 use ospf_rust_core::model::ObjectiveCategory;
-use ospf_rust_core::solvers::scip::{
+use ospf_rust_core_plugin_scip::{
     SCIPConfig, SCIPNativeCallback, SCIPNativeControl, SCIPNativeObserver, SCIPNativeWhere,
+    ScipColumnGenerationSolver, ScipLinearBendersDecompositionSolver,
+    ScipQuadraticBendersDecompositionSolver,
 };
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{BinaryVariableItem, VariableId, VariableType};
 use ospf_rust_framework::{
-    ColumnGenerationSolver, LinearBendersDecompositionSolver, ScipColumnGenerationSolver,
-    ScipLinearBendersDecompositionSolver, ScipQuadraticBendersDecompositionSolver, SolveOptions,
+    ColumnGenerationSolver, LinearBendersDecompositionSolver, SolveOptions,
 };
 
 #[cfg(feature = "async")]

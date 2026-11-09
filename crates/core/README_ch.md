@@ -74,13 +74,13 @@ f64 快照的 `compile_flt64()` 在生成标准行时记录实际源行身份和
 
 | 子包 | 描述 |
 |------|------|
-| config | 求解器特定配置（COPT、Gurobi、SCIP）。 |
+| config | 求解器特定配置（COPT、Gurobi；SCIP 配置位于独立插件 crate）。 |
 | `heuristic` | 元启发式框架：生命周期骨架、18 个算子族、组合工厂与算法入口。 |
 | [`hyper_heuristic`](src/solver/hyper_heuristic/README_ch.md) | 选择型超启发式：双层自适应信用、原生约束、计费局部搜索与业务破坏修复、HV奖励、JSON/YAML/TOML配置、持久化会话与调度重放；兼容性边界见模块文档。 |
 | `iis` | 不可约不可行子系统诊断。 |
 | `output` | 求解器输出数据结构（可行/不可行）。 |
 | `value` | 值类型转换（IntoValue trait）。 |
-| `backend` | 特性门控后端适配器（Gurobi、SCIP）。 |
+| `backend` | 特性门控的 Gurobi 适配器；SCIP 位于 `ospf-rust-core-plugin-scip`。 |
 
 ### model/
 
@@ -128,7 +128,7 @@ f64 快照的 `compile_flt64()` 在生成标准行时记录实际源行身份和
 
 - **求解器/会话 SPI**：CP 求解器后端的 trait 定义。
 - **伪契约求解器**：用于测试和小规模穷举预言机。
-- **SCIP 集成**：特性门控的 SCIP CP 后端（有限 MIP 支持门面）。
+- **SCIP 集成**：已迁移到 `ospf-rust-core-plugin-scip`（有限 MIP 支持门面）。
 - **MIP 支持的降阶**：有限整数子集的精确降阶，验证边界；对不支持的约束返回结构化错误。
 
 ### 基于逻辑的 Benders
@@ -220,7 +220,7 @@ core crate 同时提供整数 CP AST，包括布尔文字、整数表达式、�
 snapshot artifact，以及 `NoOverlap` 等全局约束。CP 值域和目标求值使用精确 `i64`，
 CP 路径不会静默把整数语义降为 `f64`。
 
-Gurobi 和 SCIP 通过 feature-gated、MIP-backed 的 `ExactLowering` 暴露 CP facade。
+Gurobi（core）和 SCIP（`ospf-rust-core-plugin-scip`）通过 feature-gated、MIP-backed 的 `ExactLowering` 暴露 CP facade。
 这是一条带 snapshot 校验和统一 `SolveReport` proof 校验的精确 formulation 路径，
 不代表 backend 提供 native CP search。native optional-interval tree、增量 CP session，
 以及没有显式 lowering 的全局约束不属于该 facade；在能力门禁关闭前，它们保持
@@ -307,7 +307,7 @@ fingerprint；callback 属于 provenance 并标记为不可 replay。远程 repo
 保留 schema、run/attempt identity、父链、artifact digest、provenance、fingerprint、
 proof、incumbent 和取消链；未知 schema 或身份不匹配会在恢复前拒绝。
 
-声明的原生 backend 只有 Gurobi 和 SCIP。feature 编译只能证明 wiring；原生能力必须有
+声明的原生 backend 为 core 中的 Gurobi 与 `ospf-rust-core-plugin-scip` 中的 SCIP。feature 编译只能证明 wiring；原生能力必须有
 匹配的库、运行时和许可证探针。Gurobi 许可证错误（含代码 `10009`）归类为 `LICENSE`，
 缺少动态库归类为 `ENVIRONMENT`。
 
@@ -353,7 +353,7 @@ Java 版，`--features scip` 需改用 `--features scip-bundled`。
 | --- | --- |
 | Core 合同 | `cargo test -p ospf-rust-core --test native_contract_suite` |
 | Gurobi | 同一 target 加 `--features gurobi10`/`gurobi11`/`gurobi12` |
-| SCIP | 同一 target 加 `--features scip`，bundled/from-source 必须明确指定 |
+| SCIP | core 测试加 `--features scip`（通过 dev-dependency 使用插件），或直接测试 `ospf-rust-core-plugin-scip` |
 | 终态矩阵 | 原生 backend 下运行 `native_release_matrix` 并加 `-- --include-ignored` |
 | Framework report | `cargo test -p ospf-rust-framework --no-default-features` 及 `async`/`remote-solver` |
 | Network 与 Demo5 | 对应 crate README 的验证命令及选定 native feature |
@@ -484,31 +484,29 @@ model.set_linear_objective_input(objective);
 - `nightly`：启用 callable solver wrapper（`as_fn`）。
 - `gurobi`：`gurobi10` 的别名。
 - `gurobi10`、`gurobi11`、`gurobi12`：Gurobi 版本特定绑定。
-- `scip`：启用 SCIP solver binding。
-- `scip-bundled`：启用来自 `russcip` 的 bundled SCIP。
-- `scip-from-source`：通过 `russcip` 从源码构建 SCIP。
-- `scip-quadratic`：启用 SCIP 二次支持。
+- `scip`、`scip-bundled`、`scip-from-source`、`scip-quadratic`：core SCIP 测试使用的兼容 feature 名，转发到 `ospf-rust-core-plugin-scip` dev-dependency；正常使用请直接依赖插件 crate。
 
 ## Solver Backend
 
-Rust 不按 Maven module 拆分 solver backend。依赖哪个 crate，就在该 crate 上通过 Cargo feature 启用对应后端。
+Rust 将 solver backend 拆为独立插件 crate：Gurobi 保留在 core feature 后，SCIP 位于 `ospf-rust-core-plugin-scip`。依赖哪个 crate，就在该 crate 上通过 Cargo feature 启用对应后端。
 
 后端专用说明：
 
 1. Gurobi: [solver/solvers/gurobi/README_ch.md](src/solver/solvers/gurobi/README_ch.md)
-2. SCIP: [solver/solvers/scip/README_ch.md](src/solver/solvers/scip/README_ch.md)
+2. SCIP: [`ospf-rust-core-plugin-scip`](../core-plugin/scip/README_ch.md)
 
 常见 feature 示例：
 
 ```toml
 [dependencies]
 ospf-rust-core = { path = "../../core", features = ["gurobi10"] }
-# 或
-ospf-rust-core = { path = "../../core", features = ["scip-bundled"] }
+# 或，使用 SCIP
+ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", features = ["scip-bundled"] }
 ```
 
 ```bash
 cargo test -p ospf-rust-core --features gurobi10
+cargo test -p ospf-rust-core-plugin-scip --features scip
 cargo test -p ospf-rust-core --features scip
 cargo test -p ospf-rust-core --features scip-bundled
 ```
@@ -516,10 +514,11 @@ cargo test -p ospf-rust-core --features scip-bundled
 推荐后端导入：
 
 ```rust,ignore
-use ospf_rust_core::solver::backend::{GurobiSolver, ScipSolver};
+use ospf_rust_core::solver::backend::GurobiSolver;
+use ospf_rust_core_plugin_scip::{SCIPSolver, ScipSolver};
 ```
 
-`SCIPSolver` 和 `SCIPConfig` 作为兼容名称保留。新的 Rust 代码建议使用 `ScipSolver` 和 `ScipConfig`。
+`SCIPSolver` 和 `SCIPConfig` 在 SCIP 插件中作为兼容名称保留。新的 Rust 代码建议使用 `ScipSolver` 和 `ScipConfig`。
 
 ## Kotlin 对齐公共路径
 

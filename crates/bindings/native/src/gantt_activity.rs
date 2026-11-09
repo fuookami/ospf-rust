@@ -73,8 +73,8 @@ fn execute(source: &ModelArtifact, configuration: GanttActivityOptions, options:
     match configuration.backend {
         #[cfg(feature = "scip")]
         ospf_rust_bridge::NativeBackend::Scip => {
-            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
-            use ospf_rust_framework::solver::scip_extension::ScipColumnGenerationSolver;
+            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
+            use ospf_rust_core_plugin_scip::extension::ScipColumnGenerationSolver;
             execute_with!(ScipColumnGenerationSolver::with_solver(SCIPSolver::with_config(SCIPConfig::default().with_output(false))), source, configuration, options)
         }
         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]

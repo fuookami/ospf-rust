@@ -685,9 +685,9 @@ mod gurobi {
 mod scip {
     use super::*;
     use ospf_rust_core::error::CoreError;
-    use ospf_rust_core::solver::solvers::SCIPSolver;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
     use ospf_rust_core::solver::{ProgressValue, SolveProgressReporter, SolveProgressSnapshot, SolveStage};
-    use ospf_rust_core::solvers::scip::{
+    use ospf_rust_core_plugin_scip::{
         PresolvingMode, SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPTelemetryCallback,
     };
     use std::sync::{Arc, Mutex};

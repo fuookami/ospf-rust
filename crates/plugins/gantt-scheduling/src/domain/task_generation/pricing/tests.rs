@@ -568,7 +568,7 @@ fn hidden_compiled_function_rows_do_not_silently_disappear_from_pricing() {
 #[ignore = "需要真实 SCIP 运行时 / requires the actual SCIP runtime"]
 fn native_scip_task_lp_supplies_current_model_bound_pricing_evidence() {
     let (model, previous) = fixture();
-    let solver = ospf_rust_framework::ScipColumnGenerationSolver::new().with_lp_subproblem_defaults();
+    let solver = ospf_rust_core_plugin_scip::ScipColumnGenerationSolver::new().with_lp_subproblem_defaults();
     let mut algorithm = TaskColumnGenerationAlgorithm::new(previous.context, solver, ColumnGenerationPolicy::default());
     let report = algorithm.solve_rmp_lp_report(&model).unwrap();
     assert!(report.is_optimal());

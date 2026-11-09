@@ -45,7 +45,7 @@ impl NativeEngine {
         let solver = create_solver(configuration.backend.id(), None)?;
         #[cfg(feature = "scip")]
         let solver: Arc<dyn ospf_rust_core::solver::Solver> = if configuration.backend == ospf_rust_bridge::NativeBackend::Scip {
-            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
             Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults()))
         } else { solver };
         let solver: Arc<dyn LinearSolver> = solver;

@@ -84,13 +84,13 @@ exact sums; callers must not reconstruct full objectives by adding already-round
 
 | Sub-package | Description |
 |-------------|-------------|
-| `config` | Solver-specific configuration (COPT, Gurobi, SCIP). |
+| `config` | Solver-specific configuration (COPT, Gurobi; SCIP configuration lives in the plugin crate). |
 | `heuristic` | Metaheuristic framework: lifecycle skeletons, 18 operator families, composition factories, and algorithm entries. |
 | [`hyper_heuristic`](src/solver/hyper_heuristic/README.md) | Selection hyper-heuristics: two-level adaptive credit, native constraints, metered local search and domain ruin/recreate, HV rewards, JSON/YAML/TOML configuration, persistent sessions and schedule replay; see module compatibility boundaries. |
 | `iis` | Irreducible Infeasible Subsystem diagnostics. |
 | `output` | Solver output data structures (feasible/infeasible). |
 | `value` | Value type conversion (IntoValue trait). |
-| `backend` | Feature-gated backend adapters (Gurobi, SCIP). |
+| `backend` | Feature-gated Gurobi adapter; SCIP lives in `ospf-rust-core-plugin-scip`. |
 
 ### model/
 
@@ -139,7 +139,7 @@ The `solver::constraint_programming` module provides:
 
 - **Solver/session SPI**: Trait definitions for CP solver backends.
 - **Fake contract solver**: For testing and small exhaustive oracles.
-- **SCIP integration**: Feature-gated SCIP CP backend (finite MIP-backed facade).
+- **SCIP integration**: Moved to `ospf-rust-core-plugin-scip` (finite MIP-backed facade).
 - **MIP-backed lowering**: Exact lowering for finite integer subsets with verified bounds; returns structured errors for unsupported constraints (`Cumulative`, `Circuit`, `Automaton`, `Reservoir`).
 
 ### Logic-Based Benders
@@ -234,7 +234,7 @@ immutable snapshots, canonical snapshot artifacts, and global constraints such a
 `NoOverlap`. CP domains and objective evaluation use exact `i64` values; the CP path does
 not silently narrow integer semantics to `f64`.
 
-Gurobi and SCIP expose the CP facade through feature-gated, MIP-backed `ExactLowering`.
+Gurobi (core) and SCIP (`ospf-rust-core-plugin-scip`) expose the CP facade through feature-gated, MIP-backed `ExactLowering`.
 This is an exact formulation path with snapshot validation and unified `SolveReport` proof
 checks, not a claim that either backend provides native CP search. Native optional-interval
 trees, incremental CP sessions, and global constraints without an explicit lowering are
@@ -334,7 +334,7 @@ non-replayable. Remote reports/checkpoints preserve schema, run/attempt identity
 parent links, artifact digest, provenance, fingerprints, proof, incumbent, and the
 cancellation chain; unknown schemas or mismatches are rejected before resume.
 
-The exact native backend scope is Gurobi and SCIP. Feature compilation proves wiring
+The exact native backend scope is Gurobi in core and SCIP in `ospf-rust-core-plugin-scip`. Feature compilation proves wiring
 only; native capability requires a matching library, runtime, and license probe. Gurobi
 license failures (including code `10009`) are `LICENSE`; missing libraries are
 `ENVIRONMENT`.
@@ -523,31 +523,29 @@ model.set_linear_objective_input(objective);
 - `nightly`: enable callable solver wrapper (`as_fn`).
 - `gurobi`: alias for `gurobi10`.
 - `gurobi10`, `gurobi11`, `gurobi12`: Gurobi version-specific bindings.
-- `scip`: enable SCIP solver bindings.
-- `scip-bundled`: enable bundled SCIP from `russcip`.
-- `scip-from-source`: build SCIP from source through `russcip`.
-- `scip-quadratic`: enable SCIP quadratic support.
+- `scip`, `scip-bundled`, `scip-from-source`, `scip-quadratic`: compatibility feature names used by core SCIP tests. They forward to the `ospf-rust-core-plugin-scip` dev-dependency; normal consumers should depend on the plugin crate directly.
 
 ## Solver Backends
 
-Rust does not split solver backends into Maven-style modules. Enable each backend through Cargo features on the crate that you depend on.
+Rust keeps the core crate free of solver plugins: Gurobi stays behind core features, while SCIP is an independent `ospf-rust-core-plugin-scip` crate. Enable each backend through Cargo features on the crate that you depend on.
 
 Backend-specific notes:
 
 1. Gurobi: [solver/solvers/gurobi/README.md](src/solver/solvers/gurobi/README.md)
-2. SCIP: [solver/solvers/scip/README.md](src/solver/solvers/scip/README.md)
+2. SCIP: [`ospf-rust-core-plugin-scip`](../core-plugin/scip/README.md)
 
 Common feature examples:
 
 ```toml
 [dependencies]
 ospf-rust-core = { path = "../../core", features = ["gurobi10"] }
-# or
-ospf-rust-core = { path = "../../core", features = ["scip-bundled"] }
+# or, for SCIP
+ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", features = ["scip-bundled"] }
 ```
 
 ```bash
 cargo test -p ospf-rust-core --features gurobi10
+cargo test -p ospf-rust-core-plugin-scip --features scip
 cargo test -p ospf-rust-core --features scip
 cargo test -p ospf-rust-core --features scip-bundled
 ```
@@ -555,10 +553,11 @@ cargo test -p ospf-rust-core --features scip-bundled
 Recommended backend imports:
 
 ```rust,ignore
-use ospf_rust_core::solver::backend::{GurobiSolver, ScipSolver};
+use ospf_rust_core::solver::backend::GurobiSolver;
+use ospf_rust_core_plugin_scip::{SCIPSolver, ScipSolver};
 ```
 
-`SCIPSolver` and `SCIPConfig` are kept as compatibility names. Prefer `ScipSolver` and `ScipConfig` in new Rust code.
+`SCIPSolver` and `SCIPConfig` are kept as compatibility names in the SCIP plugin. Prefer `ScipSolver` and `ScipConfig` in new Rust code.
 
 ## Kotlin-Aligned Public Paths
 

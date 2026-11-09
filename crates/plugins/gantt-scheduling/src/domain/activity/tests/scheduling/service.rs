@@ -258,7 +258,7 @@ fn activity_decimal_service_preserves_native_cost_and_isolates_no_incumbent_conc
 #[cfg(feature = "scip")]
 fn native(input: ActivitySchedulingProblem<f64>) -> SolveReport<ActivitySchedule<f64>> {
     let prepared = prepare(input.clone()).unwrap();
-    let service = ActivitySchedulingApplicationService::new(ospf_rust_framework::solver::scip_extension::ScipColumnGenerationSolver::new());
+    let service = ActivitySchedulingApplicationService::new(ospf_rust_core_plugin_scip::extension::ScipColumnGenerationSolver::new());
     let output = invoke!(service.solve(|| Ok(context(input)), FrameworkSolveOptions::default())).unwrap();
     if let Some(solution) = &output.solution {
         let schedule = solution.value.as_ref().unwrap();

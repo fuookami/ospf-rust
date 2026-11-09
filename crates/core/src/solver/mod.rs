@@ -16,7 +16,7 @@
 //! # 支持的求解器 / Supported Solvers
 //!
 //! - `solvers::gurobi::GurobiSolver` - Gurobi 求解器（需要 `gurobi` feature）
-//! - `solvers::scip::SCIPSolver` - SCIP 求解器（需要 `scip` feature）
+//! - `ospf-rust-core-plugin-scip` - SCIP 求解器（独立 plugin crate）
 //!
 //! # IIS 计算 / IIS Computation
 //!

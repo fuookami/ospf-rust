@@ -58,12 +58,6 @@ pub use solver::{
     GurobiLinearBendersDecompositionSolver,
 };
 
-#[cfg(feature = "scip")]
-pub use solver::{
-    ScipColumnGenerationSolver, ScipLinearBendersDecompositionSolver,
-    ScipQuadraticBendersDecompositionSolver,
-};
-
 // 日志初始化 / Log initialization
 #[cfg(feature = "async")]
 pub fn init_logging() {

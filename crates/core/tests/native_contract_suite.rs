@@ -281,8 +281,8 @@ fn gurobi_uses_the_shared_native_contract_suite() {
 #[cfg(feature = "scip")]
 #[test]
 fn scip_uses_the_shared_native_contract_suite() {
-    use ospf_rust_core::solver::solvers::SCIPSolver;
-    use ospf_rust_core::solvers::scip::SCIPConfig;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
+    use ospf_rust_core_plugin_scip::SCIPConfig;
 
     let solver = SCIPSolver::with_config(
         SCIPConfig::recommended_lp_subproblem_defaults().with_output(false),

@@ -97,7 +97,7 @@
     #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
     #[test]
     fn actual_scip_report_backend_preserves_bpp3d_lp_certificates_generation_refresh_and_final_reports() {
-        use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+        use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
         run_actual_report_backend(std::sync::Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults())));
     }
 

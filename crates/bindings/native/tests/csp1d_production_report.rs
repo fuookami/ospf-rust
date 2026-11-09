@@ -122,7 +122,7 @@ fn execution_contract(backend: ospf_rust_bridge::NativeBackend) {
 #[cfg(feature = "scip")]
 #[test]
 fn real_scip_production_matches_the_actual_integer_child_for_milp_and_column_generation() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     contract(Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults())), "scip");
     execution_contract(ospf_rust_bridge::NativeBackend::Scip);
 }

@@ -249,7 +249,8 @@ fn allocation_affine_units_never_panic_and_linear_temperature_differences_remain
 #[cfg(feature = "scip")]
 #[test]
 fn scip_allocation_service_executes_split_orders_compatibility_and_shared_quotas() {
-    use ospf_rust_core::solver::{ProblemStatus, solvers::SCIPSolver};
+    use ospf_rust_core::solver::ProblemStatus;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
     use crate::application::AllocationApplicationService;
     let original = problem();
     let service = AllocationApplicationService::new(SCIPSolver::new());

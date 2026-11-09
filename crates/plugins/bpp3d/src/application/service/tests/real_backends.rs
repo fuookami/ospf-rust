@@ -108,8 +108,8 @@
     #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
     #[test]
     fn csv_materialized_runs_real_scip_backend_smoke() {
-        use ospf_rust_core::solver::solvers::scip::SCIPConfig;
-        use ospf_rust_framework::solver::ScipColumnGenerationSolver;
+        use ospf_rust_core_plugin_scip::SCIPConfig;
+        use ospf_rust_core_plugin_scip::ScipColumnGenerationSolver;
 
         let request = real_solver_smoke_request();
         let service = ColumnGenerationApplicationService::new(ColumnGenerationConfig::default());
@@ -160,8 +160,8 @@
     #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
     #[test]
     fn fixture_suite_runs_real_scip_backend_smoke() {
-        use ospf_rust_core::solver::solvers::scip::SCIPConfig;
-        use ospf_rust_framework::solver::ScipColumnGenerationSolver;
+        use ospf_rust_core_plugin_scip::SCIPConfig;
+        use ospf_rust_core_plugin_scip::ScipColumnGenerationSolver;
 
         let config = SCIPConfig::new()
             .with_output(false)
@@ -188,8 +188,8 @@
     #[cfg(all(feature = "serde", feature = "scip", not(feature = "async")))]
     #[test]
     fn fixture_suite_runs_real_scip_full_manifest() {
-        use ospf_rust_core::solver::solvers::scip::SCIPConfig;
-        use ospf_rust_framework::solver::ScipColumnGenerationSolver;
+        use ospf_rust_core_plugin_scip::SCIPConfig;
+        use ospf_rust_core_plugin_scip::ScipColumnGenerationSolver;
 
         let config = SCIPConfig::new()
             .with_output(false)

@@ -8,15 +8,5 @@ pub mod gurobi {
     pub use crate::solver::solvers::gurobi::*;
 }
 
-#[cfg(feature = "scip")]
-pub mod scip {
-    //! SCIP 原生后端入口 / SCIP native backend entry point.
-
-    pub use crate::solver::solvers::scip::*;
-}
-
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 pub use gurobi::*;
-
-#[cfg(feature = "scip")]
-pub use scip::*;

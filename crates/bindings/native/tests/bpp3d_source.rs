@@ -150,7 +150,7 @@ fn infeasible_final_contract(solver: Arc<dyn LinearSolver>) {
 #[cfg(feature = "scip")]
 #[test]
 fn scip_runs_original_grouped_flow_from_source_artifact() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     let solver = Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults()));
     solve(solver.clone());
     stage_contract(solver.clone());

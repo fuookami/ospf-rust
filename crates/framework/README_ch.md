@@ -195,7 +195,7 @@ fn run_column_generation<S: ColumnGenerationSolver>(
 - `big-rational`：启用 `BigRational` `MetaModel` value type 支持。
 - `big-decimal`：启用 `BigDecimal` `MetaModel` value type 支持。
 - `gurobi`、`gurobi10`、`gurobi11`、`gurobi12`：通过 core 启用 Gurobi backend。
-- `scip`、`scip-bundled`、`scip-from-source`、`scip-quadratic`：通过 core 启用 SCIP backend。
+- `scip`、`scip-bundled`、`scip-from-source`、`scip-quadratic`：SCIP 测试兼容 feature，转发到 `ospf-rust-core-plugin-scip` dev-dependency；正常使用请直接依赖插件 crate。
 - `persistence*`：启用 persistence contract 和 backend-specific translator。
 - `remote-solver`：启用 async remote solver domain model、port、client orchestration、local object storage 和 model serializer。
 - `remote-solver-http-reqwest`：启用基于 reqwest 的 HTTP transport。
@@ -266,17 +266,17 @@ theta box 下界、固定 anchor 后的 RHS 和源目标也使用精确二进制
 舍入、候选解目标向上舍入。RHS 无法精确表示为有限 f64 时，在求解不同系统前以
 Unsupported 停止。
 
-framework backend adapter 只有在 `ospf-rust-framework` 上启用对应 feature 时才会编译，并且该 feature 会透传到 `ospf-rust-core`。
+Gurobi framework adapter 只有在 `ospf-rust-framework` 上启用对应 feature 时才会编译，并且该 feature 会透传到 `ospf-rust-core`。SCIP adapter 与 framework 扩展已迁移到 `ospf-rust-core-plugin-scip`。
 
 framework 扩展入口：
 
 1. `src/solver/gurobi_extension.rs`
-2. `src/solver/scip_extension.rs`
+2. `ospf-rust-core-plugin-scip`: `src/extension.rs`（SCIP 列生成与 Benders）
 
-core backend 准备说明：
+backend 准备说明：
 
 1. Gurobi: [`../core/src/solver/solvers/gurobi/README_ch.md`](../core/src/solver/solvers/gurobi/README_ch.md)
-2. SCIP: [`../core/src/solver/solvers/scip/README_ch.md`](../core/src/solver/solvers/scip/README_ch.md)
+2. SCIP: [`../core-plugin/scip/README_ch.md`](../core-plugin/scip/README_ch.md)
 
 对于 LP 和可线性化子问题，framework 优先使用后端返回且一致的 row dual/Farkas certificate。对于真实二次子问题，后端对完整 dual/Farkas certificate 的支持有限，因此可能返回结果但无法生成完整 quadratic Benders cut。
 

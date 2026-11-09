@@ -12,7 +12,7 @@ use super::{
 use crate::error::{CoreError, Result, SolverError};
 use crate::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
 
-pub(crate) fn emit_progress_start(
+pub fn emit_progress_start(
     reporter: Option<&SolveProgressReporter>,
     solver_name: &str,
 ) -> Result<()> {
@@ -37,8 +37,7 @@ pub(crate) fn emit_progress_start(
     reporter(&snapshot)
 }
 
-#[cfg(any(feature = "scip", feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-pub(crate) fn emit_progress_update(
+pub fn emit_progress_update(
     reporter: &SolveProgressReporter,
     solver_name: &str,
     elapsed: std::time::Duration,
@@ -62,7 +61,7 @@ pub(crate) fn emit_progress_update(
         .unwrap_or_else(|_| Err(CoreError::callback_error(format!("{} progress callback panicked", solver_name))))
 }
 
-pub(crate) fn validate_per_solve_limits(options: &super::SolveOptions<'_>) -> Result<()> {
+pub fn validate_per_solve_limits(options: &super::SolveOptions<'_>) -> Result<()> {
     if options.time_limit.is_some_and(|limit| limit.is_zero()) {
         return Err(CoreError::Solver(SolverError::InvalidInput(
             "per-solve time limit must be positive".to_owned(),
@@ -78,7 +77,7 @@ pub(crate) fn validate_per_solve_limits(options: &super::SolveOptions<'_>) -> Re
     Ok(())
 }
 
-pub(crate) fn emit_progress_terminal(
+pub fn emit_progress_terminal(
     reporter: Option<&SolveProgressReporter>,
     solver_name: &str,
     report: &SolveReport<f64>,

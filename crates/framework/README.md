@@ -203,7 +203,7 @@ The same pattern is available for linear/quadratic MetaModel solver extensions a
 - `big-rational`: enable `BigRational` `MetaModel` value type support.
 - `big-decimal`: enable `BigDecimal` `MetaModel` value type support.
 - `gurobi`, `gurobi10`, `gurobi11`, `gurobi12`: enable Gurobi backend forwarding through core.
-- `scip`, `scip-bundled`, `scip-from-source`, `scip-quadratic`: enable SCIP backend forwarding through core.
+- `scip`, `scip-bundled`, `scip-from-source`, `scip-quadratic`: SCIP test compatibility features. They forward to the `ospf-rust-core-plugin-scip` dev-dependency; normal consumers should depend on the plugin crate directly.
 - `persistence*`: enable persistence contracts and backend-specific translators.
 - `remote-solver`: enable async remote solver domain models, ports, client orchestration, local object storage, and model serializers.
 - `remote-solver-http-reqwest`: enable reqwest-based HTTP transport.
@@ -284,17 +284,17 @@ Theta box lower bounds, anchored RHS values and source objectives use exact bina
 arithmetic too. Lower bounds round down and incumbent objectives round up. An anchored RHS that
 cannot be represented exactly as finite f64 stops Unsupported before solving a different system.
 
-Framework backend adapters are compiled only when their feature is enabled on `ospf-rust-framework`, and the feature is forwarded to `ospf-rust-core`.
+The Gurobi framework adapter is compiled only when its feature is enabled on `ospf-rust-framework`, and the feature is forwarded to `ospf-rust-core`. The SCIP adapter and framework extension moved to `ospf-rust-core-plugin-scip`.
 
 Framework extensions are in:
 
 1. `src/solver/gurobi_extension.rs`
-2. `src/solver/scip_extension.rs`
+2. `ospf-rust-core-plugin-scip`: `src/extension.rs` (SCIP column generation and Benders)
 
-Core backend setup details:
+Backend setup details:
 
 1. Gurobi: [`../core/src/solver/solvers/gurobi/README.md`](../core/src/solver/solvers/gurobi/README.md)
-2. SCIP: [`../core/src/solver/solvers/scip/README.md`](../core/src/solver/solvers/scip/README.md)
+2. SCIP: [`../core-plugin/scip/README.md`](../core-plugin/scip/README.md)
 
 For LP and linearized subproblems, framework first uses backend-provided row duals/Farkas certificates when they are present and consistent. For true quadratic subproblems, backend support for complete dual/Farkas certificates is limited, so a result may be returned without a complete quadratic Benders cut.
 

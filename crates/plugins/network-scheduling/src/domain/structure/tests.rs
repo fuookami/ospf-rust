@@ -294,7 +294,8 @@ fn infeasible_problems() -> Vec<NetworkStructureProblem<f64>> {
 #[cfg(feature = "scip")]
 #[test]
 fn scip_structure_service_executes_steiner_coverage_and_valid_infeasibility() {
-    use ospf_rust_core::solver::{ProblemStatus, solvers::SCIPSolver};
+    use ospf_rust_core::solver::ProblemStatus;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
     use crate::application::NetworkStructureApplicationService;
     let service = NetworkStructureApplicationService::new(SCIPSolver::new());
     let report = service.solve(&problem()).unwrap();

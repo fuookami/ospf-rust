@@ -18,10 +18,10 @@ big-decimal = ["dep:bigdecimal", "ospf-rust-core/big-decimal", "ospf-rust-framew
 gurobi10 = ["ospf-rust-core/gurobi10", "ospf-rust-framework/gurobi10", "ospf-rust-framework-gantt-scheduling/gurobi10"]
 gurobi11 = ["ospf-rust-core/gurobi11", "ospf-rust-framework/gurobi11", "ospf-rust-framework-gantt-scheduling/gurobi11"]
 gurobi12 = ["ospf-rust-core/gurobi12", "ospf-rust-framework/gurobi12", "ospf-rust-framework-gantt-scheduling/gurobi12"]
-scip = ["ospf-rust-core/scip", "ospf-rust-framework/scip", "ospf-rust-framework-gantt-scheduling/scip"]
-scip-bundled = ["scip", "ospf-rust-core/scip-bundled", "ospf-rust-framework/scip-bundled", "ospf-rust-framework-gantt-scheduling/scip-bundled"]
-scip-from-source = ["scip", "ospf-rust-core/scip-from-source", "ospf-rust-framework/scip-from-source", "ospf-rust-framework-gantt-scheduling/scip-from-source"]
-scip-quadratic = ["scip", "ospf-rust-core/scip-quadratic", "ospf-rust-framework/scip-quadratic"]
+scip = ["ospf-rust-core-plugin-scip/scip"]
+scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
+scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
+scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]
 
 [dependencies]
 ospf-rust-base = { path = "../../base", version = "1.1.0" }
@@ -39,3 +39,4 @@ time = { version = "0.3.55", features = ["std", "macros"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "sync", "time"], optional = true }
 
 [dev-dependencies]
+ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", version = "1.1.0" }

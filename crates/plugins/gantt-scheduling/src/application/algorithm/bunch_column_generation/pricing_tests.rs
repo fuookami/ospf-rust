@@ -264,7 +264,7 @@ fn bunch_scope_replay_and_malformed_candidates_are_rejected() {
 #[ignore = "需要真实 SCIP 运行时 / requires the actual SCIP runtime"]
 fn native_scip_bunch_lp_supplies_signed_complete_pricing_evidence() {
     let (mut model, previous) = fixture(complete);
-    let solver = ospf_rust_framework::ScipColumnGenerationSolver::new().with_lp_subproblem_defaults();
+    let solver = ospf_rust_core_plugin_scip::ScipColumnGenerationSolver::new().with_lp_subproblem_defaults();
     let mut algorithm = BunchBranchAndPriceAlgorithm::new(previous.context, solver, previous.policy,
         vec![ExecutorId::from("e")], ColumnGenerationPolicy::default());
     assert!(algorithm.solve_rmp_lp(&mut model).unwrap().is_some());

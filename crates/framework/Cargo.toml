@@ -55,7 +55,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["json", "r
 default = []
 serde = ["dep:serde", "dep:serde_json", "ospf-rust-core/serde"]
 experiment = ["serde", "dep:serde_json"]
-async = ["dep:tokio"]
+async = ["dep:tokio", "ospf-rust-core-plugin-scip/async"]
 nightly = ["ospf-rust-core/nightly"]
 big-rational = ["ospf-rust-core/big-rational"]
 big-decimal = ["ospf-rust-core/big-decimal"]
@@ -68,15 +68,14 @@ gurobi10 = ["ospf-rust-core/gurobi10"]
 gurobi11 = ["ospf-rust-core/gurobi11"]
 gurobi12 = ["ospf-rust-core/gurobi12"]
 
-# 启用 SCIP 求解器 / Enable SCIP solver
-scip = ["ospf-rust-core/scip"]
-# 启用 bundled SCIP（自动下载预构建 SCIP）/ Enable bundled SCIP (auto-download prebuilt SCIP)
-scip-bundled = ["scip", "ospf-rust-core/scip-bundled"]
-# 启用 from-source SCIP（本地源码编译 SCIP）/ Enable from-source SCIP (build SCIP locally)
-scip-from-source = ["scip", "ospf-rust-core/scip-from-source"]
-
-# SCIP 二次规划支持 / SCIP quadratic programming support
-scip-quadratic = ["scip", "ospf-rust-core/scip-quadratic"]
+# SCIP 扩展与核心适配器已迁移到 `ospf-rust-core-plugin-scip`；framework 仅保留
+# feature 名供测试与下游兼容，通过 dev-dependency 使用插件 crate。
+# SCIP extensions and the core adapter moved to `ospf-rust-core-plugin-scip`; framework keeps
+# the feature names for tests/downstream compatibility and uses the plugin as a dev-dependency.
+scip = []
+scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
+scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
+scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]
 
 # 持久化支持 / Persistence support
 persistence = []
@@ -121,5 +120,6 @@ remote-solver = ["dep:tokio", "remote-codec"]
 remote-solver-http-reqwest = ["remote-solver", "dep:reqwest"]
 
 [dev-dependencies]
+ospf-rust-core-plugin-scip = { path = "../core-plugin/scip" }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
 sea-orm = { version = "2.0.2", default-features = false, features = ["macros", "mock"] }

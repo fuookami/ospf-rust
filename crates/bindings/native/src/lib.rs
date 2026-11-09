@@ -2337,7 +2337,7 @@ impl NativeEngine {
                     // 子问题单步同样不需要 cut 生成上下文：桥接交出对偶，cut 由调用方以数据在下一轮 master 给出。
                     // The subproblem step likewise needs no cut-generation context: the bridge hands out the duals and the
                     // caller supplies the cut as data in the next master round.
-                    use ospf_rust_framework::solver::scip_extension::ScipLinearBendersDecompositionSolver;
+                    use ospf_rust_core_plugin_scip::extension::ScipLinearBendersDecompositionSolver;
                     let report = ospf_rust_bridge::solve_benders_sub(
                         &ScipLinearBendersDecompositionSolver::new(), &request.model, &master_solution)?;
                     let json = serde_json::to_string(&report)
@@ -2359,7 +2359,7 @@ impl NativeEngine {
                     // 二次主问题与线性侧对称：cuts 由调用方以数据给出，不需要 cut 生成上下文。
                     // The quadratic master is symmetric with the linear side: cuts arrive as data and no cut-generation
                     // context is needed.
-                    use ospf_rust_framework::solver::scip_extension::ScipQuadraticBendersDecompositionSolver;
+                    use ospf_rust_core_plugin_scip::extension::ScipQuadraticBendersDecompositionSolver;
                     let report = ospf_rust_bridge::solve_benders_quadratic_master(
                         &ScipQuadraticBendersDecompositionSolver::new(), &request.model, &linear_cuts,
                         &quadratic_cuts)?;
@@ -2380,7 +2380,7 @@ impl NativeEngine {
                 {
                     // 主问题单步只需要已绑定的 Benders 求解器，不需要 cut 生成上下文。
                     // The master single step needs only a bound Benders solver, not a cut-generation context.
-                    use ospf_rust_framework::solver::scip_extension::ScipLinearBendersDecompositionSolver;
+                    use ospf_rust_core_plugin_scip::extension::ScipLinearBendersDecompositionSolver;
                     let report = ospf_rust_bridge::solve_benders_master(
                         &ScipLinearBendersDecompositionSolver::new(), &request.model, &cuts)?;
                     let json = serde_json::to_string(&report)
@@ -2487,7 +2487,7 @@ impl NativeEngine {
                     }
                     #[cfg(feature = "scip")]
                     if backend.as_str() == "scip" {
-                        use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                        use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                         return run(SCIPSolver::with_config(SCIPConfig::default().with_output(false)), instance.clone(),
                             options.time_limit, search.clone(), gap);
                     }
@@ -2521,7 +2521,7 @@ impl NativeEngine {
                         ospf_rust_framework_network_scheduling::NetworkSchedulingError> = match backend.as_str() {
                         #[cfg(feature = "scip")]
                         "scip" => {
-                            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                             NetworkApplicationService::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false)))
                                 .solve(|| NetworkResilienceContext::new(domain, "network-resilience"), &planning)
                         }
@@ -2562,7 +2562,7 @@ impl NativeEngine {
                         ospf_rust_framework_network_scheduling::NetworkSchedulingError> = match backend.as_str() {
                         #[cfg(feature = "scip")]
                         "scip" => {
-                            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                             NetworkApplicationService::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false)))
                                 .solve(|| AllocationContext::new(domain, "network-allocation"), &planning)
                         }
@@ -2606,7 +2606,7 @@ impl NativeEngine {
                         ospf_rust_framework_network_scheduling::NetworkSchedulingError> = match backend.as_str() {
                         #[cfg(feature = "scip")]
                         "scip" => {
-                            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                             NetworkApplicationService::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false)))
                                 .solve(|| NetworkStructureContext::new(domain, "network-structure"), &planning)
                         }
@@ -2647,7 +2647,7 @@ impl NativeEngine {
                         ospf_rust_framework_network_scheduling::NetworkSchedulingError> = match backend.as_str() {
                         #[cfg(feature = "scip")]
                         "scip" => {
-                            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                             NetworkApplicationService::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false)))
                                 .solve(|| NetworkDesignContext::new(domain, "network-design"), &planning)
                         }
@@ -2691,7 +2691,7 @@ impl NativeEngine {
                         ospf_rust_framework_network_scheduling::NetworkSchedulingError> = match backend.as_str() {
                         #[cfg(feature = "scip")]
                         "scip" => {
-                            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                             NetworkApplicationService::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false)))
                                 .solve(|| GeneralizedFlowContext::new(domain, "generalized-flow"), &planning)
                         }
@@ -2744,7 +2744,7 @@ impl NativeEngine {
                         ospf_rust_framework_network_scheduling::NetworkSchedulingError> = match backend.as_str() {
                         #[cfg(feature = "scip")]
                         "scip" => {
-                            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+                            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
                             NetworkApplicationService::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false)))
                                 .solve(|| Ok(FlowContext::new(domain)), &planning)
                         }
@@ -3041,8 +3041,8 @@ fn create_cp_solver(id: &str) -> Result<Arc<dyn ConstraintProgrammingSolver>> {
     match id {
         #[cfg(feature = "scip")]
         "scip" => {
-            use ospf_rust_core::solver::constraint_programming::ScipConstraintProgrammingSolver;
-            use ospf_rust_core::solver::solvers::scip::SCIPConfig;
+            use ospf_rust_core_plugin_scip::ScipConstraintProgrammingSolver;
+            use ospf_rust_core_plugin_scip::SCIPConfig;
             Ok(Arc::new(ScipConstraintProgrammingSolver::with_config(SCIPConfig::default().with_output(false))))
         }
         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
@@ -3059,7 +3059,7 @@ fn create_solver(id: &str, tuning: Option<&SolverTuningOptions>) -> Result<Arc<d
     match id {
         #[cfg(feature = "scip")]
         "scip" => {
-            use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+            use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
             let mut config = SCIPConfig::default().with_output(false);
             if let Some(tuning) = tuning {
                 if let Some(threads) = tuning.threads { config = config.with_threads(threads as i32); }
@@ -3383,7 +3383,7 @@ mod tests {
         use ospf_rust_core::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
         use ospf_rust_core::model::ObjectiveCategory;
         use ospf_rust_core::solver::{ProgressValue, SolveProgressSnapshot};
-        use ospf_rust_core::solver::solvers::scip::{PresolvingMode, SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPSolver};
+        use ospf_rust_core_plugin_scip::{PresolvingMode, SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPSolver};
         use ospf_rust_core::token::Token;
         use ospf_rust_core::variable::{BinaryVariableItem, VariableId, VariableType};
         use std::sync::atomic::{AtomicBool, Ordering};

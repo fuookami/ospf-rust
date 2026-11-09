@@ -293,7 +293,7 @@ mod native {
     #[cfg(feature = "scip")]
     #[test]
     fn scip_fixed_recourse_optimal_dual_and_farkas_are_independent_gates() {
-        use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+        use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
         verify(&SCIPSolver::with_config(SCIPConfig::new().with_lp_subproblem_defaults().with_output(false)));
     }
 

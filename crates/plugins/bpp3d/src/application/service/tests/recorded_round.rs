@@ -249,7 +249,7 @@ fn recorded_actual_round(solver: std::sync::Arc<dyn ospf_rust_core::solver::Line
 #[cfg(all(feature = "scip", not(feature = "async")))]
 #[test]
 fn recorded_scip_round_keeps_actual_generated_block_and_failure_evidence() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     recorded_actual_round(std::sync::Arc::new(SCIPSolver::with_config(
         SCIPConfig::default().with_output(false).with_lp_subproblem_defaults(),
     )));

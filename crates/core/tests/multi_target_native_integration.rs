@@ -87,8 +87,8 @@ fn gurobi_native_cp_adapter_runs_multi_target_analysis_and_recommendations() {
 #[cfg(feature = "scip")]
 #[test]
 fn scip_native_cp_adapter_runs_multi_target_analysis_and_recommendations() {
-    use ospf_rust_core::solver::constraint_programming::ScipConstraintProgrammingSolver;
-    use ospf_rust_core::solver::solvers::scip::SCIPConfig;
+    use ospf_rust_core_plugin_scip::ScipConstraintProgrammingSolver;
+    use ospf_rust_core_plugin_scip::SCIPConfig;
 
     let solver = ScipConstraintProgrammingSolver::with_config(
         SCIPConfig::recommended_lp_subproblem_defaults().with_output(false),

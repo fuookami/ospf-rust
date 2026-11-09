@@ -335,7 +335,7 @@ fn extension_factory_creates_distinct_model_bound_objects_for_full_lifecycle() {
 #[test]
 #[ignore = "需要本机 SCIP runtime / requires a native SCIP runtime"]
 fn scip_extension_rows_run_through_both_phases_and_prove_infeasible_usage() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
 
     for (lower, upper, feasible) in [
         (None, Some(-1.0), true),

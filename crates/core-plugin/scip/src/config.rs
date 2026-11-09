@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use russcip::EventMask;
 
-use crate::solver::SolverConfig;
+use ospf_rust_core::solver::SolverConfig;
 
 use super::{
     SCIPNativeCallback, SCIPNativeObserver, SCIPSnapshotObserver, SCIPStage, SCIPStageCallback,

@@ -222,7 +222,8 @@ fn parallel_arcs_support_disjoint_paths_while_self_loops_do_not_create_a_witness
 #[cfg(feature = "scip")]
 #[test]
 fn scip_design_and_resilience_services_validate_real_optima_and_hard_lower_infeasibility() {
-    use ospf_rust_core::solver::{ProblemStatus, solvers::SCIPSolver};
+    use ospf_rust_core::solver::ProblemStatus;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
     use crate::application::{NetworkDesignApplicationService, NetworkResilienceApplicationService};
     let report = NetworkDesignApplicationService::new(SCIPSolver::new()).solve(&problem(0.0, 2.0)).unwrap();
     assert!(report.is_optimal());

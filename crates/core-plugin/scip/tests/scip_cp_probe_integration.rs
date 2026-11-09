@@ -1,5 +1,3 @@
-#![cfg(feature = "scip")]
-
 //! SCIP CP binding probes. / SCIP CP 绑定探针。
 //!
 //! These tests deliberately use the `russcip 0.9.1` surface directly.  They are
@@ -18,11 +16,10 @@ use ospf_rust_core::model::constraint_programming::{
     IntegerDomain, IntegerExpression, IntegerRelation, IntegerVariable,
 };
 use ospf_rust_core::model::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
-use ospf_rust_core::solver::constraint_programming::{
-    ConstraintProgrammingSolver, ScipConstraintProgrammingSolver,
-};
-use ospf_rust_core::solver::solvers::scip::{
+use ospf_rust_core::solver::constraint_programming::ConstraintProgrammingSolver;
+use ospf_rust_core_plugin_scip::{
     SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPNativeWhere, SCIPSolver,
+    ScipConstraintProgrammingSolver,
 };
 use ospf_rust_core::solver::{
     LinearSolver, ProblemStatus, SolveHandle, StableVariableId, TerminationReason,

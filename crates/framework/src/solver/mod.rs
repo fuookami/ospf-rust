@@ -11,7 +11,7 @@
 //! - [`ParallelCombinatorialLinearSolver`] - 并行组合线性求解器
 //! - [`SerialCombinatorialLinearSolver`] - 串行组合线性求解器
 //! - [`LinearBendersDecompositionSolver`] - 线性 Benders 分解求解器
-//! - `Gurobi*` / `Scip*` - 插件风格扩展求解器接口实现
+//! - `Gurobi*` - Gurobi 扩展求解器接口实现；SCIP 扩展位于 `ospf-rust-core-plugin-scip`
 
 #![allow(unused_imports)]
 
@@ -21,13 +21,8 @@ pub mod benders_decomposition;
 pub mod column_generation;
 pub mod column_generation_solver;
 pub mod column_projection;
-#[cfg(any(
-    feature = "scip",
-    feature = "gurobi10",
-    feature = "gurobi11",
-    feature = "gurobi12"
-))]
-mod core_extensions;
+#[doc(hidden)]
+pub mod core_extensions;
 pub mod experiment;
 pub mod fixed_recourse;
 pub mod framework_async;
@@ -71,9 +66,6 @@ pub mod serial_quadratic;
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 pub mod gurobi_extension;
 
-#[cfg(feature = "scip")]
-pub mod scip_extension;
-
 pub use benders_decomposition::CutSense;
 pub use column_generation_solver::*;
 pub use column_projection::*;
@@ -107,6 +99,3 @@ pub use serial_combinatorial_quadratic_solver::*;
 
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 pub use gurobi_extension::*;
-
-#[cfg(feature = "scip")]
-pub use scip_extension::*;

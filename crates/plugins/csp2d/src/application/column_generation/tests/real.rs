@@ -114,7 +114,7 @@ fn real_workflows(solver: Arc<dyn LinearSolver>) {
 #[cfg(any(feature = "scip", feature = "scip-bundled", feature = "scip-from-source"))]
 #[test]
 fn real_scip_runs_phase_one_recovery_inventory_pricing_integer_reports_and_original_shelf() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     real_workflows(Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults())));
 }
 

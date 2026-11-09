@@ -39,7 +39,7 @@ use super::{CutSense, FrameworkSolveOptions};
 
 /// Benders 割生成上下文 / Benders cut generation context
 #[derive(Debug, Clone)]
-pub(crate) struct BendersCutContext {
+pub struct BendersCutContext {
     /// 割模板机理模型 / Cut-template mechanism model
     pub mechanism_model: MechanismModel<f64>,
     /// 最优性割目标变量 / Optimality-cut objective variable
@@ -833,7 +833,7 @@ fn promote_linear_cuts_to_quadratic(
 
 /// 基于 core `Solver` 的列生成适配器 / Column-generation adapter backed by core `Solver`
 #[derive(Debug)]
-pub(crate) struct CoreColumnGenerationAdapter<S>
+pub struct CoreColumnGenerationAdapter<S>
 where
     S: Solver + SolverExt + Send + Sync,
 {
@@ -845,18 +845,18 @@ impl<S> CoreColumnGenerationAdapter<S>
 where
     S: Solver + SolverExt + Send + Sync,
 {
-    pub(crate) fn new(name: impl Into<String>, solver: S) -> Self {
+    pub fn new(name: impl Into<String>, solver: S) -> Self {
         Self {
             name: name.into(),
             solver,
         }
     }
 
-    pub(crate) fn solver(&self) -> &S {
+    pub fn solver(&self) -> &S {
         &self.solver
     }
 
-    pub(crate) fn solver_mut(&mut self) -> &mut S {
+    pub fn solver_mut(&mut self) -> &mut S {
         &mut self.solver
     }
 
@@ -1149,7 +1149,7 @@ where
 
 /// 基于 core `Solver` 的线性 Benders 适配器 / Linear Benders adapter backed by core `Solver`
 #[derive(Debug)]
-pub(crate) struct CoreLinearBendersAdapter<S>
+pub struct CoreLinearBendersAdapter<S>
 where
     S: Solver + SolverExt + Send + Sync,
 {
@@ -1162,7 +1162,7 @@ impl<S> CoreLinearBendersAdapter<S>
 where
     S: Solver + SolverExt + Send + Sync,
 {
-    pub(crate) fn new(name: impl Into<String>, solver: S) -> Self {
+    pub fn new(name: impl Into<String>, solver: S) -> Self {
         Self {
             name: name.into(),
             solver,
@@ -1170,16 +1170,16 @@ where
         }
     }
 
-    pub(crate) fn with_cut_context(mut self, context: BendersCutContext) -> Self {
+    pub fn with_cut_context(mut self, context: BendersCutContext) -> Self {
         self.cut_context = Some(context);
         self
     }
 
-    pub(crate) fn solver(&self) -> &S {
+    pub fn solver(&self) -> &S {
         &self.solver
     }
 
-    pub(crate) fn solver_mut(&mut self) -> &mut S {
+    pub fn solver_mut(&mut self) -> &mut S {
         &mut self.solver
     }
 
@@ -1483,7 +1483,7 @@ where
 
 /// 基于 core `Solver` 的二次 Benders 适配器 / Quadratic Benders adapter backed by core `Solver`
 #[derive(Debug)]
-pub(crate) struct CoreQuadraticBendersAdapter<S>
+pub struct CoreQuadraticBendersAdapter<S>
 where
     S: Solver + SolverExt + Send + Sync,
 {
@@ -1496,7 +1496,7 @@ impl<S> CoreQuadraticBendersAdapter<S>
 where
     S: Solver + SolverExt + Send + Sync,
 {
-    pub(crate) fn new(name: impl Into<String>, solver: S) -> Self {
+    pub fn new(name: impl Into<String>, solver: S) -> Self {
         Self {
             name: name.into(),
             solver,
@@ -1504,16 +1504,16 @@ where
         }
     }
 
-    pub(crate) fn with_cut_context(mut self, context: BendersCutContext) -> Self {
+    pub fn with_cut_context(mut self, context: BendersCutContext) -> Self {
         self.cut_context = Some(context);
         self
     }
 
-    pub(crate) fn solver(&self) -> &S {
+    pub fn solver(&self) -> &S {
         &self.solver
     }
 
-    pub(crate) fn solver_mut(&mut self) -> &mut S {
+    pub fn solver_mut(&mut self) -> &mut S {
         &mut self.solver
     }
 

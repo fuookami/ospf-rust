@@ -91,13 +91,7 @@ impl SolverStatus {
         )
     }
 
-    #[cfg(any(
-        feature = "scip",
-        feature = "gurobi10",
-        feature = "gurobi11",
-        feature = "gurobi12"
-    ))]
-    pub(crate) fn can_extract_incumbent(&self) -> bool {
+    pub fn can_extract_incumbent(&self) -> bool {
         self.is_feasible() || matches!(self, SolverStatus::UserInterrupt)
     }
 

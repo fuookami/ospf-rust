@@ -23,10 +23,10 @@ const INLINE_SOLOMON: &str = "C101\nVEHICLE\nNUMBER CAPACITY\n2 2\nCUSTOMER\nCUS
 #[cfg(feature = "demo5-scip-bp")]
 pub fn run() -> Result<(), Box<dyn Error>> {
     let config =
-        ospf_rust_core::solver::solvers::scip::SCIPConfig::recommended_lp_subproblem_defaults()
+        ospf_rust_core_plugin_scip::SCIPConfig::recommended_lp_subproblem_defaults()
             .with_output(false);
     run_with_solver(
-        ospf_rust_core::solver::solvers::SCIPSolver::with_config(config),
+        ospf_rust_core_plugin_scip::SCIPSolver::with_config(config),
         demo5_input(),
     )
 }
@@ -413,7 +413,7 @@ mod scip_tests {
     use super::*;
     use crate::framework::demo5::infrastructure::{first25_instance, native_solver_available};
     use ospf_rust_core::solver::ProblemStatus;
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     use std::time::Duration;
 
     #[test]

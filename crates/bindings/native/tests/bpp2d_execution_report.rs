@@ -122,7 +122,7 @@ fn engine_contract(backend: NativeBackend) {
 #[cfg(feature = "scip")]
 #[test]
 fn real_scip_full_execution_codec_revalidates_source_pricing_and_production() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     contract(Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults())), NativeBackend::Scip);
     engine_contract(NativeBackend::Scip);
 }

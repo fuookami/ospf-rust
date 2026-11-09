@@ -10,7 +10,7 @@ use std::time::Duration;
 #[cfg(feature = "demo5-scip-bp")]
 use ospf_rust_core::solver::ProblemStatus;
 #[cfg(feature = "demo5-scip-bp")]
-use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
 #[cfg(feature = "demo5-scip-bp")]
 use ospf_rust_example::framework::demo5::application::solve_instance;
 #[cfg(feature = "demo5-scip-bp")]

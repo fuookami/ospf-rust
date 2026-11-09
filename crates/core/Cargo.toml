@@ -56,9 +56,6 @@ rand = { version = "0.10.2", optional = true }
 # Note: Using Gurobi requires installing Gurobi software and valid license
 grb = { version = "3.0.1", optional = true }
 
-# SCIP Rust 绑定（兼容 SCIP 9.x）/ SCIP Rust binding (SCIP 9.x compatible)
-russcip = { version = "0.9.1", optional = true }
-
 [features]
 default = []
 # 兼容保留：serde 相关派生已常开，该特性不再控制依赖开关。
@@ -81,16 +78,16 @@ gurobi11 = ["dep:grb", "grb/gurobi11"]
 # 使用 Gurobi 12.x / Use Gurobi 12.x
 gurobi12 = ["dep:grb", "grb/gurobi12"]
 
-# 启用 SCIP 求解器 / Enable SCIP solver
-scip = ["dep:russcip"]
-# 启用 bundled SCIP（自动下载预构建 SCIP）/ Enable bundled SCIP (auto-download prebuilt SCIP)
-scip-bundled = ["scip", "russcip/bundled"]
-# 启用 from-source SCIP（本地源码编译 SCIP）/ Enable from-source SCIP (build SCIP locally)
-scip-from-source = ["scip", "russcip/from-source"]
-
-# SCIP 二次规划支持 / SCIP quadratic programming support
-scip-quadratic = ["scip"]
+# SCIP 后端已迁移到 `ospf-rust-core-plugin-scip`；核心 crate 仅保留 feature 名，
+# 供测试与下游兼容，通过 dev-dependency 传递到插件 crate。
+# The SCIP backend moved to `ospf-rust-core-plugin-scip`; this crate keeps the feature names
+# for tests and downstream compatibility, forwarding them through a dev-dependency.
+scip = []
+scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
+scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
+scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]
 
 [dev-dependencies]
+ospf-rust-core-plugin-scip = { path = "../core-plugin/scip" }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
 serde_json = "1.0.151"

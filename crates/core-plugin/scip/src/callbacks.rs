@@ -1,9 +1,9 @@
 //! SCIP 回调类型定义
 //! SCIP Callback Type Definitions
 
-use crate::error::Result;
-use crate::model::ObjectiveCategory;
-use crate::solver::SolverStatus;
+use ospf_rust_core::error::Result;
+use ospf_rust_core::model::ObjectiveCategory;
+use ospf_rust_core::solver::SolverStatus;
 use std::sync::Arc;
 use std::time::Duration;
 

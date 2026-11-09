@@ -191,7 +191,7 @@ fn real_backend(solver: Arc<dyn LinearSolver>) {
 #[cfg(any(feature = "scip", feature = "scip-bundled", feature = "scip-from-source"))]
 #[test]
 fn real_scip_masters_preserve_stock_duals_and_original_reports() {
-    use ospf_rust_core::solver::solvers::scip::{SCIPConfig, SCIPSolver};
+    use ospf_rust_core_plugin_scip::{SCIPConfig, SCIPSolver};
     real_backend(Arc::new(SCIPSolver::with_config(SCIPConfig::default().with_output(false).with_lp_subproblem_defaults())));
 }
 

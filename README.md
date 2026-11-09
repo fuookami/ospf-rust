@@ -33,6 +33,7 @@ Explicit non-goals:
 | [`ospf-rust-quantities`](crates/quantities/README.md) | `ospf-kotlin-quantities` | Physical dimensions, units, compile-time/runtime quantities, and quantity-aware arithmetic. |
 | [`ospf-rust-core`](crates/core/README.md) | `ospf-kotlin-core` | Variables, tokens, symbols, `MetaModel`, flattening, solver traits, solver output, IIS, and backend adapters. |
 | [`ospf-rust-framework`](crates/framework/README.md) | `ospf-kotlin-framework` | Pipeline modeling, shadow prices, column generation, Benders, combinatorial solvers, persistence contracts, remote solver client, and heartbeat utilities. |
+| [`ospf-rust-core-plugin-scip`](crates/core-plugin/scip/README.md) | `ospf-kotlin-core-plugin-scip` | SCIP core adapter, constraint-programming facade, and framework SCIP extension solvers. |
 | [`ospf-rust-framework-geometry2d`](crates/plugins/geometry2d/README.md) | `ospf-kotlin-framework-geometry2d` | Shared 2D quantity geometry kernel: quantity arithmetic, points and shapes, placements, bounding-box overlap, sheet geometry and kerf, used by both BPP2D and CSP2D. |
 | [`ospf-rust-framework-bpp`](crates/plugins/bpp/README.md) | `ospf-kotlin-framework-bpp` | Shared sparse discrete loading, finite-capacity occupancy, edge-preserving conflicts, explicit layouts, native-value validation and geometry adapters. |
 | [`ospf-rust-framework-bpp1d`](crates/plugins/bpp1d/README.md) | `ospf-kotlin-framework-bpp1d` | Quantity-safe exact-demand packing, bounded patterns, shared MILP/LP/final registration, finite-pool column activation, strict CSV, tail optimization and 1D discrete loading. |
@@ -117,7 +118,7 @@ cargo check -p ospf-rust-core
 cargo test -p ospf-rust-framework-csp1d
 ```
 
-Solver-backed tests require the corresponding Cargo feature and local solver installation or bundled support. See the core solver notes for [Gurobi](crates/core/src/solver/solvers/gurobi/README.md) and [SCIP](crates/core/src/solver/solvers/scip/README.md).
+Solver-backed tests require the corresponding Cargo feature and local solver installation or bundled support. See the solver notes for [Gurobi](crates/core/src/solver/solvers/gurobi/README.md) and [SCIP](crates/core-plugin/scip/README.md).
 
 ### Feature gating and test coverage
 

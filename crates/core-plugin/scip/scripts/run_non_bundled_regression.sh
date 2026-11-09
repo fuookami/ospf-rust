@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-workspace_root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../../../../ && pwd)}"
+workspace_root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../../../ && pwd)}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -z "${SCIPOPTDIR:-}" ]]; then
@@ -25,6 +25,7 @@ if [[ -n "${LIBCLANG_PATH:-}" ]]; then
 fi
 
 commands=(
+  "cargo test -p ospf-rust-core-plugin-scip --features scip -- --nocapture"
   "cargo test -p ospf-rust-core --test scip_native_observer_integration --features scip -- --nocapture"
   "cargo test -p ospf-rust-framework --test scip_native_callback_integration --features scip -- --nocapture"
   "cargo test -p ospf-rust-framework --test scip_native_callback_async_integration --features 'scip async' -- --nocapture"

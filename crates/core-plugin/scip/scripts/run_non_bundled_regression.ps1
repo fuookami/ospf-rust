@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
-    $WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../../../../")).Path
+    $WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../../../")).Path
 }
 
 if (-not $env:SCIPOPTDIR) {
@@ -27,6 +27,7 @@ try {
     }
 
     $commands = @(
+        "cargo test -p ospf-rust-core-plugin-scip --features scip -- --nocapture",
         "cargo test -p ospf-rust-core --test scip_native_observer_integration --features scip -- --nocapture",
         "cargo test -p ospf-rust-framework --test scip_native_callback_integration --features scip -- --nocapture",
         "cargo test -p ospf-rust-framework --test scip_native_callback_async_integration --features `"scip async`" -- --nocapture"

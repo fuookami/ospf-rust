@@ -235,7 +235,7 @@ fn structure_service_reuses_context_and_preserves_terminal_reports_without_inven
 #[cfg(feature = "scip")]
 #[test]
 fn scip_standalone_flow_and_generalized_flow_execute_real_backend_and_extract_domain_results() {
-    use ospf_rust_core::solver::solvers::SCIPSolver;
+    use ospf_rust_core_plugin_scip::SCIPSolver;
     let flow = FlowApplicationService::new(SCIPSolver::new()).solve(&flow_problem()).unwrap();
     assert!(flow.is_optimal());
     assert!((flow.incumbent().unwrap().total_cost.value - 6.0).abs() < 1e-7);

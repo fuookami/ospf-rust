@@ -23,17 +23,11 @@ use crate::solver::{
 pub mod conflict;
 pub mod mip;
 
-#[cfg(feature = "scip")]
-mod scip;
-
 #[cfg(feature = "serde")]
 pub mod checkpoint;
 
 pub use conflict::*;
 pub use mip::*;
-
-#[cfg(feature = "scip")]
-pub use scip::*;
 
 #[cfg(feature = "serde")]
 pub use checkpoint::*;

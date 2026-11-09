@@ -1,15 +1,17 @@
-//! SCIP 求解器接口
-//! SCIP Solver Interface
+//! SCIP 求解器插件
+//! SCIP solver plugin
+//!
+//! 本 crate 承载 SCIP 核心适配器、约束规划 facade 与 framework 列生成 / Benders 扩展，
+//! 对应 Kotlin 的 `ospf-kotlin-core-plugin-scip`。
+//! This crate hosts the SCIP core adapter, constraint-programming facade, and framework
+//! column-generation / Benders extensions, mirroring Kotlin's `ospf-kotlin-core-plugin-scip`.
 
-//! 此模块仅在启用 `scip` feature 时可用。
-//! This module is only available when the `scip` feature is enabled.
-
-use crate::error::{CoreError, Result, SolverError};
-use crate::model::ConstraintRelation;
-use crate::model::ObjectiveCategory;
-use crate::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
-use crate::solver::solver::{emit_progress_start, emit_progress_terminal, emit_progress_update};
-use crate::solver::{
+use ospf_rust_core::error::{CoreError, Result, SolverError};
+use ospf_rust_core::model::ConstraintRelation;
+use ospf_rust_core::model::ObjectiveCategory;
+use ospf_rust_core::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
+use ospf_rust_core::solver::solver::{emit_progress_start, emit_progress_terminal, emit_progress_update};
+use ospf_rust_core::solver::{
     CapabilitySupport, LinearSolver, QuadraticSolver, SolveHandle, SolveOptions, SolveProgressReporter, SolveReport,
     SolveWarning, SolverCapabilities, SolverCapability, SolverDescriptor, SolverInfo, SolverOutput,
     SolverProvenance, SolverStatus, SolvingStatus, attach_linear_solution_audit,
@@ -17,13 +19,12 @@ use crate::solver::{
     solver_output_to_report_with_cancellation, solver_output_to_report_with_provenance,
     validate_per_solve_limits, verify_native_terminal_proof,
 };
-use crate::solver::{
+use ospf_rust_core::solver::{
     configuration_fingerprint, linear_model_fingerprint, quadratic_model_fingerprint,
     solver_provenance_fingerprint,
 };
-use crate::token::Token;
-use crate::variable::VariableType;
-#[cfg(feature = "scip")]
+use ospf_rust_core::token::Token;
+use ospf_rust_core::variable::VariableType;
 use russcip::{
     Constraint, Event, EventMask, Eventhdlr, Model, ParamSetting, ProblemCreated, ProblemOrSolving,
     Retcode, SCIPEventhdlr, Solving, Status as SCIPStatus, Unsolved, VarType, Variable,
@@ -37,6 +38,9 @@ use std::time::{Duration, Instant};
 mod callbacks;
 mod config;
 
+pub mod constraint_programming;
+pub mod extension;
+
 pub use callbacks::{
     SCIPNativeCallback, SCIPNativeControl, SCIPNativeObserver, SCIPNativeSnapshot, SCIPNativeWhere,
     SCIPSnapshotControl, SCIPSnapshotObserver, SCIPStage, SCIPStageCallback, SCIPStageStatus,
@@ -46,8 +50,9 @@ pub use callbacks::{
     ScipTelemetryStatus,
 };
 pub use config::{PresolvingMode, SCIPConfig, ScipConfig};
+pub use constraint_programming::*;
+pub use extension::*;
 
-#[cfg(feature = "scip")]
 #[derive(Clone)]
 struct SCIPTelemetryRuntime {
     solver_name: String,
@@ -70,7 +75,6 @@ struct SCIPTelemetryRuntime {
     callback_error: Arc<Mutex<Option<CoreError>>>,
 }
 
-#[cfg(feature = "scip")]
 impl SCIPTelemetryRuntime {
     fn enabled(&self) -> bool {
         self.no_improvement_time_limit.is_some()
@@ -84,7 +88,6 @@ impl SCIPTelemetryRuntime {
     }
 }
 
-#[cfg(feature = "scip")]
 struct SCIPTelemetryEventHandler {
     runtime: SCIPTelemetryRuntime,
     solve_started_at: Instant,
@@ -95,7 +98,6 @@ struct SCIPTelemetryEventHandler {
     initial_objective_value: Option<f64>,
 }
 
-#[cfg(feature = "scip")]
 impl SCIPTelemetryEventHandler {
     fn new(runtime: SCIPTelemetryRuntime) -> Self {
         let now = Instant::now();
@@ -222,7 +224,6 @@ impl SCIPTelemetryEventHandler {
     }
 }
 
-#[cfg(feature = "scip")]
 impl Eventhdlr for SCIPTelemetryEventHandler {
     fn get_type(&self) -> EventMask {
         self.runtime.native_event_mask
@@ -450,20 +451,17 @@ impl Eventhdlr for SCIPTelemetryEventHandler {
 /// }
 /// ```
 #[derive(Debug)]
-#[cfg(feature = "scip")]
 pub struct SCIPSolver {
     /// 配置 / Configuration
     config: SCIPConfig,
 }
 
-#[cfg(feature = "scip")]
 impl Default for SCIPSolver {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "scip")]
 impl SCIPSolver {
     /// 创建新的 SCIP 求解器 / Create new SCIP solver
     pub fn new() -> Self {
@@ -632,7 +630,7 @@ impl SCIPSolver {
             Retcode::ParameterUnknown
             | Retcode::ParameterWrongType
             | Retcode::ParameterWrongVal => {
-                CoreError::Solver(crate::error::SolverError::InvalidInput(message))
+                CoreError::Solver(ospf_rust_core::error::SolverError::InvalidInput(message))
             }
             Retcode::InvalidData
             | Retcode::InvalidCall
@@ -679,7 +677,7 @@ impl SCIPSolver {
         }
         if let Some(solution_limit) = self.config.solution_limit {
             let solution_limit = i32::try_from(solution_limit).map_err(|_| {
-                CoreError::Solver(crate::error::SolverError::InvalidInput(format!(
+                CoreError::Solver(ospf_rust_core::error::SolverError::InvalidInput(format!(
                     "SCIP solution limit {} exceeds the native int parameter range",
                     solution_limit
                 )))
@@ -939,7 +937,6 @@ impl SCIPSolver {
     }
 }
 
-#[cfg(feature = "scip")]
 impl SCIPSolver {
     /// 收集按变量索引排列的初始解 / Collect indexed initial solution values
     fn collect_initial_solution(tokens: &[Token<f64>]) -> Vec<(usize, f64)> {
@@ -1012,7 +1009,7 @@ impl SCIPSolver {
         ]
     }
 
-    pub(super) fn provenance(&self) -> SolverProvenance {
+    pub(crate) fn provenance(&self) -> SolverProvenance {
         let mut configuration = BTreeMap::new();
         configuration.insert(
             "time_limit".to_owned(),
@@ -1091,7 +1088,7 @@ impl SCIPSolver {
         }
     }
 
-    pub(super) fn report_from_output(
+    pub(crate) fn report_from_output(
         &self,
         output: SolverOutput,
         cancellation_handle: Option<&SolveHandle>,
@@ -1185,7 +1182,7 @@ impl SCIPSolver {
         allow_explicit_dual_fallback: bool,
         per_solve_options: Option<&SolveOptions<'_>>,
     ) -> Result<(SolverOutput, Vec<Vec<f64>>)> {
-        crate::solver::audit::validate_linear_model_for_backend(model)?;
+        ospf_rust_core::solver::audit::validate_linear_model_for_backend(model)?;
         let start_time = Instant::now();
 
         let mut scip = self.create_problem(model.objective_category)?;
@@ -1404,7 +1401,7 @@ impl SCIPSolver {
         cancellation_handle: Option<&SolveHandle>,
         per_solve_options: Option<&SolveOptions<'_>>,
     ) -> Result<(SolverOutput, Vec<Vec<f64>>)> {
-        crate::solver::audit::validate_quadratic_model_for_backend(model)?;
+        ospf_rust_core::solver::audit::validate_quadratic_model_for_backend(model)?;
         let start_time = Instant::now();
 
         let mut scip = self.create_problem(model.objective_category)?;
@@ -1693,7 +1690,6 @@ impl SCIPSolver {
     }
 }
 
-#[cfg(feature = "scip")]
 impl SolverInfo for SCIPSolver {
     fn name(&self) -> &str {
         SCIPSolver::name(self)
@@ -1726,7 +1722,6 @@ impl SolverInfo for SCIPSolver {
     }
 }
 
-#[cfg(feature = "scip")]
 impl LinearSolver for SCIPSolver {
     fn solve_linear(&self, model: &LinearTriadModel) -> Result<SolverOutput> {
         SCIPSolver::solve_linear(self, model)
@@ -1739,7 +1734,7 @@ impl LinearSolver for SCIPSolver {
     fn solve_linear_report_with_options(
         &self,
         model: &LinearTriadModel,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<SolveReport<f64>> {
         validate_per_solve_limits(options)?;
         emit_progress_start(options.progress_reporter, self.name())?;
@@ -1808,7 +1803,7 @@ impl LinearSolver for SCIPSolver {
         &self,
         model: &LinearTriadModel,
         solution_amount: usize,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<Option<(SolverOutput, Vec<Vec<f64>>)>> {
         validate_per_solve_limits(options)?;
         if solution_amount <= 1 {
@@ -1825,7 +1820,6 @@ impl LinearSolver for SCIPSolver {
     }
 }
 
-#[cfg(feature = "scip")]
 impl QuadraticSolver for SCIPSolver {
     fn solve_quadratic(&self, model: &QuadraticTetradModel) -> Result<SolverOutput> {
         SCIPSolver::solve_quadratic(self, model)
@@ -1838,7 +1832,7 @@ impl QuadraticSolver for SCIPSolver {
     fn solve_quadratic_report_with_options(
         &self,
         model: &QuadraticTetradModel,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<SolveReport<f64>> {
         validate_per_solve_limits(options)?;
         emit_progress_start(options.progress_reporter, self.name())?;
@@ -1906,7 +1900,7 @@ impl QuadraticSolver for SCIPSolver {
         &self,
         model: &QuadraticTetradModel,
         solution_amount: usize,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<Option<(SolverOutput, Vec<Vec<f64>>)>> {
         validate_per_solve_limits(options)?;
         if solution_amount <= 1 {
@@ -1924,25 +1918,24 @@ impl QuadraticSolver for SCIPSolver {
 
 /// Rust-style alias for [`SCIPSolver`].
 /// [`SCIPSolver`] 的 Rust 风格别名。
-#[cfg(feature = "scip")]
 pub type ScipSolver = SCIPSolver;
 
 #[cfg(all(test, feature = "scip"))]
 mod tests {
     use super::*;
-    use crate::error::SolverErrorClass;
-    use crate::model::intermediate::{BasicQuadraticTetradModel, SparseMatrix, SparseVector};
-    use crate::model::{ConstraintRelation, ObjectiveCategory};
-    use crate::symbol::flatten::{Quadratic, QuadraticMonomial};
-    use crate::token::Token;
-    use crate::variable::{BinaryVariableItem, UContinuousVariableItem};
+    use ospf_rust_core::error::SolverErrorClass;
+    use ospf_rust_core::model::intermediate::{BasicQuadraticTetradModel, SparseMatrix, SparseVector};
+    use ospf_rust_core::model::{ConstraintRelation, ObjectiveCategory};
+    use ospf_rust_core::symbol::flatten::{Quadratic, QuadraticMonomial};
+    use ospf_rust_core::token::Token;
+    use ospf_rust_core::variable::{BinaryVariableItem, UContinuousVariableItem};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn bounded_dual_rounding_preserves_exact_feasibility_gates() {
-        use crate::model::{LinearObjectiveInput, MetaModel};
-        use crate::variable::UContinuous;
+        use ospf_rust_core::model::{LinearObjectiveInput, MetaModel};
+        use ospf_rust_core::variable::UContinuous;
         let mut model = MetaModel::new("irrational-area-dual");
         let x = model.register_auto_variable::<UContinuous>("copies").unwrap();
         let area = std::f64::consts::PI / 2.0;
@@ -1963,8 +1956,8 @@ mod tests {
 
     #[test]
     fn bounded_dual_rounding_never_erases_an_unbounded_objective_direction() {
-        use crate::model::{LinearObjectiveInput, MetaModel};
-        use crate::variable::Continuous;
+        use ospf_rust_core::model::{LinearObjectiveInput, MetaModel};
+        use ospf_rust_core::variable::Continuous;
         let mut model = MetaModel::new("unbounded-tiny-cost");
         let x = model.register_auto_variable::<Continuous>("free").unwrap();
         model.add_le_constraint(&[], 0.0, "empty").unwrap();
@@ -2006,7 +1999,7 @@ mod tests {
             Token::from_generic(UContinuousVariableItem::auto("x"), 0),
             0.0,
             10.0,
-            crate::variable::VariableType::UContinuous,
+            ospf_rust_core::variable::VariableType::UContinuous,
         );
         let mut model = QuadraticTetradModel::from_basic(basic);
         let mut q = SparseMatrix::new();
@@ -2136,7 +2129,7 @@ mod tests {
 
     #[test]
     fn test_common_config_preserves_deterministic_parameters() {
-        let common = crate::solver::SolverConfig::new("scip")
+        let common = ospf_rust_core::solver::SolverConfig::new("scip")
             .with_seed(42)
             .with_optimality_tolerance(1e-8)
             .with_feasibility_tolerance(1e-7)
@@ -2440,7 +2433,7 @@ mod tests {
         let solver = SCIPSolver::with_config(SCIPConfig::new().with_output(false));
         let mut model = build_single_var_quadratic_model("scip_qc_feasible");
         model.add_quadratic_constraint_with_metadata(
-            crate::model::mechanism::QuadraticInequality::new(
+            ospf_rust_core::model::mechanism::QuadraticInequality::new(
                 Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0),
                 ConstraintRelation::LessEqual,
                 1.0,
@@ -2470,7 +2463,7 @@ mod tests {
         let solver = SCIPSolver::with_config(SCIPConfig::new().with_output(false));
         let mut model = build_single_var_quadratic_model("scip_qc_infeasible");
         model.add_quadratic_constraint_with_metadata(
-            crate::model::mechanism::QuadraticInequality::new(
+            ospf_rust_core::model::mechanism::QuadraticInequality::new(
                 Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0),
                 ConstraintRelation::LessEqual,
                 -1.0,
@@ -2497,7 +2490,7 @@ mod tests {
             Token::from_generic(UContinuousVariableItem::auto("x"), 0),
             1.0,
             3.0,
-            crate::variable::VariableType::UContinuous,
+            ospf_rust_core::variable::VariableType::UContinuous,
         );
         let mut model = QuadraticTetradModel::from_basic(basic);
         let mut q = SparseMatrix::new();

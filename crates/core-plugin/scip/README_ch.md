@@ -4,8 +4,7 @@
 
 ## 前置依赖
 
-`ospf-rust-core` 在 `scip` feature 下通过 `russcip/scip-sys` 绑定 SCIP。  
-运行测试前，必须让构建系统能找到 SCIP 头文件与库文件。
+`ospf-rust-core-plugin-scip` 直接通过 `russcip/scip-sys` 绑定 SCIP。构建或运行测试前，必须让构建系统能找到 SCIP 头文件与库文件。
 当前 workspace 将 `russcip` 固定为 `0.9.1`，用于兼容 SCIP 9.x。只有在所选
 `russcip` feature 提供匹配 SCIP 构建时，才应使用 `scip-bundled` 或 `scip-from-source`。
 
@@ -45,14 +44,14 @@ export LIBCLANG_PATH=/path/to/llvm/lib
 
 ```powershell
 # Windows PowerShell
-.\ospf-rust-core\src\solver\solvers\scip\check_non_bundled_env.ps1
-.\ospf-rust-core\src\solver\solvers\scip\run_non_bundled_regression.ps1
+.\crates\core-plugin\scip\scripts\check_non_bundled_env.ps1
+.\crates\core-plugin\scip\scripts\run_non_bundled_regression.ps1
 ```
 
 ```bash
 # Linux/macOS
-bash ./crates/core/src/solver/solvers/scip/check_non_bundled_env.sh
-bash ./crates/core/src/solver/solvers/scip/run_non_bundled_regression.sh
+bash ./crates/core-plugin/scip/scripts/check_non_bundled_env.sh
+bash ./crates/core-plugin/scip/scripts/run_non_bundled_regression.sh
 ```
 
 或手工执行命令：

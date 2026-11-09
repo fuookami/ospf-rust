@@ -5,23 +5,23 @@
 //! Provides framework-level column-generation and Benders adapters for SCIP.
 
 use ospf_rust_core::model::mechanism::MechanismModel;
-use ospf_rust_core::solver::solvers::SCIPSolver as CoreScipSolver;
-use ospf_rust_core::solver::solvers::scip::{
-    PresolvingMode, SCIPConfig, SCIPNativeCallback, SCIPNativeObserver, SCIPSnapshotObserver,
+use crate::SCIPSolver as CoreScipSolver;
+use crate::{
+    SCIPConfig, SCIPNativeCallback, SCIPNativeObserver, SCIPSnapshotObserver,
     SCIPStage, SCIPStageCallback, SCIPTelemetryCallback,
 };
 use ospf_rust_core::variable::VariableId;
 
-use super::FrameworkSolveOptions;
-use super::column_generation_solver::{ColumnGenerationSolver, FeasibleSolution, LPResult};
-use super::core_extensions::{
+use ospf_rust_framework::solver::FrameworkSolveOptions;
+use ospf_rust_framework::solver::column_generation_solver::{ColumnGenerationSolver, FeasibleSolution, LPResult};
+use ospf_rust_framework::solver::core_extensions::{
     BendersCutContext, CoreColumnGenerationAdapter, CoreLinearBendersAdapter,
     CoreQuadraticBendersAdapter,
 };
-use super::linear_benders_decomposition_solver::{
+use ospf_rust_framework::solver::linear_benders_decomposition_solver::{
     LinearBendersDecompositionSolver, LinearCut, LinearSubResult,
 };
-use super::quadratic_benders_decomposition_solver::{
+use ospf_rust_framework::solver::quadratic_benders_decomposition_solver::{
     QuadraticBendersDecompositionSolver, QuadraticCut, QuadraticSubResult,
 };
 use ospf_rust_core::solver::SolveReport;
@@ -1036,6 +1036,7 @@ impl QuadraticBendersDecompositionSolver for ScipQuadraticBendersDecompositionSo
 #[cfg(all(test, feature = "scip", not(feature = "async")))]
 mod tests {
     use super::*;
+    use crate::PresolvingMode;
     use ospf_rust_core::model::intermediate::{
         BasicQuadraticTetradModel, QuadraticTetradModel, SparseMatrix, SparseVector,
     };
@@ -1043,7 +1044,7 @@ mod tests {
         BasicMechanismModel, Linear, LinearConstraint, LinearInequality, LinearMonomial,
         MechanismModel, ObjectiveCategory,
     };
-    use ospf_rust_core::solver::solvers::scip::{
+    use crate::{
         SCIPNativeControl, SCIPNativeSnapshot, SCIPSnapshotControl, SCIPStageStatus,
         SCIPTelemetryStatus,
     };

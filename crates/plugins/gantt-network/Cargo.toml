@@ -15,12 +15,15 @@ big-rational = ["ospf-rust-framework-gantt-scheduling/big-rational", "ospf-rust-
 gurobi10 = ["ospf-rust-framework-gantt-scheduling/gurobi10", "ospf-rust-framework-network-scheduling/gurobi10"]
 gurobi11 = ["ospf-rust-framework-gantt-scheduling/gurobi11", "ospf-rust-framework-network-scheduling/gurobi11"]
 gurobi12 = ["ospf-rust-framework-gantt-scheduling/gurobi12", "ospf-rust-framework-network-scheduling/gurobi12"]
-scip = ["ospf-rust-framework-gantt-scheduling/scip", "ospf-rust-framework-network-scheduling/scip"]
-scip-bundled = ["scip", "ospf-rust-framework-network-scheduling/scip-bundled"]
-scip-from-source = ["scip", "ospf-rust-framework-network-scheduling/scip-from-source"]
-scip-quadratic = ["scip", "ospf-rust-framework-network-scheduling/scip-quadratic"]
+scip = ["ospf-rust-core-plugin-scip/scip"]
+scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
+scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
+scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]
 
 [dependencies]
 ospf-rust-framework = { path = "../../framework", version = "1.1.0" }
 ospf-rust-framework-gantt-scheduling = { path = "../gantt-scheduling", version = "1.1.0" }
 ospf-rust-framework-network-scheduling = { path = "../network-scheduling", version = "1.1.0" }
+
+[dev-dependencies]
+ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", version = "1.1.0" }

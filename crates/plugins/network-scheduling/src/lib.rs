@@ -775,7 +775,7 @@ mod tests {
     fn nonzero_lower_bound_mcmf_has_a_valid_scip_solution() {
         let linear = nonzero_lower_bound_flow_model();
         let output = LinearSolver::solve_linear(
-            &ospf_rust_core::solver::solvers::SCIPSolver::new(),
+            &ospf_rust_core_plugin_scip::SCIPSolver::new(),
             &linear,
         )
         .expect("SCIP MCMF solve");
@@ -874,7 +874,7 @@ mod tests {
     #[test]
     fn scip_column_generation_keeps_verified_infeasible_phase_and_final_reports() {
         assert_native_infeasible_column_generation_report(
-            &ospf_rust_core::solver::solvers::SCIPSolver::new(),
+            &ospf_rust_core_plugin_scip::SCIPSolver::new(),
         );
     }
 
