@@ -37,5 +37,5 @@ log = "0.4.34"
 num-traits = "0.2.19"
 
 [dev-dependencies]
-ospf-rust-framework = { path = "../ospf-rust-framework", version = "1.1.0" }
+ospf-rust-framework = { path = "../ospf-rust-framework", version = "1.1.0", features = ["remote-codec"] }
 serde_json = "1.0.151"

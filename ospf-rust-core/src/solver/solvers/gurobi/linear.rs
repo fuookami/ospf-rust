@@ -291,6 +291,7 @@ fn solve_linear_internal(
         model.objective_category,
         Some(&grb_vars),
         cancellation_handle,
+        per_solve_options.and_then(|options| options.progress_reporter).map(|reporter| (reporter, start_time)),
     )?;
 
     // 获取结果；当状态为 InfOrUnbd 时，关闭 DualReductions 再优化一次以区分 Infeasible/Unbounded
@@ -306,6 +307,7 @@ fn solve_linear_internal(
             model.objective_category,
             Some(&grb_vars),
             cancellation_handle,
+            per_solve_options.and_then(|options| options.progress_reporter).map(|reporter| (reporter, start_time)),
         )?;
         status = grb_model
             .status()
@@ -341,11 +343,12 @@ fn solve_linear_internal(
     }
     if let Ok(bound) = grb_model.get_attr(attr::ObjBound)
         && bound.is_finite()
+        && bound.abs() < grb::INFINITY
     {
         output.best_bound = Some(bound);
     }
 
-    if solver_status.is_feasible() && has_solution {
+    if solver_status.can_extract_incumbent() && has_solution {
         // 获取目标值
         let obj = grb_model
             .get_attr(attr::ObjVal)

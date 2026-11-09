@@ -19,3 +19,8 @@ htmlReport
 /.codegraph
 .supergoal/
 *.tmp
+node_modules/
+*.tgz
+ospf-rust-node/*.node
+ospf-rust-node/index.js
+ospf-rust-node/index.d.ts

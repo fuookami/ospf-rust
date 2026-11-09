@@ -20,14 +20,11 @@
 //!
 //! # 重叠语义 / Overlap semantics
 //!
-//! 重叠统一为**内部重叠**：相切**不算**重叠。矩形贴边、圆与圆相切、圆与矩形边界相切都视为不重叠。
-//! 这是网格排样的前提——若把相切判为重叠，任何规则网格都无法产出。量值库底层把相切判为重叠，
-//! 因此 [`Box2Geometry::overlapped`] 用严格不等式重新实现分派。
-//! Overlap is always **interior overlap**: tangency does **not** count. Rectangles sharing an edge,
-//! mutually tangent circles and a circle tangent to a rectangle boundary are all non-overlapping. This is a
-//! precondition for grid layouts: if tangency counted as overlap, no regular grid could ever be produced.
-//! The quantity library treats tangency as overlap, so [`Box2Geometry::overlapped`] re-implements the
-//! dispatch with strict inequalities.
+//! 重叠统一为**包围盒内部重叠**：包围盒贴边不算重叠。圆使用外接正方形，
+//! 不是精确圆盘碰撞；斜向分离或相切圆盘的外接正方形仍可能重叠。
+//! Overlap means **interior bounding-box overlap**, excluding shared box edges. Circles use
+//! enclosing squares, not exact disk collision; diagonally separated or tangent disks may still
+//! have overlapping enclosing squares.
 
 pub mod box_geometry;
 pub mod extensions;

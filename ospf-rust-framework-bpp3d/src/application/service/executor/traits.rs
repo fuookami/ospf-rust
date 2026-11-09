@@ -22,6 +22,26 @@ pub struct ColumnGenerationExecutionError {
     pub message: String,
 }
 
+fn rmp_execution_result(execution: ColumnGenerationRmpExecution) -> Result<ColumnGenerationRmpExecution, ColumnGenerationExecutionError> {
+    if matches!(execution.info.get("status").map(String::as_str), Some("registration_failed" | "solve_failed")) {
+        return Err(ColumnGenerationExecutionError {
+            stage: ColumnGenerationFailureStage::RestrictedMasterProblem,
+            message: execution.info.get("error").cloned().unwrap_or_else(|| "RMP execution failed".to_string()),
+        });
+    }
+    Ok(execution)
+}
+
+fn final_execution_result(execution: ColumnGenerationFinalExecution) -> Result<ColumnGenerationFinalExecution, ColumnGenerationExecutionError> {
+    if matches!(execution.info.get("status").map(String::as_str), Some("registration_failed" | "solve_failed" | "physical_validation_failed")) {
+        return Err(ColumnGenerationExecutionError {
+            stage: ColumnGenerationFailureStage::FinalMilp,
+            message: execution.info.get("error").cloned().unwrap_or_else(|| "final MILP execution failed".to_string()),
+        });
+    }
+    Ok(execution)
+}
+
 /// RMP 模型扩展 / RMP model extension
 pub trait ColumnGenerationRmpModelExtension: Debug + Send + Sync {
     /// 注册额外模型行 / Register additional model rows
@@ -62,19 +82,26 @@ pub trait ColumnGenerationRmpExecutor: Debug + Send + Sync {
         &self,
         state: &ColumnGenerationApplicationState,
     ) -> Result<ColumnGenerationRmpExecution, ColumnGenerationExecutionError> {
-        let execution = self.execute(state);
-        if matches!(execution.info.get("status").map(String::as_str),
-            Some("registration_failed" | "solve_failed")) {
+        rmp_execution_result(self.execute(state))
+    }
+
+    /// 执行与物品目录同序的数量需求；旧执行器默认拒绝非单位需求。
+    /// Execute item quantities in catalog order; legacy executors reject non-unit demand by default.
+    fn execute_result_with_item_amounts(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        amounts: &[u64],
+    ) -> Result<ColumnGenerationRmpExecution, ColumnGenerationExecutionError> {
+        validate_item_amounts(&state.items, amounts).map_err(|message| ColumnGenerationExecutionError {
+            stage: ColumnGenerationFailureStage::RestrictedMasterProblem, message,
+        })?;
+        if amounts.iter().any(|amount| *amount != 1) {
             return Err(ColumnGenerationExecutionError {
                 stage: ColumnGenerationFailureStage::RestrictedMasterProblem,
-                message: execution
-                    .info
-                    .get("error")
-                    .cloned()
-                    .unwrap_or_else(|| "RMP execution failed".to_string()),
+                message: "RMP executor does not support grouped item demand".into(),
             });
         }
-        Ok(execution)
+        self.execute_result(state)
     }
 }
 
@@ -88,19 +115,26 @@ pub trait ColumnGenerationFinalExecutor: Debug + Send + Sync {
         &self,
         state: &ColumnGenerationApplicationState,
     ) -> Result<ColumnGenerationFinalExecution, ColumnGenerationExecutionError> {
-        let execution = self.execute(state);
-        if matches!(execution.info.get("status").map(String::as_str),
-            Some("registration_failed" | "solve_failed")) {
+        final_execution_result(self.execute(state))
+    }
+
+    /// 执行与物品目录同序的数量需求；旧执行器默认拒绝非单位需求。
+    /// Execute item quantities in catalog order; legacy executors reject non-unit demand by default.
+    fn execute_result_with_item_amounts(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        amounts: &[u64],
+    ) -> Result<ColumnGenerationFinalExecution, ColumnGenerationExecutionError> {
+        validate_item_amounts(&state.items, amounts).map_err(|message| ColumnGenerationExecutionError {
+            stage: ColumnGenerationFailureStage::FinalMilp, message,
+        })?;
+        if amounts.iter().any(|amount| *amount != 1) {
             return Err(ColumnGenerationExecutionError {
                 stage: ColumnGenerationFailureStage::FinalMilp,
-                message: execution
-                    .info
-                    .get("error")
-                    .cloned()
-                    .unwrap_or_else(|| "final MILP execution failed".to_string()),
+                message: "final executor does not support grouped item demand".into(),
             });
         }
-        Ok(execution)
+        self.execute_result(state)
     }
 }
 

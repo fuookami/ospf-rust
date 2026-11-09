@@ -26,6 +26,10 @@ pub use application::model::{
     Csp1dSolution, Csp1dSolutionAnalyzer, Csp1dSolutionStatus, Csp1dSolveConfig,
     Csp1dSolveConfigBuilder, DefaultCsp1dSolutionAnalyzer, csp1d_problem, csp1d_solve_config,
 };
+pub use application::report_solver::{
+    Csp1dExecutionOptions, Csp1dMilpBackend, Csp1dNativeBackend, Csp1dSolveStage,
+    Csp1dStageReport, validate_csp1d_report,
+};
 pub use application::service::{
     Csp1dColumnGeneration, Csp1dColumnGenerationRecovery, Csp1dColumnGenerationResult,
     Csp1dColumnGenerationTrace, Csp1dFinalMilpStatus, Csp1dIterationRecord, Csp1dLpSolveResult,

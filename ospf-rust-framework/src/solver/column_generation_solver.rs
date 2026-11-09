@@ -363,7 +363,7 @@ impl CombinatorialFallbackPolicy {
 
     /// 判断报告是否应停止 fallback / Decide whether a report stops fallback.
     pub(crate) fn should_stop_on_report(&self, report: &SolveReport<f64>) -> bool {
-        if report_is_cancellation_terminal(report) || report.has_incumbent() {
+        if report_is_control_terminal(report) || report.has_incumbent() {
             return true;
         }
         matches!(self, Self::StopOnCertifiedTerminal) && report_is_selectable(report)
@@ -410,10 +410,10 @@ pub(crate) fn report_is_selectable(report: &SolveReport<f64>) -> bool {
     }
 }
 
-fn report_is_cancellation_terminal(report: &SolveReport<f64>) -> bool {
+fn report_is_control_terminal(report: &SolveReport<f64>) -> bool {
     matches!(
         report.termination_reason,
-        TerminationReason::Cancelled | TerminationReason::Interrupted
+        TerminationReason::Cancelled | TerminationReason::Interrupted | TerminationReason::TimeLimit
     )
 }
 
@@ -554,7 +554,7 @@ pub(crate) fn aggregate_combinatorial_reports_with_metadata(
         match result {
             Ok(report) => {
                 report.validate()?;
-                if !report_is_selectable(&report) && !report_is_cancellation_terminal(&report) {
+                if !report_is_selectable(&report) && !report_is_control_terminal(&report) {
                     failure_issues.push(SolveIssue::new(
                         "AttemptNotSelectable",
                         format!(
@@ -633,16 +633,18 @@ pub(crate) fn aggregate_combinatorial_reports_with_metadata(
                 };
                 ordering.then_with(|| left.0.cmp(&right.0))
             });
-            candidates.into_iter().next()
+            // 无 incumbent 时仍保留可靠数学终态，不将真实不可行/无界伪装成后端失败。
+            // Preserve certified mathematical terminals without incumbents instead of disguising infeasibility/unboundedness as backend failure.
+            candidates.into_iter().next().or_else(|| reports.iter().find(|(_, _, report)| report_is_selectable(report)))
         }
     };
-    // 取消/中断没有数学 incumbent，但仍是必须保留的正常执行终态。
-    // Cancellation/interruption has no mathematical incumbent, but remains a
+    // 取消/中断/超时可能没有数学 incumbent，但仍是必须保留的正常执行终态。
+    // Cancellation/interruption/timeout may lack a mathematical incumbent, but remains a
     // publishable execution terminal that must not be rewritten as BackendFailure.
     let selected = selected.or_else(|| {
         reports
             .iter()
-            .find(|(_, _, report)| report_is_cancellation_terminal(report))
+            .find(|(_, _, report)| report_is_control_terminal(report))
     });
 
     let (report, selected_attempt_id, selection_reason) =
@@ -2173,6 +2175,36 @@ mod tests {
                 .map(|id| id.contains("fallback")),
             Some(true)
         );
+    }
+
+    #[test]
+    fn best_selection_preserves_certified_terminals_before_control_terminals() {
+        for unbounded in [false, true] {
+            let bare = SolveReport::<f64>::builder(ProblemStatus::Infeasible, TerminationReason::Completed).build().unwrap();
+            let control = SolveReport::<f64>::builder(ProblemStatus::Unknown, TerminationReason::TimeLimit).build().unwrap();
+            let (status, proof) = if unbounded {
+                (ProblemStatus::Unbounded, SolveProof::unboundedness())
+            } else {
+                (ProblemStatus::Infeasible, SolveProof::infeasibility())
+            };
+            let certified = SolveReport::<f64>::builder(status, TerminationReason::Completed).proof(proof).build().unwrap();
+            for category in [ObjectiveCategory::Minimum, ObjectiveCategory::Maximum] {
+                let aggregate = aggregate_combinatorial_reports("best-certified", CombinatorialSelection::Best(category), vec![
+                    (0, "bare".into(), Ok(bare.clone())), (1, "timeout".into(), Ok(control.clone())),
+                    (2, "certified".into(), Ok(certified.clone())), (3, "tie".into(), Ok(certified.clone())),
+                ]).unwrap();
+                assert_eq!(aggregate.report.problem_status, status);
+                assert_eq!(aggregate.report.termination_reason, TerminationReason::Completed);
+                assert_eq!(aggregate.report.proof, certified.proof);
+                assert!(aggregate.selected_attempt_id.unwrap().contains("certified"));
+                assert_eq!(aggregate.attempts.len(), 4);
+            }
+        }
+        let bare = SolveReport::<f64>::builder(ProblemStatus::Infeasible, TerminationReason::Completed).build().unwrap();
+        let aggregate = aggregate_combinatorial_reports("best-unverified", CombinatorialSelection::Best(ObjectiveCategory::Minimum), vec![(0, "bare".into(), Ok(bare))]).unwrap();
+        assert_eq!(aggregate.report.problem_status, ProblemStatus::Unknown);
+        assert_eq!(aggregate.report.termination_reason, TerminationReason::BackendFailure);
+        assert!(aggregate.selected_attempt_id.is_none());
     }
 
     #[test]

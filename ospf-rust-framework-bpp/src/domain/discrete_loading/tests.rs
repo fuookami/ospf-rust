@@ -165,3 +165,23 @@ fn invalid_inputs_and_fixed_capacity_fail_before_registration() {
     input.items[1].fixed_position_id = Some("p".into()); input.positions[0].max_weight.value = 7.0; cases.push(input);
     for input in cases { assert!(DiscreteLoadingContext::new(input, &SameUnitPackingValueAdapter).is_err()); }
 }
+
+#[test]
+fn explicit_namespaces_are_stable_without_changing_default_context_isolation() {
+    let build = || {
+        let mut context = DiscreteLoadingContext::new(problem(), &SameUnitPackingValueAdapter).unwrap().with_namespace("stable").unwrap();
+        let mut model = MetaModel::new("namespaced"); context.register(&mut model).unwrap();
+        context.link_additional_weight(&mut model, "p", Linear::new(vec![], 0.5)).unwrap();
+        assert!(context.with_namespace("late").is_err());
+        (model.try_to_linear_triad_model().unwrap(), model.linear_model_snapshot().unwrap().compile_flt64().unwrap().model)
+    };
+    let first = build(); let second = build();
+    assert_eq!(ospf_rust_core::solver::linear_model_fingerprint(&first.0).unwrap(), ospf_rust_core::solver::linear_model_fingerprint(&second.0).unwrap());
+    assert_eq!(ospf_rust_core::solver::linear_model_fingerprint(&first.1).unwrap(), ospf_rust_core::solver::linear_model_fingerprint(&second.1).unwrap());
+    assert!(DiscreteLoadingContext::new(problem(), &SameUnitPackingValueAdapter).unwrap().with_namespace(" ").is_err());
+    let mut model = MetaModel::new("defaults");
+    let mut first = DiscreteLoadingContext::new(problem(), &SameUnitPackingValueAdapter).unwrap();
+    let mut second = DiscreteLoadingContext::new(problem(), &SameUnitPackingValueAdapter).unwrap();
+    first.register(&mut model).unwrap(); second.register(&mut model).unwrap();
+    assert_ne!(model.tokens()[0].name(), model.tokens()[6].name());
+}

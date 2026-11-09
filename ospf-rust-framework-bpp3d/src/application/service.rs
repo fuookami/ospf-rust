@@ -20,7 +20,7 @@ use ospf_rust_quantities::unit::physical_unit::CTUnit;
 
 use crate::domain::item::{
     ActualItem, BinLayer, BinType, BinTypeId, Bpp3dDemandKey, Bpp3dDemandMode,
-    Bpp3dLayerDemandCoverage, ContinuousCylinderRadiusSolution, ContinuousRadiusModelComponent,
+    Bpp3dLayerDemandCoverage, ContinuousCylinderRadiusSolution, ContinuousRadiusModelComponent, ContinuousRadiusModelRegistration,
     PackageAttribute,
 };
 use crate::domain::layer_assignment::{
@@ -28,7 +28,7 @@ use crate::domain::layer_assignment::{
     BinVolumeMinimization, Bpp3dDemandEntry, Bpp3dModelComponent, Capacity, DemandConstraint,
     DemandShadowPriceKey, ImpreciseAssignment, IterativeLayerAssignmentContext, LayerAggregation,
     LayerAssignmentAggregation, LayerAssignmentContext, Load, PreciseAssignment,
-    PreciseAssignmentActivationConstraint, SolutionExtractor, VolumeMinimization,
+    PreciseAssignmentActivationConstraint, PreciseAssignmentSelection, SolutionExtractor, VolumeMinimization,
 };
 use crate::domain::layer_generation::{
     BLGlobalLayerGenerator, BLLocalLayerGenerator, BlockLayerGenerator,
@@ -37,7 +37,7 @@ use crate::domain::layer_generation::{
     PatternLayerGenerator, PileLayerGenerator,
 };
 use crate::domain::packing::{
-    LayerTraceReplayAdapter, PackedBin, Packer, PackingGeometryContract, PackingGeometryGuard,
+    LayerAssignmentTraceReplayRequest, LayerTraceReplayAdapter, PackedBin, Packer, PackingGeometryContract, PackingGeometryGuard,
     PackingRendererAdapter, PackingResult,
 };
 use crate::infrastructure::orientation::Orientation;
@@ -57,5 +57,7 @@ include!("service/standard_executors.rs");
 include!("service/depth_boundary.rs");
 include!("service/analysis.rs");
 include!("service/application_service.rs");
+#[cfg(feature = "serde")]
+include!("service/recorded_round.rs");
 include!("service/continuous_radius.rs");
 include!("service/tests.rs");

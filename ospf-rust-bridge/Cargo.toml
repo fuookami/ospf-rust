@@ -1,0 +1,34 @@
+[package]
+name = "ospf-rust-bridge"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Runtime-independent OSPF language bridge and lossless model codec"
+
+[features]
+# IIS 的两种过滤算法都依赖后端 LP 求解，因此这里按后端暴露，而不是假装运行时无关。
+# Both IIS filters rely on a backend LP solve, so they are exposed per backend instead of pretending to be
+# runtime-independent.
+gurobi10 = ["ospf-rust-core/gurobi10"]
+gurobi11 = ["ospf-rust-core/gurobi11"]
+gurobi12 = ["ospf-rust-core/gurobi12"]
+
+[dependencies]
+ospf-rust-core = { path = "../ospf-rust-core", features = ["serde"] }
+ospf-rust-math = { path = "../ospf-rust-math" }
+ospf-rust-framework = { path = "../ospf-rust-framework", features = ["remote-codec"] }
+ospf-rust-framework-bpp = { path = "../ospf-rust-framework-bpp" }
+ospf-rust-framework-bpp1d = { path = "../ospf-rust-framework-bpp1d" }
+ospf-rust-framework-bpp2d = { path = "../ospf-rust-framework-bpp2d" }
+ospf-rust-framework-bpp3d = { path = "../ospf-rust-framework-bpp3d", features = ["serde"] }
+ospf-rust-framework-csp1d = { path = "../ospf-rust-framework-csp1d", features = ["serde"] }
+ospf-rust-framework-csp2d = { path = "../ospf-rust-framework-csp2d" }
+ospf-rust-framework-gantt-scheduling = { path = "../ospf-rust-framework-gantt-scheduling" }
+ospf-rust-framework-network-scheduling = { path = "../ospf-rust-framework-network-scheduling" }
+ospf-rust-framework-geometry2d = { path = "../ospf-rust-framework-geometry2d" }
+ospf-rust-quantities = { path = "../ospf-rust-quantities" }
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.11.0"
+serde_json = { version = "1", features = ["float_roundtrip"] }
+ts-rs = { version = "11", features = ["serde-compat"] }
+time = { version = "0.3.55", features = ["parsing", "formatting"] }

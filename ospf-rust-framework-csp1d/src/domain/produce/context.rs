@@ -321,7 +321,12 @@ impl<V: SolveValue> Csp1dProduceContext<V> {
     fn rebuild_builtin_constraint_pipelines(&mut self) {
         self.constraint_pipelines.clear();
         self.cg_pipelines.clear();
-        let demand_pipeline = DemandConstraintPipeline::new(self.produce.clone());
+        let mut demand_pipeline = DemandConstraintPipeline::new(self.produce.clone());
+        if self.feasibility_phase {
+            if let Some(r#yield) = &self.r#yield {
+                demand_pipeline = demand_pipeline.with_deficits((0..self.produce.demands.len()).map(|index| r#yield.variables.under_index(index)).collect());
+            }
+        }
         self.constraint_pipelines
             .push(Arc::new(demand_pipeline.clone()));
         self.cg_pipelines.push(Arc::new(demand_pipeline));
@@ -333,7 +338,9 @@ impl<V: SolveValue> Csp1dProduceContext<V> {
         self.constraint_pipelines
             .push(Arc::new(machine_pipeline.clone()));
         self.cg_pipelines.push(Arc::new(machine_pipeline));
-        if let Some(r#yield) = &self.r#yield {
+        // Phase I 用带短缺的 >= 需求行；不额外注册重复平衡行，否则真实需求对偶会被分散。
+        // Phase I uses deficit-bearing >= demand rows, without duplicate balance rows that would split actual demand duals.
+        if let Some(r#yield) = &self.r#yield && !self.feasibility_phase {
             let yield_pipeline =
                 YieldConstraintPipeline::new(self.produce.clone(), r#yield.clone());
             self.constraint_pipelines

@@ -8,12 +8,30 @@ normalized once through an explicit `PackingValueAdapter`; native values stay ge
 explicit solver boundary. Item counts remain `u64` and model count coefficients are checked for
 exact conversion.
 
+Pre-registration `with_namespace` optionally selects stable model names; the default per-context namespace
+and isolation are unchanged. The TypeScript bridge uses a canonical source digest as namespace so original
+reports remain source-bound even when two cargo catalogs have equal mathematics. `ospf-wasm/bpp` now
+exposes default-rule sparse model registration, original solution verification and lossless report readers;
+the exported zero-objective MILP runs through existing explicit native SCIP/Gurobi clients. Separate facades expose
+the original ordinary and continuous-resource Benders applications, partition lifecycle/resource completion,
+the original native root-partition application and explicit reserved full-source MILP finishing after Benders or
+partition acceleration. This is not branch-and-price, arbitrary Rust extension binding or BPP3D geometry coverage.
+See the [bridge boundary](../docs/typescript-bridge.md#shared-bpp-sparse-loading).
+
+Default limits use explicit stable row IDs so the original application snapshot can be independently rebuilt
+under the same namespace; default automatic namespaces still isolate contexts. `toApplicationModel()` retains
+its actual snapshot identity/row mapping separately from mechanism-based `toLinearTriadModel()`. Lossless
+application reports validate the actual snapshot model; pre-solve cancellation/time limits fabricate neither
+registration, model identity, proof nor zero plan.
+
 `register_with` atomically combines common limits with downstream variables, constraints and
 objectives. A context belongs to one model and cannot be registered twice. Use a fresh model and
 context for a retry/fallback. `LoadingCapacityLimit` uses true finite count/weight bounds, never an
 arbitrary epsilon or big M. Occupancy may reserve an empty position. Fixed cargo, external fixed
 occupancy and any strictly positive additional weight require the entire position to be occupied.
 `link_additional_weight` accepts one combined expression per position and stores it for extraction.
+Its additional-weight rows use namespace-stable IDs, so explicitly namespaced independent registrations
+can reconstruct snapshot fingerprints as well as mechanism fingerprints; default context isolation is unchanged.
 
 Conflict edges are non-transitive. `ConflictIndex` greedily builds actual cliques while preserving
 every original edge. Layout selection exists only for explicit groups. `loading_conflicts` sweeps
@@ -44,7 +62,7 @@ allocating a column ID. Duplicate pricing candidates do not spend the new-column
 earlier partition cannot hide a genuinely new column in a later partition at the cap.
 Completion restores integer resource types as well as all global/helper integers; fractional
 integer resources fail full-vector validation before any completed column is committed.
-The main CG report certifies source feasibility only; actual `refinement_report` and `final_report`
+hhe main CG report certifies source feasibility only; actual `refinement_report` and `final_report`
 stay separate. A validated completion incumbent survives deadline/cancellation on return without
 starting final. Completion/final selection keeps the best validated source incumbent.
 
@@ -59,9 +77,9 @@ invalid input, cancellation and exhausted time never launch fallback. No model, 
 dual credentials are shared with fallback. Preserve the returned decomposition reports for audit.
 Structured unsupported-capability, environment/license, backend and numerical errors may trigger
 the same explicit fallback policy. Input, modeling, contract and callback errors propagate without
-fallback. The original recoverable error is retained in `decomposition_error`. Limited/cancelled
+fallback. hhe original recoverable error is retained in `decomposition_error`. Limited/cancelled
 reports keep any fully validated source incumbent, but never continue solves or generate new cuts.
-Fallback never replaces a better decomposition incumbent with an empty or worse result. The selected
+Fallback never replaces a better decomposition incumbent with an empty or worse result. hhe selected
 plan is extracted against its own source registration, while `fallback_report` retains the actual
 fresh solve; no old tokens or restricted-master proofs are transported into the fresh model.
 
@@ -91,3 +109,15 @@ Cross-domain exact Benders is not accepted. BPP1D and BPP2D supply their own sha
 adapters without depending on one another. [Demo2](../ospf-rust-example/src/framework/demo2/README.md)
 uses these shared services for its three aircraft-loading paths, while keeping aircraft-specific
 rules and extraction in its own domain contexts.
+
+The language bridge separately exposes the original ordinary application and continuous-resource Benders
+through explicit HTTP/N-API clients. Resources are preregistered bounded additional-weight variables with
+unit-aware bounds, cargo ratios and model-unit minimizing costs; explicit resource IDs select actual recourse.
+Fresh MILP fallback is opt-in, merged source reports remain proof-free, and initial snapshot identities are kept
+separate from fallback tokens. Portable readers validate source/resource incumbents and evidence consistency,
+not independently replay every cut or authenticate solver provenance. Partition lifecycle/resource-completion
+objects, the original native root-partition application with clock-free portable replay, and full-source MILP finishing
+are bound, including explicit same-budget partition/source certification composition; branch-and-price and arbitrary
+callback-based domain extensions remain unbound. The original borrowed partition context is
+compatible with a new safe owned constructor, and its LP report gate can retain u64 counters on wasm32.
+See the [bridge boundary](../docs/typescript-bridge.md#shared-bpp-partition-lifecycle-primitives).

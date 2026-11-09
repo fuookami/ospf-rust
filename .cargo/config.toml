@@ -1,0 +1,8 @@
+[env]
+# 测试线程默认栈是 2 MiB，而 `SolveRequest` 已经长到 10 KB 以上：`bpp3d` 的合同测试一次性构造六个
+# 完整字面量并按值提交，实测在 2 MiB 上只差几十 KB 就会栈溢出（`STATUS_STACK_OVERFLOW`）。
+# 抬到 4 MiB 给"每轮再加一个可选载荷字段"留出余量，避免每次扩 DTO 都去改别人的测试。
+# Test threads default to a 2 MiB stack while `SolveRequest` has grown past 10 KB: the bpp3d contract test
+# builds six full literals and submits them by value, and measurably overflows with only tens of KB to spare.
+# 4 MiB leaves headroom for the next optional payload field instead of editing someone else's test each time.
+RUST_MIN_STACK = "4194304"

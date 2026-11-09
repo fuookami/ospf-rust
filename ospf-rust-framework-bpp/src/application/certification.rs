@@ -25,6 +25,37 @@ pub struct DiscreteLoadingCertificationResult<U: UnitTrait> {
 /// Finish on a fresh equivalent source model within the remaining budget, reusing the validated vector as a warm start.
 pub struct DiscreteLoadingCertificationService;
 
+/// 在真实完整源候选报告中保留更好的旧可行数值，并重建审计、gap 与证明边界。
+/// Retain better old feasible values in an actual complete-source candidate report, rebuilding audits, gaps and proof boundaries.
+/// 不复制旧身份、对偶、解池或 trace；原生 service 与可移植 codec 共用同一转换。
+/// Never copy old identities, duals, pools or traces; native services and portable codecs share this transformation.
+pub fn retain_source_incumbent_report<C>(
+    model: &LinearTriadModel,
+    report: &mut SolveReport<f64, C>,
+    incumbent: &SolveSolution<f64>,
+    tolerance: f64,
+) -> Result<()>
+where
+    C: Copy + Ord + TryFrom<usize> + Default,
+{
+    if !tolerance.is_finite() || tolerance <= 0.0 || tolerance >= 0.5 { return Err(invalid("invalid source retention tolerance")); }
+    let mut selected = SolveSolution::vector(incumbent.values.clone());
+    selected.objective_value = incumbent.objective_value.or(incumbent.objective);
+    report.problem_status = ProblemStatus::Feasible;
+    report.solution_presence = SolutionPresence::Incumbent;
+    report.proof = None;
+    report.diagnostics = evaluate_linear_solution(model, &selected.values, tolerance)?;
+    report.diagnostics.extensions.insert("selected_incumbent".into(), "validated_accelerator".into());
+    report.solution = Some(selected);
+    report.trace = Default::default();
+    let statistics = &mut report.statistics;
+    statistics.absolute_gap = report.solution.as_ref().and_then(|solution| solution.objective_value)
+        .zip(statistics.best_bound_value).map(|(objective, bound)| (objective - bound).abs());
+    statistics.relative_gap = statistics.absolute_gap.zip(report.solution.as_ref().and_then(|solution| solution.objective_value))
+        .map(|(gap, objective)| gap / objective.abs().max(1.0));
+    report.validate()
+}
+
 impl DiscreteLoadingCertificationService {
     /// 只复核原注册、源身份、完整可行向量和目标，不创建模型、不启动求解、不改写终止原因。
     /// Validate the original registration, source identity, complete feasible vector and objective without creating models, solving or rewriting termination.
@@ -117,6 +148,11 @@ impl DiscreteLoadingCertificationService {
             }
             Err(error) => return Err(error),
         };
+        if !invoked {
+            previous.report.termination_reason = candidate.report.termination_reason;
+            previous.report.validate()?;
+            return Ok(DiscreteLoadingCertificationResult { result: previous, certification_report: None, certification_error: None });
+        }
         let certification_report = invoked.then(|| candidate.report.clone());
         if warm.is_some() && candidate.report.problem_status == ProblemStatus::Infeasible {
             return Err(invalid("source infeasibility contradicts the validated incumbent"));
@@ -131,23 +167,9 @@ impl DiscreteLoadingCertificationService {
                 let values = warm.ok_or_else(|| invalid("missing source incumbent values"))?;
                 candidate.solution = Some(fresh.context().extract_solution(fresh.model(), &values, &options.tolerance)?);
                 candidate.objective = previous.objective;
-                let mut incumbent = SolveSolution::vector(values);
-                incumbent.objective_value = previous.report.solution.as_ref().and_then(|solution| solution.objective_value.or(solution.objective));
-                candidate.report.problem_status = ProblemStatus::Feasible;
-                candidate.report.solution_presence = SolutionPresence::Incumbent;
-                candidate.report.proof = None;
-                candidate.report.solution = Some(incumbent);
                 let compiled = fresh.model().linear_model_snapshot()?.compile_flt64()?;
-                candidate.report.diagnostics = evaluate_linear_solution(&compiled.model,
-                    &candidate.report.solution.as_ref().ok_or_else(|| invalid("missing retained incumbent"))?.values, options.tolerance)?;
-                candidate.report.diagnostics.extensions.insert("selected_incumbent".into(), "validated_accelerator".into());
-                candidate.report.trace = Default::default();
-                let statistics = &mut candidate.report.statistics;
-                statistics.absolute_gap = candidate.report.solution.as_ref().and_then(|solution| solution.objective_value)
-                    .zip(statistics.best_bound_value).map(|(objective, bound)| (objective - bound).abs());
-                statistics.relative_gap = statistics.absolute_gap.zip(candidate.report.solution.as_ref().and_then(|solution| solution.objective_value))
-                    .map(|(gap, objective)| gap / objective.abs().max(1.0));
-                candidate.report.validate()?;
+                retain_source_incumbent_report(&compiled.model, &mut candidate.report,
+                    previous.report.solution.as_ref().ok_or_else(|| invalid("missing retained incumbent"))?, options.tolerance)?;
             } else {
                 previous.report.termination_reason = candidate.report.termination_reason;
                 previous.report.validate()?;

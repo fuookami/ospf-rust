@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
 members = [
+    "ospf-rust-bridge",
+    "ospf-wasm",
+    "ospf-rust-native",
+    "ospf-rust-host",
+    "ospf-rust-node",
     "ospf-rust-base",
     "ospf-rust-multiarray",
     "ospf-rust-math",

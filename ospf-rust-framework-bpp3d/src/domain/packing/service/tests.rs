@@ -57,4 +57,5 @@ mod tests {
     include!("tests/material.rs");
     include!("tests/cylinder_geometry.rs");
     include!("tests/renderer_and_hanging.rs");
+    include!("tests/strict_replay.rs");
 }

@@ -46,6 +46,24 @@ impl PackingGeometryGuard {
         let bin_h: f64 = packed_bin.bin_type.height.value.clone().into();
         let bin_d: f64 = packed_bin.bin_type.depth.value.clone().into();
 
+        if [bin_w, bin_h, bin_d].iter().any(|value| !value.is_finite() || *value <= 0.0) {
+            return Err(vec!["bin geometry must have finite positive dimensions".into()]);
+        }
+
+        // NaN 会绕过比较；先拒绝非法坐标和尺寸，再执行碰撞与支撑检查。
+        // NaN bypasses comparisons; reject invalid coordinates and dimensions before collision/support checks.
+        for (i, geo) in geometries.iter().enumerate() {
+            let bounds = [geo.min_x, geo.min_y, geo.min_z, geo.max_x, geo.max_y, geo.max_z];
+            if bounds.iter().any(|value| !value.is_finite())
+                || [geo.min_x, geo.min_y, geo.min_z].iter().any(|value| *value < -PACKING_GEOMETRY_OVERLAP_TOLERANCE)
+                || geo.max_x <= geo.min_x || geo.max_y <= geo.min_y || geo.max_z <= geo.min_z
+                || geo.cylinder_radius.is_some_and(|radius| !radius.is_finite() || radius <= 0.0)
+            {
+                errors.push(format!("Item {} has invalid or negative geometry", i));
+            }
+        }
+        if !errors.is_empty() { return Err(errors); }
+
         for (i, geo) in geometries.iter().enumerate() {
             if geo.max_x > bin_w + PACKING_GEOMETRY_OVERLAP_TOLERANCE {
                 errors.push(format!(

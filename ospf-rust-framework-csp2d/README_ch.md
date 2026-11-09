@@ -47,14 +47,13 @@
 
 ## 切分树语义
 
-断头台方案不是一组坐标，而是一棵**切分树**：内部结点是贯穿刀，叶子是最终料块。刀线的级数是它的
-切割层号：根刀线为第 1 级，其下的刀线必须恰为第 2 级，依此类推。因此 2 级工艺恰好等于「先切条、
-再切件」，3 级工艺等于「切条 → 切块 → 切件」。
+断头台方案不是一组坐标，而是一棵**切分树**：内部结点是贯穿刀，叶子是成品或余料。根刀线为第 1 级；
+同向子刀线保持父级，换向才加一级。因此两级工艺允许一组平行条带刀，再转向切件；工艺级数不等于树深度。
 
-`CutTree2::validate` 会拒绝：区域切分不一致（含刀缝带）、超出工艺级数上限、子刀线层号不正确。
+`CutTree2::validate` 会拒绝：区域切分不一致（含刀缝带）、超出工艺级数上限、子刀线级数与父刀方向不一致。
 
-货架式生成器构造的是「级数等于层级」的平衡树。所需深度超过工艺上限时不构造切分树，图案随之无法
-通过校验——这是显式的能力边界，而不是静默产出非法图案。
+货架式生成器构造逐行／逐件切分链。通过旧树校验不代表成品叶子已与放置一一对应；下述显式原生门禁进一步
+复验物理对应、实际切分及资源限制，不把仅满足工艺级数的树当作完整裁切证明。
 
 ## 列生成与定价
 
@@ -63,8 +62,120 @@
 1. 按剩余需求生成候选图案。
 2. 用检验数 `rc = 消耗量 × 单价 − Σ 覆盖系数 × π` 筛选，只把 `rc < -tolerance` 的候选按升序加入。
 
-需要明确的是：影子价格 `π` 目前由**覆盖缺口比例估计**，不是 LP 对偶。因此这是 reduced-cost pricing
-的工程近似，不是严格意义上的定价证书；接入真实 LP 对偶后即可替换，接口已经就位。
+旧 `Csp2dSolvers` service 的影子价格 `π` 由**覆盖缺口比例估计**，不是 LP 对偶。因此这是 reduced-cost pricing
+的工程近似，不是严格意义上的定价证书。下述独立显式原生主问题 API 不替换该 service 或其回退行为。
+
+## 显式原生报告主问题
+
+`ProduceContext::register_model` 为 `ProduceStage::Rmp`、`FeasibilityLp`、`Integer` 注册真实
+`MetaModel<f64>` 变量、目标和约束。`Csp2dNativeBackend::solve_master` 通过显式注入的 `LinearSolver`
+执行该模型，共享 framework 报告执行器的时间、取消、进度与报告数量预算。后端失败不替换为旧启发式。
+该 API 本身只执行主问题；下述独立 Rust 原生流程组合注册与生成。SDK 通过显式 HTTP／N-API 门面调用原生流程，不提供浏览器求解器。
+
+- 三阶段共用需求下界、可选硬上界和物料硬库存行，同产品的件数／面积需求保持独立。Phase I 仅给下界添加
+  原单位短缺，目标为 `sum(短缺 / 正需求下界)`，真实列成本为零；不放松上界或库存。零短缺不决定真实列的
+  唯一用量，也不代表最小用量解。
+- LP 用量连续、整数阶段用量为无符号整数。不施加旧 assignment 启发式 `usage_upper_bounds` 的值，由实际库存
+  行限制使用次数。每次列使用消耗**一个物料批次**，卷材段也一样；这不是多段共用卷长的优化。
+- RMP／整数默认目标为原方案的料域消耗面积；可显式叠加原余料面积、卷材段高与单次使用成本权重。定尺图案的
+  region 可以小于整板，不能将消耗或余料静默提升为整板面积。这不改变旧 service 默认的余料评分策略。
+- 注册具有事务性，保留重复物理列和池顺序。求解器边界为 `f64`／`Meter`；件数、库存及件数上界输入限
+  `0..=2^53-1`，面积必须有限且非负，不给原生求解器增加任意精度保证。
+- 物理校验复用原矩形／刀缝谓词，检查输入池内物料／产品定义一致、有限且不塌缩的几何、包含与不重叠。
+  物料不能同时指定板高与卷长，已声明物料面积必须有限。此边界显式拒绝重量、设备、最小余料阈值策略和副产物放置。
+- 切分树先限制深度 128、节点 4096，再进行递归验证；复验实际切分、缓存切分、根区域及成品叶子与实际放置的
+  一一对应，随后保留原工艺／级数校验。旧生成器未标注匹配成品叶子的图案可能被拒绝。浮点切分匹配只容许
+  量级相关的末位舍入，不把旧 `1e-9` 绝对容差当作微小件的物理证明。由于未传入外部产品目录，源产品尺寸和
+  旋转权限仍需调用方认证。
+- 报告保留实际编译模型、身份／指纹、原始报告及仅计一次的目标常数。提取前复验完整原快照（含附加 pipeline），
+  不对份数 round 或截短。非最优 incumbent 不丢失，但只有证书验证通过的最优 LP 才交付原行价格。
+  受限主问题的结论不提升为源套裁问题全局证明。
+- `Csp2dMasterShadowPrices` 合并每项需求上下界贡献，独立保留库存价格。`ProduceContext::reduced_cost`
+  使用原件数／面积覆盖、阶段成本及库存贡献；它不是证书或候选来源认证器。附加 pipeline 必须提供对应定价修正，
+  忽略这些行不能证明不存在改进列。
+
+附加业务 pipeline 在注册后、执行前继续加到同一模型：
+
+```rust
+use std::sync::Arc;
+use ospf_rust_core::model::MetaModel;
+use ospf_rust_core::solver::LinearSolver;
+use ospf_rust_framework_csp2d::application::{Csp2dMasterResult, Csp2dNativeBackend};
+use ospf_rust_framework_csp2d::domain::produce::{
+    Csp2dMasterProblem, ProduceContext, ProduceModelInput, ProduceStage,
+};
+use ospf_rust_quantities::quantity::Quantity;
+use ospf_rust_quantities::unit::derived::Meter;
+
+fn solve_integer_master(
+    master: &Csp2dMasterProblem,
+    solver: Arc<dyn LinearSolver>,
+    kerf: &Quantity<f64, Meter>,
+) -> ospf_rust_core::Result<Csp2dMasterResult> {
+    let mut model = MetaModel::new("csp2d-master");
+    let registration = ProduceContext::default().register_model(&mut model, ProduceModelInput {
+        master, stage: ProduceStage::Integer, kerf,
+    })?;
+    if let Some(&usage) = registration.usage_variables().first() {
+        model.add_le_constraint(&[(usage, 1.0)], 2.0, "business-use-cap")?;
+    }
+    Csp2dNativeBackend::new(solver, Default::default())?.solve_master(&model, &registration)
+}
+```
+
+真实 SCIP／Gurobi 测试覆盖三阶段、空 Phase I、绑定库存对偶、需求硬上界、不可行证书、附加规则／常数及
+原始报告指纹。fake 测试覆盖错误证书／身份、不完整赋值、预算与取消，不把模拟报告当成真实求解。
+
+## 报告驱动的原生列生成
+
+`solve_csp2d_column_generation(solver, execution, input, generators)` 通过上述共享注册执行实际 Phase I、认证 LP
+定价及 final 整数主问题。需显式提供后端和有序 `PatternGenerator2<f64, Meter>` 链，不选择默认求解器或启发式
+主问题回退；可以显式传入原 `ShelfPatternGenerator2`。旧 `Csp2dSolvers` service 不变。
+
+`Csp2dColumnGenerationInput` 包含每物料一个源生成请求、独立主问题需求、初始列、RMP／final 共用的
+`ProduceObjective` 及 `Csp2dColumnGenerationConfig`。请求中的产品件数是**生成提示**，不是需求约束或份数上界；
+件数／面积上下界使用独立主问题需求。所有请求共用有限非负刀缝，跨物料产品尺寸及旋转权限必须一致。即使当前
+无该物料的列，也注册其源库存行。卷材生成会受已声明卷长和更小的显式段高限制；定尺板的段高配置直接拒绝，不静默忽略。
+
+- 非空池从 RMP 开始、空池从 Phase I 开始；认证 RMP 不可行会进入 Phase I 恢复。恢复条件检查原单位实际短缺，
+  不仅检查归一化目标很小。只有最优 LP 证书复验通过，才允许继续定价。
+- 初始列及实际观察到的生成列先核对源物料、工艺、产品尺寸、旋转权限，再通过共享物理／刀缝／切分树门禁。
+  这是与传入目录的一致性校验，不是外部来源认证。非法观察候选即使不能改进目标也报错，未实现领域规则不静默丢弃。
+- 检验数按独立件数／面积口径、需求上界贡献和**库存行价格**重算。旧生成器只接收按面积的提示，由件数价格／
+  单件面积加面积价格合成，不是权威定价依据。请求自带迭代、历史、价格及候选上限被实际流程状态替换，不信任这些提示
+  携带的已有候选池或价格。
+- 保留全部初始重复位置；新增列按物理身份去重，不依赖方案／图案名称或放置顺序。身份包含物料、region 和物理放置；
+  在当前默认目标下，相同排布的不同有效切分树等价。
+- 默认定价 20 批、每批跨**全部物料及生成器**合计观察 32 个候选、完整池 10000 列；各配置上限最大 100000。
+  零迭代预算仍可在认证 LP 后执行 final。原生成器同步执行，观察上限不是任意生成器的内存配额或抢占限制。
+  总时间、合作取消、原始子进度和报告上限共用执行预算，不是硬实时截止。
+- 输出保留完整池、每个实际模型／报告及其池前缀长度、每个完成批次的新增位置／重算价格。正常无改进、迭代或列池
+  上限停止后，在同后端、完整池运行 final，除非禁用或时间／取消／报告预算不允许。无证书或其他异常停止的主问题
+  不触发 final。定价停止原因与 final 原报告终态分开保留，迟到取消也不改写已完成原报告。
+- `candidate_complete` 始终为 false：原生成器不提供 exact pricing。final 最优／不可行只属于实际受限主问题；
+  空生成池可能不可行，而源问题可行。不虚构源问题全局结论。
+
+此循环只注册默认行；额外业务 pipeline 继续通过显式 master／context 扩展，必须提供匹配定价修正后才能整合迭代。
+不将任意 TS 回调作为跨进程 Rust 策略。严格切树匹配仍会拒绝部分旧 shelf 断头台输出：它们缺少完整成品叶子或叶子
+物理尺寸不匹配。有效的显式断头台树已支持，自动修复旧树不在该循环内。
+
+真实 SCIP／Gurobi 测试覆盖原 shelf 的空池恢复、不完整池恢复、多物料绑定库存定价、硬需求上界下 final 不可行、
+卷材加权目标、正刀缝有效断头台列及实际子报告身份。fake 契约额外覆盖预算、非最优 LP、取消竞争、物理重复、目录伪造
+及微小归一化短缺。bridge 已提供共享无损源 codec、生成源 DTO 和 `ospf-wasm/csp2d` 的 `CuttingContext`
+源／列校验。`Csp2dColumnGenerationInput::validate` 与 `validate_columns` 复用原注册及物理门禁，不启动生成器、
+求解器或时钟，不证明用量满足需求。`column_keys` 保留原顺序及重复位置，供独立物理轨迹复验。共享执行报告 codec 与
+可移植 `Csp2dReport` reader 已复验实际子阶段、原单位短缺、认证定价及精确 final 产出，不声明全局证明。
+SDK `Csp2dColumnGeneration` 已通过显式 HTTP／N-API 客户端与共享原生执行器开放，保留有界配置、原始进度／取消，
+不隐式回退。真实 SCIP/Gurobi 求解、认证 in-process HTTP 及隔离 N-API 验收，与需显式配置宿主的独立浏览器 HTTP
+测试分开记录。资源限制见[桥接说明](../docs/typescript-bridge_ch.md#能力矩阵)。
+
+[可执行原生示例](examples/report_column_generation.rs) 从空池开始，显式选择后端；先把所选求解器运行库加入 `PATH`：
+
+```powershell
+cargo +nightly-2026-08-01 run -p ospf-rust-framework-csp2d --example report_column_generation --features scip-bundled --target x86_64-pc-windows-msvc -- scip
+```
+
+有有效许可证的 Gurobi 环境可改用 `--features gurobi10`，末尾参数改为 `gurobi`。
 
 ## 泛型数值边界
 
@@ -86,6 +197,9 @@
 | `SheetAssignment` | 定尺张数 / 卷材段高的分配口径。 | migration |
 | `CostarFiller` | 副产物填充余料。 | migration |
 | `Csp2dMasterSolver` | 可注入的主问题求解接口与内置启发式。 | migration |
+| `ProduceContext` / `ProduceModel` / `ProduceStage` | 事务注册真实主问题、提取结果及显式 LP 定价口径。 | 显式原生前置 |
+| `Csp2dNativeBackend` / `Csp2dMasterResult` | 注入后端的报告主问题执行，无启发式回退。 | 显式原生前置 |
+| `solve_csp2d_column_generation` / `Csp2dColumnGenerationInput` | 显式生成器的报告恢复、认证 LP 定价及 final 整数执行。 | 原生；默认规则 HTTP／N-API SDK 门面 |
 
 ## 相关文档
 
@@ -99,6 +213,14 @@
 ```powershell
 $env:RUSTC_BOOTSTRAP = "1"
 cargo test -p ospf-rust-framework-csp2d
+```
+
+显式主问题的真实后端测试需将所选求解器运行库加入 `PATH`；Gurobi 还需要匹配的安装及有效许可证。
+求解器 feature 仍然可选，Gurobi 版本继续互斥。
+
+```powershell
+cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp2d --features scip-bundled --target x86_64-pc-windows-msvc --lib application::report_solver
+cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp2d --features gurobi10 --target x86_64-pc-windows-msvc --lib application::report_solver
 ```
 
 ### 服务路径规模观测

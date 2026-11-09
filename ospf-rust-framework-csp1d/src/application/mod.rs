@@ -7,3 +7,4 @@ pub mod lp_solver;
 pub mod solver_adapter;
 pub mod model;
 pub mod service;
+pub mod report_solver;

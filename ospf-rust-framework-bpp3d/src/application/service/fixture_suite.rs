@@ -603,6 +603,7 @@ l0,b0,5
                     .with_demand_entries(layer_generation_demand_entries(
                         &request.items,
                         &HashMap::new(),
+                        None,
                     ))
                     .with_package_attributes(
                         request

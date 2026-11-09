@@ -293,7 +293,7 @@ where
 /// - `result`: 输出数组
 /// - `out_ids`: 输出索引 ID
 /// - `common_ids`: 公共索引（求和索引）
-fn perform_einsum<T, S1, S2>(
+pub(crate) fn perform_einsum<T, S1, S2>(
     lhs: &MultiArray<T, S1>,
     lhs_ids: &[usize],
     lhs_shape: &[usize],

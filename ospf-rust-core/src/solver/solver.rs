@@ -37,6 +37,31 @@ pub(crate) fn emit_progress_start(
     reporter(&snapshot)
 }
 
+#[cfg(any(feature = "scip", feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
+pub(crate) fn emit_progress_update(
+    reporter: &SolveProgressReporter,
+    solver_name: &str,
+    elapsed: std::time::Duration,
+    objective_value: Option<f64>,
+    best_bound: Option<f64>,
+    relative_gap: Option<f64>,
+) -> Result<()> {
+    let snapshot = SolveProgressSnapshot::new(
+        solver_name,
+        SolveStage::Solving,
+        vec!["solver".to_owned(), SolveStage::Solving.stable_name().to_owned()],
+        ProgressValue::indeterminate(),
+        ProgressValue::indeterminate(),
+        elapsed,
+        objective_value,
+        best_bound,
+        relative_gap,
+        false,
+    )?;
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reporter(&snapshot)))
+        .unwrap_or_else(|_| Err(CoreError::callback_error(format!("{} progress callback panicked", solver_name))))
+}
+
 pub(crate) fn validate_per_solve_limits(options: &super::SolveOptions<'_>) -> Result<()> {
     if options.time_limit.is_some_and(|limit| limit.is_zero()) {
         return Err(CoreError::Solver(SolverError::InvalidInput(

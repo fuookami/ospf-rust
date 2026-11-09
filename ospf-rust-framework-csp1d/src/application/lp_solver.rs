@@ -153,6 +153,9 @@ pub fn require_pricing_ready(solution: &LpMasterSolution) -> Csp1dResult<()> {
             ));
         }
     }
+    if !solution.objective.is_finite() || solution.duals.iter().chain(&solution.primal).any(|value| !value.is_finite()) {
+        return Err(solving_failure("LP 目标及原始/对偶向量必须有限 / LP objective and primal/dual vectors must be finite"));
+    }
     if solution.duals.is_empty() {
         return Err(solving_failure(
             "LP 未取得对偶解 / LP dual solution is unavailable",

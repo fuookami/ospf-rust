@@ -214,33 +214,28 @@ fn assert_limit_report(
         assert!(!solution.values.is_empty());
         assert!(report.statistics.solution_count.unwrap_or_default() >= 1);
 
-        // 最大化 MIP 的 bound 必须是 incumbent 的有效上界，并且 gap 必须与两者一致。
-        // For a maximization MIP, the bound must dominate the incumbent and both gaps must agree.
-        let best_bound = report
-            .statistics
-            .best_bound_value
-            .expect("incumbent MIP bound");
-        let absolute_gap = report
-            .statistics
-            .absolute_gap
-            .expect("incumbent MIP absolute gap");
-        let relative_gap = report
-            .statistics
-            .relative_gap
-            .expect("incumbent MIP relative gap");
-        assert!(best_bound.is_finite());
-        assert!(absolute_gap.is_finite());
-        assert!(relative_gap.is_finite());
-        assert!(
-            best_bound + 1e-7 >= objective,
-            "maximization bound {best_bound} is below incumbent {objective}"
-        );
-        assert!(absolute_gap >= 0.0);
-        assert!(relative_gap >= 0.0);
-        let expected_absolute_gap = (objective - best_bound).abs();
-        let expected_relative_gap = expected_absolute_gap / objective.abs().max(1.0);
-        assert!((absolute_gap - expected_absolute_gap).abs() <= 1e-7);
-        assert!((relative_gap - expected_relative_gap).abs() <= 1e-7);
+        // 无有限 bound 时不能伪造 gap；否则最大化 bound 必须支配 incumbent。
+        // Without a finite bound, no gap may be fabricated; otherwise a maximization bound must dominate the incumbent.
+        if let Some(best_bound) = report.statistics.best_bound_value {
+            let absolute_gap = report.statistics.absolute_gap.expect("incumbent MIP absolute gap");
+            let relative_gap = report.statistics.relative_gap.expect("incumbent MIP relative gap");
+            assert!(best_bound.is_finite());
+            assert!(absolute_gap.is_finite());
+            assert!(relative_gap.is_finite());
+            assert!(
+                best_bound + 1e-7 >= objective,
+                "maximization bound {best_bound} is below incumbent {objective}"
+            );
+            assert!(absolute_gap >= 0.0);
+            assert!(relative_gap >= 0.0);
+            let expected_absolute_gap = (objective - best_bound).abs();
+            let expected_relative_gap = expected_absolute_gap / objective.abs().max(1.0);
+            assert!((absolute_gap - expected_absolute_gap).abs() <= 1e-7);
+            assert!((relative_gap - expected_relative_gap).abs() <= 1e-7);
+        } else {
+            assert_eq!(report.statistics.absolute_gap, None);
+            assert_eq!(report.statistics.relative_gap, None);
+        }
     } else {
         assert!(report.solution.is_none());
     }
@@ -286,11 +281,12 @@ mod gurobi {
     use super::*;
     use ospf_rust_core::error::CoreError;
     use ospf_rust_core::solver::solvers::GurobiSolver;
+    use ospf_rust_core::solver::{ProgressValue, SolveProgressReporter, SolveProgressSnapshot, SolveStage};
     use ospf_rust_core::solvers::gurobi::{
-        GurobiConfig, GurobiEnvCallback, GurobiNativeControl, GurobiNativeObserver,
-        GurobiNativeWhere,
+        GurobiConfig, GurobiEnvCallback, GurobiNativeCallback, GurobiNativeControl, GurobiNativeObserver,
+        GurobiNativeWhere, GurobiTelemetryCallback,
     };
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn config_without_root_shortcuts() -> GurobiConfig {
@@ -386,10 +382,21 @@ mod gurobi {
     #[ignore = "requires matching Gurobi native library and license"]
     fn unbounded_model_preserves_native_terminal() {
         let solver = GurobiSolver::with_config(config_without_root_shortcuts());
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let recorded = events.clone();
+        let reporter: SolveProgressReporter = Arc::new(move |event| {
+            recorded.lock().unwrap().push(event.clone());
+            Ok(())
+        });
+        let options = SolveOptions::new().with_progress_reporter(Some(&reporter));
         let report = solver
-            .solve_linear_report(&build_unbounded_model("gurobi_release_unbounded"))
+            .solve_linear_report_with_options(&build_unbounded_model("gurobi_release_unbounded"), &options)
             .expect("Gurobi unbounded report");
         assert_unbounded_report(&report);
+        assert!(report.statistics.best_bound_value.is_none_or(|bound| bound.abs() < grb::INFINITY));
+        let events = events.lock().unwrap();
+        assert!(events.last().unwrap().terminal);
+        assert_eq!(events.last().unwrap().best_bound, report.statistics.best_bound_value);
     }
 
     #[test]
@@ -438,16 +445,252 @@ mod gurobi {
         assert!(callback_hits.load(Ordering::SeqCst) > 0);
         assert_cancelled_report(&report);
     }
+
+    #[test]
+    #[ignore = "requires matching Gurobi native library and license"]
+    fn intermediate_progress_coexists_with_native_telemetry() {
+        use ospf_rust_core::intermediate::{BasicQuadraticTetradModel, QuadraticTetradModel, SparseMatrix};
+        use ospf_rust_core::model::{ConstraintRelation, mechanism::QuadraticInequality};
+        use ospf_rust_core::solver::QuadraticSolver;
+        use ospf_rust_core::symbol::flatten::{Quadratic, QuadraticMonomial};
+
+        for (quadratic, pool_size) in [(false, 1), (false, 2), (true, 1), (true, 2)] {
+            let events = Arc::new(Mutex::new(Vec::<SolveProgressSnapshot>::new()));
+            let recorded = events.clone();
+            let reporter: SolveProgressReporter = Arc::new(move |event| {
+                recorded.lock().unwrap().push(event.clone());
+                Ok(())
+            });
+            let telemetry_hits = Arc::new(AtomicUsize::new(0));
+            let recorded_hits = telemetry_hits.clone();
+            let telemetry: GurobiTelemetryCallback = Arc::new(move |_| {
+                recorded_hits.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            });
+            let solver = GurobiSolver::with_config(config_without_root_shortcuts()
+                .with_telemetry_min_interval(1e-9).with_telemetry_callback(Some(telemetry)));
+            let options = SolveOptions::new().with_solution_amount(pool_size).with_progress_reporter(Some(&reporter));
+            let linear = build_mip_model("gurobi_progress", false);
+            let report = if quadratic {
+                let mut model = QuadraticTetradModel::from_basic(BasicQuadraticTetradModel::from_linear(linear.basic));
+                model.set_objective(linear.c, SparseMatrix::new(), linear.objective_category);
+                model.add_quadratic_constraint_with_metadata(
+                    QuadraticInequality::new(
+                        Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0),
+                        ConstraintRelation::LessEqual,
+                        1.0,
+                    ),
+                    "binary-square".to_owned(), None, false, 0, None, None,
+                );
+                solver.solve_quadratic_report_with_options(&model, &options)
+            } else {
+                solver.solve_linear_report_with_options(&linear, &options)
+            }.expect("Gurobi progress solve");
+            report.validate().unwrap();
+            assert!(telemetry_hits.load(Ordering::SeqCst) > 0);
+            let events = events.lock().unwrap();
+            assert_eq!(events.first().unwrap().stage_progress, ProgressValue::Known(0.0));
+            assert!(events.last().unwrap().terminal);
+            assert!(events.windows(2).all(|pair| pair[0].elapsed <= pair[1].elapsed));
+            let intermediate: Vec<_> = events.iter().filter(|event| {
+                !event.terminal && event.stage_progress == ProgressValue::Indeterminate
+            }).collect();
+            assert!(!intermediate.is_empty(), "missing intermediate progress: {events:?}");
+            for event in intermediate {
+                assert_eq!(event.attempt_id, "Gurobi");
+                assert_eq!(event.stage, SolveStage::Solving);
+                assert_eq!(event.overall_progress, ProgressValue::Indeterminate);
+                assert!(event.objective_value.is_none_or(|value| value.is_finite() && value.abs() < grb::INFINITY));
+                assert!(event.best_bound.is_none_or(|value| value.is_finite() && value.abs() < grb::INFINITY));
+                match (event.objective_value, event.best_bound, event.relative_gap) {
+                    (Some(objective), Some(bound), Some(gap)) => {
+                        let expected = (objective - bound).abs() / objective.abs().max(1.0);
+                        assert!((gap - expected).abs() < 1e-9);
+                    }
+                    (_, _, None) => {}
+                    values => panic!("inconsistent progress values: {values:?}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "requires matching Gurobi native library and license"]
+    fn intermediate_progress_error_and_panic_interrupt_the_solve() {
+        for panic_in_reporter in [false, true] {
+            let reporter: SolveProgressReporter = Arc::new(move |event| {
+                if event.stage_progress == ProgressValue::Indeterminate {
+                    if panic_in_reporter { panic!("progress panic"); }
+                    return Err(CoreError::callback_error("progress failure"));
+                }
+                Ok(())
+            });
+            let solver = GurobiSolver::with_config(config_without_root_shortcuts());
+            let options = SolveOptions::new().with_progress_reporter(Some(&reporter));
+            let error = solver.solve_linear_report_with_options(&build_mip_model("gurobi_progress_failure", false), &options)
+                .expect_err("intermediate callback must fail the solve");
+            assert!(error.to_string().contains(if panic_in_reporter { "progress callback panicked" } else { "progress failure" }));
+        }
+    }
+
+    #[test]
+    #[ignore = "requires matching Gurobi native library and license"]
+    fn intermediate_progress_can_cancel_the_solve() {
+        let handle = SolveHandle::new();
+        let callback_handle = handle.clone();
+        let reporter: SolveProgressReporter = Arc::new(move |event| {
+            if event.stage_progress == ProgressValue::Indeterminate {
+                callback_handle.cancel(CancellationOrigin::Callback);
+            }
+            Ok(())
+        });
+        let solver = GurobiSolver::with_config(config_without_root_shortcuts());
+        let options = SolveOptions::new().with_cancellation_handle(Some(&handle)).with_progress_reporter(Some(&reporter));
+        let report = solver.solve_linear_report_with_options(&build_mip_model("gurobi_progress_cancel", false), &options)
+            .expect("progress cancellation report");
+        assert_cancelled_report(&report);
+    }
+
+    #[test]
+    #[ignore = "requires matching Gurobi native library and license"]
+    fn intermediate_progress_uses_the_accepted_incumbent_at_mip_solution_callbacks() {
+        let events = Arc::new(Mutex::new(Vec::<SolveProgressSnapshot>::new()));
+        let recorded = events.clone();
+        let reporter: SolveProgressReporter = Arc::new(move |event| {
+            recorded.lock().unwrap().push(event.clone());
+            Ok(())
+        });
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let captured = observed.clone();
+        let callback: GurobiNativeCallback = Arc::new(move |where_ctx| {
+            if let grb::callback::Where::MIPSol(context) = where_ctx {
+                let expected = context.obj_best().ok().filter(|value| value.is_finite() && value.abs() < grb::INFINITY);
+                let latest = events.lock().unwrap().last().cloned();
+                captured.lock().unwrap().push((latest, expected));
+            }
+            Ok(())
+        });
+        let solver = GurobiSolver::with_config(config_without_root_shortcuts()
+            .with_telemetry_min_interval(1e-9).with_native_callback(Some(callback)));
+        let options = SolveOptions::new().with_progress_reporter(Some(&reporter));
+        solver.solve_linear_report_with_options(&build_mip_model("gurobi_accepted_incumbent", false), &options).unwrap();
+        let observed = observed.lock().unwrap();
+        assert!(!observed.is_empty());
+        for (latest, expected) in observed.iter() {
+            let latest = latest.as_ref().expect("MIPSol progress snapshot");
+            assert_eq!(latest.stage_progress, ProgressValue::Indeterminate);
+            assert_eq!(latest.objective_value, *expected);
+        }
+    }
+
+    #[test]
+    #[ignore = "requires matching Gurobi native library and license"]
+    fn continuous_progress_and_cp_objective_constant_are_preserved() {
+        use ospf_rust_core::model::constraint_programming::{
+            ConstraintDefinition, ConstraintProgrammingConstraint, ConstraintProgrammingModel,
+            IntegerDomain, IntegerExpression, IntegerObjective, IntegerRelation, IntegerTerm, IntegerVariable,
+        };
+        use ospf_rust_core::solver::constraint_programming::{
+            ConstraintProgrammingSolveOptions, ConstraintProgrammingSolver, MipBackedConstraintProgrammingSolver,
+        };
+
+        let events = Arc::new(Mutex::new(Vec::<SolveProgressSnapshot>::new()));
+        let recorded = events.clone();
+        let reporter: SolveProgressReporter = Arc::new(move |event| {
+            recorded.lock().unwrap().push(event.clone());
+            Ok(())
+        });
+        let config = config_without_root_shortcuts().with_telemetry_min_interval(1e-9);
+        let solver = GurobiSolver::with_config(config.clone());
+        let options = SolveOptions::new().with_progress_reporter(Some(&reporter));
+        solver.solve_linear_report_with_options(&build_lp_model("gurobi_lp_progress"), &options).unwrap();
+        assert!(events.lock().unwrap().iter().any(|event| event.stage_progress == ProgressValue::Indeterminate));
+        events.lock().unwrap().clear();
+
+        let mut model = ConstraintProgrammingModel::new("gurobi-cp-progress");
+        let mut objective_terms = Vec::new();
+        let mut limit_terms = Vec::new();
+        for index in 0..48 {
+            let variable = IntegerVariable::new(format!("x{index}"));
+            model.register_variable(variable.clone(), IntegerDomain::boolean()).unwrap();
+            objective_terms.push(IntegerTerm { variable: variable.clone(), coefficient: index + 2 });
+            limit_terms.push(IntegerTerm { variable, coefficient: 1 });
+        }
+        model.add_constraint(ConstraintDefinition::new(
+            "limit",
+            ConstraintProgrammingConstraint::integer(
+                IntegerExpression::linear(0, limit_terms).unwrap(), IntegerRelation::LessOrEqual, 17,
+            ),
+        )).unwrap();
+        model.set_objective(IntegerObjective::maximize(IntegerExpression::linear(137, objective_terms).unwrap()));
+        let options = ConstraintProgrammingSolveOptions::builder().progress_reporter(Some(&reporter)).finish();
+        let report = MipBackedConstraintProgrammingSolver::new(GurobiSolver::with_config(config))
+            .solve_constraint_programming(&model.freeze().unwrap(), &options).unwrap();
+        assert!(report.is_optimal());
+        let events = events.lock().unwrap();
+        let intermediate: Vec<_> = events.iter().filter(|event| event.stage_progress == ProgressValue::Indeterminate).collect();
+        assert!(!intermediate.is_empty());
+        assert!(intermediate.iter().any(|event| event.objective_value.is_some() || event.best_bound.is_some()));
+        for event in intermediate {
+            assert!(event.objective_value.is_none_or(|value| value >= 137.0));
+            assert!(event.best_bound.is_none_or(|value| value >= 137.0));
+        }
+        let terminal = events.last().unwrap();
+        assert!(terminal.terminal);
+        assert_eq!(terminal.objective_value, report.solution.as_ref().and_then(|solution| solution.objective).map(|value| value as f64));
+    }
+
+    #[test]
+    #[ignore = "requires matching Gurobi native library and license"]
+    fn interruption_preserves_existing_linear_incumbent() {
+        for cancel in [false, true] {
+            let handle = SolveHandle::new();
+            let callback_handle = handle.clone();
+            let observer: GurobiNativeObserver = Arc::new(move |snapshot| {
+                if snapshot.where_point == GurobiNativeWhere::Mip
+                    && snapshot.incumbent_solution.is_none()
+                    && snapshot.objective_value.is_some_and(|value| value.abs() < 1e90)
+                {
+                    if cancel {
+                        callback_handle.cancel(CancellationOrigin::Callback);
+                    }
+                    return Ok(GurobiNativeControl::Terminate);
+                }
+                Ok(GurobiNativeControl::Continue)
+            });
+            let solver = GurobiSolver::with_config(
+                config_without_root_shortcuts().add_native_observer(observer),
+            );
+            let options = SolveOptions::new().with_cancellation_handle(Some(&handle));
+            let report = solver
+                .solve_linear_report_with_options(
+                    &build_mip_model("gurobi_interrupted_incumbent", true),
+                    &options,
+                )
+                .expect("Gurobi interruption report");
+            assert_eq!(
+                report.termination_reason,
+                if cancel { TerminationReason::Cancelled } else { TerminationReason::Interrupted }
+            );
+            assert_eq!(report.problem_status, ProblemStatus::Feasible);
+            assert!(report.has_incumbent());
+            assert!(report.statistics.solution_count.unwrap_or_default() > 0);
+            assert!(report.proof.is_none());
+            report.validate().expect("interrupted incumbent report must validate");
+        }
+    }
 }
 
 #[cfg(feature = "scip")]
 mod scip {
     use super::*;
+    use ospf_rust_core::error::CoreError;
     use ospf_rust_core::solver::solvers::SCIPSolver;
+    use ospf_rust_core::solver::{ProgressValue, SolveProgressReporter, SolveProgressSnapshot, SolveStage};
     use ospf_rust_core::solvers::scip::{
-        PresolvingMode, SCIPConfig, SCIPNativeControl, SCIPNativeObserver,
+        PresolvingMode, SCIPConfig, SCIPNativeControl, SCIPNativeObserver, SCIPTelemetryCallback,
     };
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn config() -> SCIPConfig {
@@ -477,6 +720,7 @@ mod scip {
             .solve_linear_report(&build_mip_model("scip_release_node_incumbent", true))
             .expect("SCIP node-limit report");
         assert_limit_report(&report, TerminationReason::NodeLimit, true);
+        assert_eq!(report.statistics.best_bound_value, None);
     }
 
     #[test]
@@ -523,6 +767,7 @@ mod scip {
             .solve_linear_report(&build_mip_model("scip_release_time_incumbent", true))
             .expect("SCIP time-limit report");
         assert_limit_report(&report, TerminationReason::TimeLimit, true);
+        assert_eq!(report.statistics.best_bound_value, None);
     }
 
     #[test]
@@ -533,6 +778,7 @@ mod scip {
             .solve_linear_report(&build_mip_model("scip_release_gap_incumbent", true))
             .expect("SCIP gap-limit report");
         assert_limit_report(&report, TerminationReason::GapLimit, true);
+        assert!(report.statistics.best_bound_value.is_some());
     }
 
     #[test]
@@ -549,10 +795,21 @@ mod scip {
     #[ignore = "requires matching SCIP native library"]
     fn unbounded_model_preserves_native_terminal() {
         let solver = SCIPSolver::with_config(config());
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let recorded = events.clone();
+        let reporter: SolveProgressReporter = Arc::new(move |event| {
+            recorded.lock().unwrap().push(event.clone());
+            Ok(())
+        });
+        let options = SolveOptions::new().with_progress_reporter(Some(&reporter));
         let report = solver
-            .solve_linear_report(&build_unbounded_model("scip_release_unbounded"))
+            .solve_linear_report_with_options(&build_unbounded_model("scip_release_unbounded"), &options)
             .expect("SCIP unbounded report");
         assert_unbounded_report(&report);
+        assert!(report.statistics.best_bound_value.is_none_or(|bound| bound.abs() < 1e20));
+        let events = events.lock().unwrap();
+        assert!(events.last().unwrap().terminal);
+        assert_eq!(events.last().unwrap().best_bound, report.statistics.best_bound_value);
     }
 
     #[test]
@@ -563,6 +820,7 @@ mod scip {
             .solve_linear_report(&build_mip_model("scip_release_solution_limit", true))
             .expect("SCIP solution-limit report");
         assert_limit_report(&report, TerminationReason::SolutionLimit, true);
+        assert_eq!(report.statistics.best_bound_value, None);
     }
 
     #[test]
@@ -588,6 +846,177 @@ mod scip {
             .expect("SCIP cancellation report");
         assert!(callback_hits.load(Ordering::SeqCst) > 0);
         assert_cancelled_report(&report);
+    }
+
+    #[test]
+    #[ignore = "requires matching SCIP native library"]
+    fn intermediate_progress_coexists_with_native_telemetry() {
+        use ospf_rust_core::intermediate::{BasicQuadraticTetradModel, QuadraticTetradModel, SparseMatrix};
+        use ospf_rust_core::model::{ConstraintRelation, mechanism::QuadraticInequality};
+        use ospf_rust_core::solver::QuadraticSolver;
+        use ospf_rust_core::symbol::flatten::{Quadratic, QuadraticMonomial};
+
+        for (quadratic, pool_size) in [(false, 1), (false, 2), (true, 1)] {
+            if quadratic && !cfg!(feature = "scip-quadratic") { continue; }
+            let events = Arc::new(Mutex::new(Vec::<SolveProgressSnapshot>::new()));
+            let recorded = events.clone();
+            let reporter: SolveProgressReporter = Arc::new(move |event| {
+                recorded.lock().unwrap().push(event.clone());
+                Ok(())
+            });
+            let telemetry_hits = Arc::new(AtomicUsize::new(0));
+            let recorded_hits = telemetry_hits.clone();
+            let telemetry: SCIPTelemetryCallback = Arc::new(move |_| {
+                recorded_hits.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            });
+            let solver = SCIPSolver::with_config(config().with_telemetry_callback(Some(telemetry)));
+            let options = SolveOptions::new().with_solution_amount(pool_size).with_progress_reporter(Some(&reporter));
+            let linear = build_mip_model("scip_progress", true);
+            let report = if quadratic {
+                let mut model = QuadraticTetradModel::from_basic(BasicQuadraticTetradModel::from_linear(linear.basic));
+                model.set_objective(linear.c, SparseMatrix::new(), linear.objective_category);
+                model.add_quadratic_constraint_with_metadata(
+                    QuadraticInequality::new(
+                        Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0),
+                        ConstraintRelation::LessEqual,
+                        1.0,
+                    ),
+                    "binary-square".to_owned(), None, false, 0, None, None,
+                );
+                solver.solve_quadratic_report_with_options(&model, &options)
+            } else {
+                solver.solve_linear_report_with_options(&linear, &options)
+            }.expect("SCIP progress solve");
+            report.validate().unwrap();
+            assert!(telemetry_hits.load(Ordering::SeqCst) > 0);
+            let events = events.lock().unwrap();
+            assert_eq!(events.first().unwrap().stage_progress, ProgressValue::Known(0.0));
+            assert!(events.last().unwrap().terminal);
+            let intermediate: Vec<_> = events.iter().filter(|event| {
+                !event.terminal && event.stage_progress == ProgressValue::Indeterminate
+            }).collect();
+            assert!(!intermediate.is_empty(), "missing intermediate progress: {events:?}");
+            for event in intermediate {
+                assert_eq!(event.attempt_id, "SCIP");
+                assert_eq!(event.stage, SolveStage::Solving);
+                assert_eq!(event.overall_progress, ProgressValue::Indeterminate);
+                assert!(event.objective_value.is_none_or(|value| value.is_finite() && value.abs() < 1e20));
+                assert!(event.best_bound.is_none_or(|value| value.is_finite() && value.abs() < 1e20));
+                match (event.objective_value, event.best_bound, event.relative_gap) {
+                    (Some(objective), Some(bound), Some(gap)) => {
+                        let expected = (objective - bound).abs() / objective.abs().max(1.0);
+                        assert!((gap - expected).abs() < 1e-9);
+                    }
+                    (_, _, None) => {}
+                    values => panic!("inconsistent progress values: {values:?}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "requires matching SCIP native library"]
+    fn intermediate_progress_error_and_panic_interrupt_the_solve() {
+        for panic_in_reporter in [false, true] {
+            let reporter: SolveProgressReporter = Arc::new(move |event| {
+                if event.stage_progress == ProgressValue::Indeterminate {
+                    if panic_in_reporter { panic!("progress panic"); }
+                    return Err(CoreError::callback_error("progress failure"));
+                }
+                Ok(())
+            });
+            let solver = SCIPSolver::with_config(config());
+            let options = SolveOptions::new().with_progress_reporter(Some(&reporter));
+            let error = solver.solve_linear_report_with_options(&build_mip_model("scip_progress_failure", true), &options)
+                .expect_err("intermediate callback must fail the solve");
+            assert!(error.to_string().contains(if panic_in_reporter { "progress callback panicked" } else { "progress failure" }));
+        }
+    }
+
+    #[test]
+    #[ignore = "requires matching SCIP native library"]
+    fn intermediate_progress_can_cancel_the_solve() {
+        let handle = SolveHandle::new();
+        let callback_handle = handle.clone();
+        let reporter: SolveProgressReporter = Arc::new(move |event| {
+            if event.stage_progress == ProgressValue::Indeterminate {
+                callback_handle.cancel(CancellationOrigin::Callback);
+            }
+            Ok(())
+        });
+        let solver = SCIPSolver::with_config(config());
+        let options = SolveOptions::new().with_cancellation_handle(Some(&handle)).with_progress_reporter(Some(&reporter));
+        let report = solver.solve_linear_report_with_options(&build_mip_model("scip_progress_cancel", true), &options)
+            .expect("progress cancellation report");
+        assert_cancelled_report(&report);
+    }
+
+    #[test]
+    #[ignore = "requires matching SCIP native library"]
+    fn interruption_preserves_existing_linear_and_quadratic_incumbents() {
+        use ospf_rust_core::intermediate::{
+            BasicQuadraticTetradModel, QuadraticTetradModel, SparseMatrix,
+        };
+        use ospf_rust_core::model::{ConstraintRelation, mechanism::QuadraticInequality};
+        use ospf_rust_core::solver::QuadraticSolver;
+        use ospf_rust_core::symbol::flatten::{Quadratic, QuadraticMonomial};
+
+        for quadratic in [false, true] {
+            if quadratic && !cfg!(feature = "scip-quadratic") {
+                continue;
+            }
+            for cancel in [false, true] {
+                let handle = SolveHandle::new();
+                let callback_handle = handle.clone();
+                let observer: SCIPNativeObserver = Arc::new(move |snapshot| {
+                    if snapshot.incumbent_solution.is_some() {
+                        if cancel {
+                            callback_handle.cancel(CancellationOrigin::Callback);
+                        }
+                        return Ok(SCIPNativeControl::Interrupt);
+                    }
+                    Ok(SCIPNativeControl::Continue)
+                });
+                let solver = SCIPSolver::with_config(config().add_native_observer(observer));
+                let options = SolveOptions::new().with_cancellation_handle(Some(&handle));
+                let linear = build_mip_model("scip_interrupted_incumbent", true);
+                let report = if quadratic {
+                    let mut model = QuadraticTetradModel::from_basic(
+                        BasicQuadraticTetradModel::from_linear(linear.basic),
+                    );
+                    model.set_objective(linear.c, SparseMatrix::new(), linear.objective_category);
+                    model.add_quadratic_constraint_with_metadata(
+                        QuadraticInequality::new(
+                            Quadratic::new(vec![QuadraticMonomial::new_quadratic(1.0, 0, 0)], 0.0),
+                            ConstraintRelation::LessEqual,
+                            1.0,
+                        ),
+                        "binary-square".to_owned(),
+                        None,
+                        false,
+                        0,
+                        None,
+                        None,
+                    );
+                    solver.solve_quadratic_report_with_options(&model, &options)
+                } else {
+                    solver.solve_linear_report_with_options(&linear, &options)
+                }
+                .expect("SCIP interruption report");
+                assert_eq!(
+                    report.termination_reason,
+                    if cancel { TerminationReason::Cancelled } else { TerminationReason::Interrupted }
+                );
+                assert_eq!(report.problem_status, ProblemStatus::Feasible);
+                assert!(report.has_incumbent());
+                assert!(report.statistics.solution_count.unwrap_or_default() > 0);
+                assert!(report.proof.is_none());
+                report
+                    .validate()
+                    .expect("interrupted incumbent report must validate");
+            }
+        }
     }
 }
 

@@ -8,11 +8,11 @@
 //!
 //! # 严格不等式 / Strict inequalities
 //!
-//! 重叠统一为**内部重叠**：相切不算重叠。实现刻意使用严格不等式，而不是沿用底层量值库把相切判为
-//! 重叠的语义——否则任何规则网格排样都会被判为重叠。
-//! Overlap is always **interior** overlap: tangency does not count. The implementation deliberately uses
-//! strict inequalities rather than the underlying quantity library's tangency-counts-as-overlap semantics;
-//! otherwise no regular grid layout could ever be accepted.
+//! 重叠统一为**包围盒内部重叠**：包围盒贴边不算重叠。圆使用外接正方形，
+//! 因此不能据此判断斜向分离或相切圆盘的精确碰撞；包含同样按包围盒闭区间。
+//! Overlap means **interior bounding-box overlap**: shared box edges do not count. Circles use
+//! enclosing squares, so this is not exact collision for diagonally separated or tangent disks;
+//! containment likewise uses the closed bounding box.
 
 use ospf_rust_base::error::Ret;
 use ospf_rust_math::algebra::concept::Field;
@@ -21,7 +21,7 @@ use ospf_rust_quantities::unit::concept::UnitTrait;
 use ospf_rust_quantities::unit::physical_unit::CTUnit;
 
 use crate::point::{QuantityPoint2, QuantityVector2};
-use crate::quantity_core::{quantity_minus_safe, quantity_plus_safe, quantity_ord_or_null};
+use crate::quantity_core::{half_value, quantity_minus_safe, quantity_ord_or_null, quantity_plus_safe, quantity_scaled_by};
 use crate::shape::PackingShape2;
 use std::cmp::Ordering;
 use std::ops::Add;
@@ -175,9 +175,8 @@ where
 
     /// 是否内部重叠 / Whether the boxes overlap in their interiors
     ///
-    /// 相切（任一侧边贴合，或圆与圆外切）**不算**重叠。四个方向都必须严格相交才判重叠。
-    /// Tangency (shared edge, or two externally tangent circles) does **not** count as overlap. All four
-    /// directions must strictly intersect.
+    /// 包围盒任一侧边贴合**不算**重叠。圆使用外接正方形，不是精确圆盘相交。
+    /// Shared bounding-box edges do **not** overlap. Circles use enclosing squares, not exact disk intersection.
     pub fn overlapped(&self, other: &Self) -> bool {
         let (Ok(self_max_x), Ok(self_max_y)) = (self.max_x(), self.max_y()) else {
             return false;
@@ -202,6 +201,45 @@ where
             Some(Ordering::Greater)
         );
         strictly_greater_left && strictly_greater_right && strictly_greater_bottom && strictly_greater_top
+    }
+
+    /// 精确圆盘相交 / Exact disk intersection
+    ///
+    /// 圆心位于包围盒中心，半径为形状半径；判定为圆心距 < 半径之和，相切不算相交。
+    /// 两个形状都必须含圆半径，否则返回 None——矩形没有精确圆盘语义，不能用外接方阵冒充。
+    /// The centre is the bounding-box centre and the radius is the shape radius; intersection means the
+    /// centre distance is less than the sum of radii, and tangency does not intersect. Returns None unless
+    /// both shapes carry a circle radius: a rectangle has no exact disk semantics and must not be faked
+    /// with its enclosing square.
+    pub fn disk_overlaps(&self, other: &Self) -> Option<bool> {
+        let self_radius = self.shape.circle()?.radius.clone();
+        let other_radius = other.shape.circle()?.radius.clone();
+        let self_centre = self.centre()?;
+        let other_centre = other.centre()?;
+        let dx = quantity_minus_safe(&self_centre.x, &other_centre.x).ok()?;
+        let dy = quantity_minus_safe(&self_centre.y, &other_centre.y).ok()?;
+        let distance_squared = dx.value.clone() * dx.value.clone() + dy.value.clone() * dy.value.clone();
+        let radii = quantity_plus_safe(&self_radius, &other_radius).ok()?;
+        // 平方比较避免开方误差：distance² < (r1 + r2)² 等价于 distance < r1 + r2，两边均非负。
+        // Compare squares to avoid a square-root rounding step: distance² < (r1 + r2)² is equivalent
+        // to distance < r1 + r2 because both sides are non-negative.
+        let limit_squared = radii.value.clone() * radii.value.clone();
+        Some(distance_squared.partial_cmp(&limit_squared) == Some(Ordering::Less))
+    }
+
+    /// 圆心 / Circle centre
+    ///
+    /// 圆以外接正方形表示，因此圆心是包围盒中心；非圆形状返回 None。
+    /// A circle is represented by its enclosing square, so the centre is the bounding-box centre;
+    /// non-circle shapes return None.
+    pub fn centre(&self) -> Option<QuantityPoint2<V, U>> {
+        self.shape.circle()?;
+        let max_x = self.max_x().ok()?;
+        let max_y = self.max_y().ok()?;
+        let half = half_value::<V>();
+        let x = quantity_scaled_by(&quantity_plus_safe(&self.x, &max_x).ok()?, &half);
+        let y = quantity_scaled_by(&quantity_plus_safe(&self.y, &max_y).ok()?, &half);
+        Some(QuantityPoint2 { x, y })
     }
 
     /// 是否与任意其他盒重叠 / Whether the box overlaps any of the given boxes

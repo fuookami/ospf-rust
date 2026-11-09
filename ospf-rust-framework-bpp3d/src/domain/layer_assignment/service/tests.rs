@@ -14,6 +14,8 @@ mod tests {
         Quantity::new_ct(v)
     }
 
+    include!("tests/selection.rs");
+
     #[test]
     fn default_solver_value_adapter() {
         let adapter = DefaultBpp3dSolverValueAdapter;
@@ -258,6 +260,48 @@ mod tests {
             Some(VariableRange::bounded(0.0, 0.0))
         );
         assert_eq!(iterative.active_column_count(), 1);
+    }
+
+    #[test]
+    fn iterative_layer_assignment_keeps_input_bounds_after_deduplication() {
+        let layer = |source: &str, depth| BinLayer {
+            iteration: 0,
+            from: source.to_string(),
+            bin: None,
+            depth: meters(depth),
+            demand_coverage: Vec::new(),
+        };
+        let first = layer("first", 1.0);
+        let second = layer("second", 2.0);
+        let third = layer("third", 3.0);
+        let mut iterative = IterativeLayerAssignmentContext::new();
+        let mut assignment = ImpreciseAssignment {
+            layers: Vec::new(),
+            x: None,
+            upper_bounds: Vec::new(),
+            load_weight_symbols: Vec::new(),
+            load_volume_symbols: Vec::new(),
+            load_depth_symbols: Vec::new(),
+            load_symbols: Vec::new(),
+        };
+        let mut model = MetaModel::<f64>::new("deduplicated_bounds");
+        iterative.add_columns_to_model(
+            0, vec![first.clone()], vec![Some(2.0)], &mut assignment, &mut model,
+        ).unwrap();
+        let added = iterative.add_columns_to_model(
+            1,
+            vec![first, second.clone(), second, third],
+            vec![Some(111.0), Some(3.0), Some(999.0)],
+            &mut assignment,
+            &mut model,
+        ).unwrap();
+
+        assert_eq!(added.iter().map(|column| column.upper_bound).collect::<Vec<_>>(), vec![Some(3.0), None]);
+        assert_eq!(assignment.upper_bounds, vec![Some(2.0), Some(3.0), None]);
+        assignment.register(&mut model).unwrap();
+        assert_eq!(model.variable_range_by_index(0), Some(VariableRange::new(Some(0.0), Some(2.0))));
+        assert_eq!(model.variable_range_by_index(1), Some(VariableRange::new(Some(0.0), Some(3.0))));
+        assert_eq!(model.variable_range_by_index(2), Some(VariableRange::new(Some(0.0), None)));
     }
 
     #[test]

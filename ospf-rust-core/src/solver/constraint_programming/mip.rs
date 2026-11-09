@@ -366,6 +366,77 @@ pub fn lower_constraint_programming_with_options(
     context.finish()
 }
 
+/// 为实际求解保留目标常数，并将固定列计入降维预算。
+/// Preserve the objective constant for execution and count its fixed column against lowering budgets.
+///
+/// 目标常数及各项绝对值上界之和必须在 f64 精确整数范围内。
+/// The sum of the absolute constant and objective-term bounds must fit the exact f64 integer range.
+pub fn lower_constraint_programming_for_solve(
+    snapshot: &ConstraintProgrammingSnapshot,
+    options: MipLoweringOptions,
+) -> Result<MipLoweringResult, MipLoweringError> {
+    let mut lowering = lower_constraint_programming_with_options(snapshot, options)?;
+    let constant = lowering.objective_constant;
+    let mut magnitude = i128::from(constant).abs();
+    for (index, coefficient) in lowering.model.c.iter().copied().enumerate() {
+        if coefficient == 0.0 {
+            continue;
+        }
+        let coefficient = i128::from(exact_f64_integer(coefficient, "objective.coefficient")?).abs();
+        let lower = i128::from(exact_f64_integer(lowering.model.lb[index], "objective.lower")?).abs();
+        let upper = i128::from(exact_f64_integer(lowering.model.ub[index], "objective.upper")?).abs();
+        magnitude += coefficient * lower.max(upper);
+        if magnitude > MAX_EXACT_F64_INTEGER {
+            return Err(MipLoweringError::Numeric {
+                field: "objective.absoluteTermBounds".to_owned(),
+                value: magnitude.to_string(),
+            });
+        }
+    }
+    if constant == 0 {
+        return Ok(lowering);
+    }
+
+    let variables = lowering.model.num_variables().saturating_add(1);
+    if variables > options.max_variables {
+        return Err(MipLoweringError::BudgetExceeded {
+            resource: "variables".to_owned(), limit: options.max_variables, actual: variables,
+        });
+    }
+    let auxiliaries = lowering.statistics.auxiliary_variables.saturating_add(1);
+    if auxiliaries > options.max_auxiliary_variables {
+        return Err(MipLoweringError::BudgetExceeded {
+            resource: "auxiliary_variables".to_owned(), limit: options.max_auxiliary_variables, actual: auxiliaries,
+        });
+    }
+
+    let mut sequence = 0usize;
+    let stable_id = loop {
+        let id = StableVariableId(format!("__ospf_cp_aux__objective_constant__{sequence}"));
+        if !lowering.source_variables.contains_key(&id) && !lowering.auxiliary_variables.contains_key(&id) {
+            break id;
+        }
+        sequence = sequence.checked_add(1).ok_or_else(|| MipLoweringError::Invalid {
+            message: "cannot allocate an objective-constant auxiliary ID".to_owned(),
+        })?;
+    };
+    let index = lowering.model.num_variables();
+    let variable = VariableItem::<Integer>::with_range(
+        VariableId::standalone(new_group_id()),
+        &format!("cp::aux::{stable_id}"),
+        VariableRange::bounded(1.0, 1.0),
+    );
+    lowering.model.basic.add_variable(Token::from_generic(variable, index));
+    lowering.model.c.push(constant as f64);
+    lowering.auxiliary_variables.insert(stable_id.clone(), index);
+    lowering.variable_origins.push(MipVariableOrigin::Auxiliary {
+        stable_id, reason: "objective constant".to_owned(),
+    });
+    lowering.statistics.auxiliary_variables = auxiliaries;
+    lowering.objective_constant = 0;
+    Ok(lowering)
+}
+
 const MAX_EXACT_F64_INTEGER: i128 = 1_i128 << 53;
 
 fn exact_i128(value: i128, field: impl Into<String>) -> Result<f64, MipLoweringError> {
@@ -1670,9 +1741,8 @@ impl<S: LinearSolver> MipBackedConstraintProgrammingSolver<S> {
         // 完整 hint 必须先通过原 CP snapshot 校验，再投影到 MIP。
         // A complete hint must pass source CP validation before it is projected to MIP.
         super::validate_complete_hint(snapshot, options.solution_hint, &[])?;
-        let mut lowered =
-            lower_constraint_programming_with_options(snapshot, self.lowering_options)
-                .map_err(lowering_error)?;
+        let mut lowered = lower_constraint_programming_for_solve(snapshot, self.lowering_options)
+            .map_err(lowering_error)?;
         let hinted_source_variables =
             apply_solution_hint(snapshot, &mut lowered, options.solution_hint)?;
         let backend_options = SolveOptions::new()
@@ -1913,7 +1983,7 @@ impl<S: LinearSolver + 'static> ConstraintProgrammingSolver
             }
         }
         if all_constraints_supported {
-            match lower_constraint_programming_with_options(snapshot, self.lowering_options) {
+            match lower_constraint_programming_for_solve(snapshot, self.lowering_options) {
                 Ok(lowered) => {
                     report.satisfaction = true;
                     report.integer_objective = true;
@@ -2828,6 +2898,17 @@ mod tests {
                     ..SolveStatistics::default()
                 })
                 .build()
+        }
+
+        fn solve_linear_report_with_options(
+            &self,
+            model: &LinearTriadModel,
+            options: &SolveOptions<'_>,
+        ) -> crate::error::Result<SolveReport<f64>> {
+            crate::solver::solver::emit_progress_start(options.progress_reporter, self.name())?;
+            let report = self.solve_linear_report(model)?;
+            crate::solver::solver::emit_progress_terminal(options.progress_reporter, self.name(), &report)?;
+            Ok(report)
         }
     }
 
@@ -3792,6 +3873,83 @@ mod tests {
     }
 
     #[test]
+    fn solve_lowering_retains_constant_and_preserves_public_lowering_contract() {
+        let snapshot = objective_snapshot(ObjectiveCategory::Minimum, -7, Some(1));
+        let ordinary = lower_constraint_programming(&snapshot).expect("ordinary lowering");
+        assert_eq!(ordinary.objective_constant, -7);
+        assert_eq!(ordinary.model.c[0], 1.0);
+        assert!(ordinary.model.c.iter().skip(1).all(|coefficient| *coefficient == 0.0));
+
+        let lowered = lower_constraint_programming_for_solve(&snapshot, MipLoweringOptions::default())
+            .expect("execution lowering");
+        let index = lowered.model.num_variables() - 1;
+        assert_eq!(lowered.objective_constant, 0);
+        assert_eq!(lowered.model.c[index], -7.0);
+        assert_eq!((lowered.model.lb[index], lowered.model.ub[index]), (1.0, 1.0));
+        assert_eq!(lowered.statistics.auxiliary_variables, ordinary.statistics.auxiliary_variables + 1);
+        let values = find_feasible_vector(&lowered.model).expect("feasible vector");
+        assert_eq!(lowered.objective_value(&snapshot, &values).unwrap(), Some(-6));
+        assert_eq!(linear_objective_value(&lowered.model, &values).unwrap(), -6.0);
+    }
+
+    #[test]
+    fn solve_lowering_counts_constant_column_and_rejects_inexact_objective_sums() {
+        let snapshot = objective_snapshot(ObjectiveCategory::Minimum, 7, None);
+        let ordinary = lower_constraint_programming(&snapshot).expect("ordinary lowering");
+        let variables = ordinary.model.num_variables();
+        let auxiliaries = ordinary.statistics.auxiliary_variables;
+        let mut options = MipLoweringOptions::default();
+        options.max_variables = variables;
+        assert!(matches!(lower_constraint_programming_for_solve(&snapshot, options),
+            Err(MipLoweringError::BudgetExceeded { resource, limit, actual })
+                if resource == "variables" && limit == variables && actual == variables + 1));
+        options.max_variables = variables + 1;
+        options.max_auxiliary_variables = auxiliaries;
+        assert!(matches!(lower_constraint_programming_for_solve(&snapshot, options),
+            Err(MipLoweringError::BudgetExceeded { resource, limit, actual })
+                if resource == "auxiliary_variables" && limit == auxiliaries && actual == auxiliaries + 1));
+
+        let inexact = objective_snapshot(ObjectiveCategory::Minimum, 9_007_199_254_740_992, None);
+        assert!(lower_constraint_programming(&inexact).is_ok());
+        assert!(matches!(lower_constraint_programming_for_solve(&inexact, MipLoweringOptions::default()),
+            Err(MipLoweringError::Numeric { field, value })
+                if field == "objective.absoluteTermBounds" && value == "9007199254740993"));
+        let solver = MipBackedConstraintProgrammingSolver::new(NeverCalledLinearSolver);
+        assert!(!solver.analyze_support(&inexact).integer_objective);
+        assert!(matches!(solver.solve_constraint_programming(&inexact, &ConstraintProgrammingSolveOptions::new()),
+            Err(CoreError::Solver(SolverError::NumericalError(_)))));
+
+        let mut model = ConstraintProgrammingModel::new("zero-constant-inexact-objective");
+        let one = IntegerDomain::range(1, 1).unwrap();
+        let x = variable(&mut model, "x", one.clone());
+        let y = variable(&mut model, "y", one);
+        model.set_objective(IntegerObjective::maximize(IntegerExpression::linear(0, [
+            IntegerTerm { variable: x, coefficient: 9_007_199_254_740_992 },
+            IntegerTerm { variable: y, coefficient: 1 },
+        ]).unwrap()));
+        let inexact = model.freeze().unwrap();
+        assert!(lower_constraint_programming(&inexact).is_ok());
+        assert!(matches!(lower_constraint_programming_for_solve(&inexact, MipLoweringOptions::default()),
+            Err(MipLoweringError::Numeric { field, value })
+                if field == "objective.absoluteTermBounds" && value == "9007199254740993"));
+        assert!(!solver.analyze_support(&inexact).integer_objective);
+        assert!(matches!(solver.solve_constraint_programming(&inexact, &ConstraintProgrammingSolveOptions::new()),
+            Err(CoreError::Solver(SolverError::NumericalError(_)))));
+    }
+
+    #[test]
+    fn solve_lowering_avoids_source_auxiliary_id_collisions() {
+        let mut model = ConstraintProgrammingModel::new("constant-id-collision");
+        let x = variable(&mut model, "__ospf_cp_aux__objective_constant__0", IntegerDomain::boolean());
+        model.set_objective(IntegerObjective::minimize(IntegerExpression::linear(3, [IntegerTerm {
+            variable: x, coefficient: 1,
+        }]).unwrap()));
+        let snapshot = model.freeze().unwrap();
+        let lowered = lower_constraint_programming_for_solve(&snapshot, MipLoweringOptions::default()).unwrap();
+        assert!(lowered.auxiliary_variables.contains_key(&StableVariableId::from("__ospf_cp_aux__objective_constant__1")));
+    }
+
+    #[test]
     fn mip_lowering_projects_validated_source_hint_to_a_partial_start() {
         let snapshot = objective_snapshot(ObjectiveCategory::Minimum, 0, None);
         let mut lowering = lower_constraint_programming(&snapshot).expect("lowering");
@@ -3913,7 +4071,7 @@ mod tests {
 
     #[test]
     fn mip_backed_pre_cancel_wins_over_an_immediate_limit() {
-        let snapshot = objective_snapshot(ObjectiveCategory::Minimum, 0, Some(1));
+        let snapshot = objective_snapshot(ObjectiveCategory::Minimum, 7, Some(1));
         let handle = crate::solver::SolveHandle::new();
         assert!(handle.cancel(crate::solver::CancellationOrigin::User));
         let options = ConstraintProgrammingSolveOptions::builder()
@@ -3948,8 +4106,8 @@ mod tests {
         let snapshot = objective_snapshot(ObjectiveCategory::Minimum, 7, Some(1));
         let solver = MipBackedConstraintProgrammingSolver::new(ContractLinearSolver {
             objective_delta: 0.0,
-            best_bound: Some(0.4),
-            typed_best_bound: Some(0.4),
+            best_bound: Some(7.4),
+            typed_best_bound: Some(7.4),
         });
         let report = solver
             .solve_constraint_programming(&snapshot, &ConstraintProgrammingSolveOptions::new())
@@ -3964,8 +4122,8 @@ mod tests {
         let snapshot = objective_snapshot(ObjectiveCategory::Maximum, 7, Some(0));
         let solver = MipBackedConstraintProgrammingSolver::new(ContractLinearSolver {
             objective_delta: 0.0,
-            best_bound: Some(0.6),
-            typed_best_bound: Some(0.6),
+            best_bound: Some(7.6),
+            typed_best_bound: Some(7.6),
         });
         let report = solver
             .solve_constraint_programming(&snapshot, &ConstraintProgrammingSolveOptions::new())
@@ -3973,6 +4131,28 @@ mod tests {
         assert_eq!(report.solution.as_ref().and_then(|s| s.objective), Some(7));
         assert_eq!(report.statistics.best_bound, Some(7));
         assert_eq!(report.statistics.best_bound_value, Some(7.6));
+    }
+
+    #[test]
+    fn mip_backed_progress_reports_the_source_objective_with_its_constant() {
+        let snapshot = objective_snapshot(ObjectiveCategory::Minimum, 7, Some(1));
+        let solver = MipBackedConstraintProgrammingSolver::new(ContractLinearSolver {
+            objective_delta: 0.0, best_bound: Some(7.5), typed_best_bound: Some(7.5),
+        });
+        let snapshots = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let captured = Arc::clone(&snapshots);
+        let reporter: crate::solver::SolveProgressReporter = Arc::new(move |progress| {
+            captured.lock().unwrap().push(progress.clone());
+            Ok(())
+        });
+        let options = ConstraintProgrammingSolveOptions::builder().progress_reporter(Some(&reporter)).finish();
+        let report = solver.solve_constraint_programming(&snapshot, &options).expect("solve");
+        assert_eq!(report.solution.unwrap().objective, Some(8));
+        assert_eq!(report.statistics.relative_gap, Some(0.0625));
+        let snapshots = snapshots.lock().unwrap();
+        let terminal = snapshots.iter().find(|snapshot| snapshot.terminal).expect("terminal progress");
+        assert_eq!(terminal.objective_value, Some(8.0));
+        assert_eq!(terminal.best_bound, Some(7.5));
     }
 
     #[test]

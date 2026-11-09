@@ -115,7 +115,9 @@ persistence-redis = ["persistence", "serde", "dep:serde_json"]
 # switches the solver traits to a future-returning shape; once feature unification turns
 # it on, downstream crates such as bpp3d and gantt — whose call sites still use the
 # synchronous signature — fail to compile. remote only needs the tokio runtime and serde.
-remote-solver = ["dep:tokio", "serde", "dep:serde_json"]
+# 不启用运行时的模型与报告编解码 / Model and report codecs without a runtime.
+remote-codec = ["serde", "dep:serde_json"]
+remote-solver = ["dep:tokio", "remote-codec"]
 remote-solver-http-reqwest = ["remote-solver", "dep:reqwest"]
 
 [dev-dependencies]

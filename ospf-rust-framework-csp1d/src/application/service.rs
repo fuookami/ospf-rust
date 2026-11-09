@@ -32,8 +32,19 @@ use crate::domain::produce::{
 /// Once the total artificial deficit drops to this value the original hard constraints count as satisfiable.
 const FEASIBILITY_TOLERANCE: f64 = 1e-7;
 
+struct LpRound<V: SolveValue> {
+    solution: crate::application::lp_solver::LpMasterSolution,
+    shadow_prices: Option<crate::domain::material::ShadowPriceMap<V>>,
+}
+
+impl<V: SolveValue> std::ops::Deref for LpRound<V> {
+    type Target = crate::application::lp_solver::LpMasterSolution;
+    fn deref(&self) -> &Self::Target { &self.solution }
+}
+
 /// 列生成终止原因 / Column generation termination reason
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Csp1dTerminationReason {
     /// 达到迭代上限 / Iteration limit reached
     IterationLimitReached,
@@ -51,6 +62,7 @@ pub enum Csp1dTerminationReason {
 
 /// 列生成每轮迭代记录 / Column generation iteration record
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Csp1dIterationRecord {
     /// 迭代号 / Iteration number
     pub iteration: i64,
@@ -66,6 +78,7 @@ pub struct Csp1dIterationRecord {
 
 /// 最终 MILP 状态 / Final MILP status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Csp1dFinalMilpStatus {
     /// 未尝试 / Not attempted
     NotAttempted,
@@ -77,6 +90,7 @@ pub enum Csp1dFinalMilpStatus {
 
 /// 列生成求解追踪信息 / Column generation solve trace
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Csp1dColumnGenerationTrace {
     /// 初始方案数 / Initial plan count
     pub initial_plan_count: u64,
@@ -415,6 +429,8 @@ pub struct Csp1dColumnGeneration<V: SolveValue> {
     /// 真实 LP 求解器；未注入时保持启发式影子价格路径
     /// / Real LP solver; when absent the heuristic shadow-price path is kept
     pub lp_solver: Option<std::sync::Arc<dyn crate::application::lp_solver::Csp1dLpSolver<V>>>,
+    /// 真实 MILP 报告后端；未注入时保留旧启发式行为。 / Actual MILP-report backend; absent preserves legacy heuristic behavior.
+    pub milp_solver: Option<std::sync::Arc<dyn crate::application::report_solver::Csp1dMilpBackend>>,
 }
 
 impl<V: SolveValue> std::fmt::Debug for Csp1dColumnGeneration<V> {
@@ -426,6 +442,7 @@ impl<V: SolveValue> std::fmt::Debug for Csp1dColumnGeneration<V> {
             .field("has_length_config", &self.length_config.is_some())
             .field("warm_start_plan_usages", &self.warm_start_plan_usages.len())
             .field("has_lp_solver", &self.lp_solver.is_some())
+            .field("has_milp_solver", &self.milp_solver.is_some())
             .finish()
     }
 }
@@ -443,6 +460,7 @@ impl<V: SolveValue> Default for Csp1dColumnGeneration<V> {
             length_config: None,
             warm_start_plan_usages: Vec::new(),
             lp_solver: None,
+            milp_solver: None,
         }
     }
 }
@@ -599,10 +617,10 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         // 重建后的原始 master 解：本轮定价应使用它的对偶，而不是可行性 master 的对偶。
         // The rebuilt business master solution: this round's pricing must use its duals, not the feasibility
         // master's.
-        let mut restored_solution: Option<crate::application::lp_solver::LpMasterSolution> = None;
+        let mut restored_solution: Option<LpRound<V>> = None;
         // 由「不可行重试」得到的可行性解，需在本轮末尾按目标判断是否已恢复。
         // The feasibility solution obtained by the infeasibility retry, judged at the end of the iteration.
-        let mut phase_one_solution: Option<crate::application::lp_solver::LpMasterSolution> = None;
+        let mut phase_one_solution: Option<LpRound<V>> = None;
         for iteration in 0..resolved_config.column_generation.iteration_limit {
             let lp_solution = match self.solve_lp_master(
                 &problem,
@@ -618,10 +636,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                     break;
                 }
             };
-            // 本轮由「不可行重试」拿到的可行性解优先于首次解，避免恢复分支被跳过。
-            // A feasibility solution obtained through the infeasibility retry takes precedence over the first
-            // solution so the restoration branch is never skipped.
-            let effective_solution = phase_one_solution.take().or(lp_solution);
+            let effective_solution = lp_solution;
             if let Some(solution) = effective_solution.as_ref() {
                 use crate::application::lp_solver::LpTerminalStatus;
                 match solution.status {
@@ -698,15 +713,14 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                                     break;
                                 }
                             };
-                            match retry.as_ref().map(|retry| retry.status) {
-                                Some(LpTerminalStatus::Optimal) => {
+                            match retry {
+                                Some(phase_one) if phase_one.status == LpTerminalStatus::Optimal => {
                                     // 重试成功只说明可行性 master 可解；必须立刻按它的目标判断短缺是否已
                                     // 消除。若已消除，就丢弃人工短缺并重建原始 master，否则短缺会留在模型里。
                                     // A successful retry only shows the feasibility master is solvable; its
                                     // objective must immediately decide whether the deficits are gone. When they
                                     // are, the deficits are discarded and the business master is rebuilt,
                                     // otherwise they would stay in the model.
-                                    let phase_one = retry.expect("optimal retry must carry a solution");
                                     if phase_one.objective > FEASIBILITY_TOLERANCE {
                                         // 短缺仍在：继续在可行性 master 上定价补列。
                                         // Deficits remain: keep pricing on the feasibility master.
@@ -775,14 +789,34 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                     }
                 }
             }
-            let shadow_prices = match restored_solution.take() {
-                Some(restored) => self
-                    .shadow_prices_from_duals(&problem, &current_plans, &resolved_config, &restored)
-                    .unwrap_or_else(|| optimistic_shadow_prices(&problem)),
-                None => self
+            // 对偶必须来自本轮实际注册的 context；不得重建不同模型或退回乐观占位值。
+            // Duals must come from this round's actual registered context, never a different rebuild or optimistic placeholders.
+            let pricing_solution = restored_solution.take().or(phase_one_solution.take()).or(effective_solution);
+            let lp_objective = pricing_solution.as_ref().map(|round| round.objective);
+            let shadow_prices = if self.lp_solver.is_some() {
+                match pricing_solution.and_then(|round| round.shadow_prices) {
+                    Some(prices) => prices,
+                    None => {
+                        lp_failure_message = Some("真实 LP 缺少当前模型影子价格 / Real LP lacks current-model shadow prices".into());
+                        termination_reason = Csp1dTerminationReason::LpSolveFailed;
+                        break;
+                    }
+                }
+            } else {
+                self
                     .extract_lp_shadow_prices(&problem, &current_plans, &resolved_config)
-                    .unwrap_or_else(|| optimistic_shadow_prices(&problem)),
+                    .unwrap_or_else(|| optimistic_shadow_prices(&problem))
             };
+            let phase_one_zero = if feasibility_phase {
+                match from_f64::<V>(0.0) {
+                    Some(zero) => Some(zero),
+                    None => {
+                        lp_failure_message = Some("领域不能表示可行性阶段零成本 / Domain cannot represent zero Phase I cost".into());
+                        termination_reason = Csp1dTerminationReason::LpSolveFailed;
+                        break;
+                    }
+                }
+            } else { None };
             let pricing_input = Csp1dPricingInput {
                 generation_input: CuttingPlanGenerationInput {
                     existing_plans: current_plans.clone(),
@@ -791,7 +825,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                 shadow_prices,
                 max_generated_plans: resolved_config.column_generation.max_pricing_plans,
                 objective_config: pricing_objective_config(&resolved_config),
-                pricing_cost_modifiers: Vec::new(),
+                pricing_cost_modifiers: phase_one_zero.map(|zero| vec![std::sync::Arc::new(move |_: &CuttingPlan<V>, _: V| zero.clone()) as crate::domain::cutting_plan_generation::Csp1dPricingCostModifier<V>]).unwrap_or_default(),
                 pricing_benefit_modifiers: Vec::new(),
                 is_improving_judges: Vec::new(),
                 canonical_key_overrides: Vec::new(),
@@ -822,7 +856,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                 priced_plan_counts.push(0);
                 iteration_records.push(Csp1dIterationRecord {
                     iteration: iteration as i64,
-                    lp_objective: plan_count_before as f64,
+                    lp_objective: lp_objective.unwrap_or(plan_count_before as f64),
                     plan_count_before: plan_count_before as i64,
                     priced_plan_count: 0,
                     plan_count_after: plan_count_before as i64,
@@ -845,7 +879,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
             priced_plan_counts.push(added_plans.len() as u64);
             iteration_records.push(Csp1dIterationRecord {
                 iteration: iteration as i64,
-                lp_objective: plan_count_before as f64,
+                lp_objective: lp_objective.unwrap_or(plan_count_before as f64),
                 plan_count_before: plan_count_before as i64,
                 priced_plan_count: added_plans.len() as u64,
                 plan_count_after: current_plans.len() as i64,
@@ -881,7 +915,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
             }
         }
 
-        let final_result = self.solve_final_heuristic(
+        let final_result = self.solve_final_milp(
             &problem,
             &current_plans,
             &resolved_config,
@@ -895,7 +929,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         let final_result = if final_result.status == Csp1dFinalMilpStatus::Solved
             && final_result.produce.cutting_plans.is_empty()
         {
-            HeuristicMilpResult {
+            MilpResult {
                 status: Csp1dFinalMilpStatus::Failed,
                 produce: empty_produce(&problem),
                 yield_result: None,
@@ -914,12 +948,12 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         // A failure without business output is a hard failure and is never relaxed to partial: reporting an
         // empty extraction as `Partial` would fabricate a business result.
         let no_extracted_output = final_result.produce.cutting_plans.is_empty()
-            && final_result
+            && (self.milp_solver.is_some() || final_result
                 .failure_message
                 .as_deref()
                 .is_some_and(|message| {
                     message.contains("没有可提取的可行解") || message.contains("no feasible solution")
-                });
+                }));
         let mut base_solution =
             self.analyzer
                 .analyze(&problem, final_result.produce, current_plans.clone());
@@ -947,7 +981,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                 failure_message: final_result.failure_message.clone(),
                 termination_reason: Some(termination_reason),
                 final_milp_status: final_status,
-                partial_solution_available: final_status == Csp1dFinalMilpStatus::Failed,
+                partial_solution_available: final_status == Csp1dFinalMilpStatus::Failed && !no_extracted_output,
                 initial_statistics: Some(initial_report.statistics.clone()),
                 pricing_statistics: pricing_statistics.clone(),
                 // LP 失败原因必须透传到 trace 与 solution：最终 MILP 可能仍用初始方案成功，
@@ -974,7 +1008,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
                 iterations: iteration_records,
                 initial_generation_statistics: Some(initial_report.statistics),
                 final_milp_status: final_status,
-                partial_solution_available: final_status == Csp1dFinalMilpStatus::Failed,
+                partial_solution_available: final_status == Csp1dFinalMilpStatus::Failed && !no_extracted_output,
                 failure_message: final_result.failure_message,
                 pricing_generation_statistics: pricing_statistics,
                 lp_failure_message,
@@ -999,7 +1033,7 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         solve_config: &Csp1dSolveConfig<V>,
         feasibility_phase: bool,
         name: &str,
-    ) -> crate::Csp1dResult<Option<crate::application::lp_solver::LpMasterSolution>> {
+    ) -> crate::Csp1dResult<Option<LpRound<V>>> {
         let Some(solver) = self.lp_solver.as_ref() else {
             return Ok(None);
         };
@@ -1014,30 +1048,20 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         builder.mode(Csp1dModelingMode::LP);
         if feasibility_phase {
             builder.feasibility_phase();
-            // 可行性阶段的人工短缺权重固定为 1、超产为 0：短缺是唯一需要被消除的不可行来源。
-            // The feasibility phase fixes the deficit weight to 1 and over-production to 0: a deficit is the only
-            // source of infeasibility that has to be removed.
-            let unit_symbol = problem
-                .demands
-                .first()
-                .map(|demand| {
-                    crate::domain::material::shadow_price_unit_symbol(&demand.quantity.unit)
-                })
-                .unwrap_or_default();
+            // 短缺权重固定为 1，>= 行允许自由超产；混合 Roll/Sheet 需求各自保留真实单位身份。
+            // Deficits carry weight 1 and >= rows allow free overproduction; mixed Roll/Sheet demands retain their own actual unit identities.
             let mut under = std::collections::BTreeMap::new();
-            let mut over = std::collections::BTreeMap::new();
             for demand in &problem.demands {
                 let key = crate::domain::material::ProductDemandShadowPriceKey {
                     product_id: demand.product.id.clone(),
-                    unit_symbol: unit_symbol.clone(),
+                    unit_symbol: crate::domain::material::shadow_price_unit_symbol(&demand.quantity.unit),
                 };
                 let sample = demand.quantity.value.clone();
-                under.insert(key.clone(), self.domain_unit(&sample));
-                over.insert(key, self.domain_zero(&sample));
+                under.insert(key, self.domain_unit(&sample));
             }
             builder.yield_config(crate::domain::r#yield::YieldModelingConfig {
                 under_production_penalty: under,
-                over_production_penalty: over,
+                over_production_penalty: std::collections::BTreeMap::new(),
                 over_production_upper_bound: std::collections::BTreeMap::new(),
             });
         }
@@ -1063,7 +1087,14 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
             .map_err(|error| crate::Csp1dError::Calculation {
                 message: format!("LP 主问题求解失败 / LP master solve failed: {error}"),
             })?;
-        Ok(Some(solution))
+        let shadow_prices = if solution.status.is_optimal() {
+            crate::application::lp_solver::require_pricing_ready(&solution)?;
+            if solution.duals.len() != model.constraints().len() || solution.duals.iter().any(|value| !value.is_finite()) {
+                return Err(crate::Csp1dError::Calculation { message: "LP 对偶必须精确覆盖当前模型行 / LP duals must exactly cover current model rows".into() });
+            }
+            Some(context.extract_shadow_price(&model, &solution.duals)?)
+        } else { None };
+        Ok(Some(LpRound { solution, shadow_prices }))
     }
 
     /// 领域单位 1 / The domain unit value 1
@@ -1072,11 +1103,6 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
     /// Converted through `from_f64` so no extra arithmetic bound is imposed on `V`.
     fn domain_unit(&self, sample: &V) -> V {
         crate::domain::material::from_f64(1.0).unwrap_or_else(|| sample.clone())
-    }
-
-    /// 领域零值 / The domain zero value
-    fn domain_zero(&self, sample: &V) -> V {
-        crate::domain::material::from_f64(0.0).unwrap_or_else(|| sample.clone())
     }
 
     fn extract_lp_shadow_prices(
@@ -1107,50 +1133,6 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         context.extract_shadow_price(&model, &duals).ok()
     }
 
-    /// 由真实 LP 对偶提取影子价格 / Extract shadow prices from the real LP duals
-    ///
-    /// 与 `extract_lp_shadow_prices` 的区别只在对偶来源：这里用求解器返回的真实对偶，
-    /// 而不是乐观构造的对偶。重建原始 master 之后必须走这条路径，否则定价依据仍是占位值。
-    /// Differs from `extract_lp_shadow_prices` only in where the duals come from: the solver's real duals
-    /// instead of the optimistically constructed ones. After rebuilding the business master this path is
-    /// mandatory, otherwise pricing would still rest on placeholder values.
-    fn shadow_prices_from_duals(
-        &self,
-        problem: &Csp1dProblem<V>,
-        cutting_plans: &[CuttingPlan<V>],
-        solve_config: &Csp1dSolveConfig<V>,
-        solution: &crate::application::lp_solver::LpMasterSolution,
-    ) -> Option<crate::domain::material::ShadowPriceMap<V>> {
-        if solution.duals.is_empty() {
-            return None;
-        }
-        let input = ProduceInput {
-            cutting_plans: cutting_plans.to_vec(),
-            demands: problem.demands.clone(),
-            materials: problem.materials.clone(),
-            machines: problem.machines.clone(),
-            warm_start_plan_usages: Vec::new(),
-        };
-        let mut builder = Csp1dProduceContextBuilder::new(input);
-        builder.mode(Csp1dModelingMode::LP);
-        for extension in solve_config.all_extensions() {
-            builder.extension(extension);
-        }
-        for policy in &solve_config.extension_set.objective_policies {
-            builder.objective_policy(policy.clone());
-        }
-        let mut context = builder.build().ok()?;
-        let mut model = ospf_rust_core::model::MetaModel::<f64>::new("csp1d_real_dual_shadow_price");
-        context.register(&mut model).ok()?;
-        // 对偶长度必须覆盖全部约束，否则下标会错位，宁可返回 None 也不做部分映射。
-        // The dual vector must cover every constraint; a short vector would misalign the indices, so `None` is
-        // returned rather than mapping a prefix.
-        if solution.duals.len() < model.constraints().len() {
-            return None;
-        }
-        context.extract_shadow_price(&model, &solution.duals).ok()
-    }
-
     fn resolve_solve_config(
         &self,
         problem: &Csp1dProblem<V>,
@@ -1177,14 +1159,15 @@ impl<V: SolveValue> Csp1dColumnGeneration<V> {
         config
     }
 
-    fn solve_final_heuristic(
+    fn solve_final_milp(
         &self,
         problem: &Csp1dProblem<V>,
         cutting_plans: &[CuttingPlan<V>],
         solve_config: &Csp1dSolveConfig<V>,
         warm_start_plan_usages: &[crate::domain::produce::CuttingPlanUsage<V>],
-    ) -> HeuristicMilpResult<V> {
-        solve_milp_heuristic(
+    ) -> MilpResult<V> {
+        solve_milp(
+            self.milp_solver.as_deref(),
             problem,
             cutting_plans,
             solve_config,
@@ -1251,6 +1234,8 @@ pub struct Csp1dMilp<V: SolveValue> {
     /// 真实 LP 求解器；未注入时保持启发式影子价格路径
     /// / Real LP solver; when absent the heuristic shadow-price path is kept
     pub lp_solver: Option<std::sync::Arc<dyn crate::application::lp_solver::Csp1dLpSolver<V>>>,
+    /// 真实 MILP 报告后端；未注入时保留旧启发式行为。 / Actual MILP-report backend; absent preserves legacy heuristic behavior.
+    pub milp_solver: Option<std::sync::Arc<dyn crate::application::report_solver::Csp1dMilpBackend>>,
 }
 
 impl<V: SolveValue> std::fmt::Debug for Csp1dMilp<V> {
@@ -1262,6 +1247,7 @@ impl<V: SolveValue> std::fmt::Debug for Csp1dMilp<V> {
             .field("has_length_config", &self.length_config.is_some())
             .field("warm_start_plan_usages", &self.warm_start_plan_usages.len())
             .field("has_lp_solver", &self.lp_solver.is_some())
+            .field("has_milp_solver", &self.milp_solver.is_some())
             .finish()
     }
 }
@@ -1277,6 +1263,7 @@ impl<V: SolveValue> Default for Csp1dMilp<V> {
             length_config: None,
             warm_start_plan_usages: Vec::new(),
             lp_solver: None,
+            milp_solver: None,
         }
     }
 }
@@ -1392,7 +1379,8 @@ impl<V: SolveValue> Csp1dMilp<V> {
             };
         }
 
-        let milp_result = solve_milp_heuristic(
+        let milp_result = solve_milp(
+            self.milp_solver.as_deref(),
             &problem,
             &generated_plans,
             &resolved_config,
@@ -1400,6 +1388,7 @@ impl<V: SolveValue> Csp1dMilp<V> {
             false,
         );
         let top_plans = top_cutting_plans(&generated_plans, resolved_config.top_k_plan_limit);
+        let no_extracted_output = self.milp_solver.is_some() && milp_result.produce.cutting_plans.is_empty();
         let mut base_solution =
             self.analyzer
                 .analyze(&problem, milp_result.produce, generated_plans.clone());
@@ -1408,7 +1397,7 @@ impl<V: SolveValue> Csp1dMilp<V> {
         base_solution.length_result = milp_result.length_result;
         let status = match milp_result.status {
             Csp1dFinalMilpStatus::Solved => Csp1dSolutionStatus::Feasible,
-            Csp1dFinalMilpStatus::Failed if resolved_config.allow_partial_solution => {
+            Csp1dFinalMilpStatus::Failed if resolved_config.allow_partial_solution && !no_extracted_output => {
                 Csp1dSolutionStatus::Partial
             }
             Csp1dFinalMilpStatus::Failed => Csp1dSolutionStatus::Failed,
@@ -1422,7 +1411,7 @@ impl<V: SolveValue> Csp1dMilp<V> {
                 failure_message: milp_result.failure_message.clone(),
                 termination_reason: None,
                 final_milp_status: milp_result.status,
-                partial_solution_available: milp_result.status == Csp1dFinalMilpStatus::Failed,
+                partial_solution_available: milp_result.status == Csp1dFinalMilpStatus::Failed && !no_extracted_output,
                 initial_statistics: Some(initial_report.statistics.clone()),
                 pricing_statistics: None,
                 lp_failure_message: None,
@@ -1444,56 +1433,12 @@ impl<V: SolveValue> Csp1dMilp<V> {
                 iterations: Vec::new(),
                 initial_generation_statistics: Some(initial_report.statistics),
                 final_milp_status: milp_result.status,
-                partial_solution_available: milp_result.status == Csp1dFinalMilpStatus::Failed,
+                partial_solution_available: milp_result.status == Csp1dFinalMilpStatus::Failed && !no_extracted_output,
                 failure_message: milp_result.failure_message,
                 pricing_generation_statistics: None,
                 lp_failure_message: None,
             },
         }
-    }
-
-    /// 由真实 LP 对偶提取影子价格 / Extract shadow prices from the real LP duals
-    ///
-    /// 与 `extract_lp_shadow_prices` 的区别只在对偶来源：这里用求解器返回的真实对偶，
-    /// 而不是乐观构造的对偶。重建原始 master 之后必须走这条路径，否则定价依据仍是占位值。
-    /// Differs from `extract_lp_shadow_prices` only in where the duals come from: the solver's real duals
-    /// instead of the optimistically constructed ones. After rebuilding the business master this path is
-    /// mandatory, otherwise pricing would still rest on placeholder values.
-    fn shadow_prices_from_duals(
-        &self,
-        problem: &Csp1dProblem<V>,
-        cutting_plans: &[CuttingPlan<V>],
-        solve_config: &Csp1dSolveConfig<V>,
-        solution: &crate::application::lp_solver::LpMasterSolution,
-    ) -> Option<crate::domain::material::ShadowPriceMap<V>> {
-        if solution.duals.is_empty() {
-            return None;
-        }
-        let input = ProduceInput {
-            cutting_plans: cutting_plans.to_vec(),
-            demands: problem.demands.clone(),
-            materials: problem.materials.clone(),
-            machines: problem.machines.clone(),
-            warm_start_plan_usages: Vec::new(),
-        };
-        let mut builder = Csp1dProduceContextBuilder::new(input);
-        builder.mode(Csp1dModelingMode::LP);
-        for extension in solve_config.all_extensions() {
-            builder.extension(extension);
-        }
-        for policy in &solve_config.extension_set.objective_policies {
-            builder.objective_policy(policy.clone());
-        }
-        let mut context = builder.build().ok()?;
-        let mut model = ospf_rust_core::model::MetaModel::<f64>::new("csp1d_real_dual_shadow_price");
-        context.register(&mut model).ok()?;
-        // 对偶长度必须覆盖全部约束，否则下标会错位，宁可返回 None 也不做部分映射。
-        // The dual vector must cover every constraint; a short vector would misalign the indices, so `None` is
-        // returned rather than mapping a prefix.
-        if solution.duals.len() < model.constraints().len() {
-            return None;
-        }
-        context.extract_shadow_price(&model, &solution.duals).ok()
     }
 
     fn resolve_solve_config(
@@ -2043,7 +1988,7 @@ fn fallback_disabled_message(status: Csp1dWarmStartStatus) -> String {
     }
 }
 
-struct HeuristicMilpResult<V: SolveValue> {
+struct MilpResult<V: SolveValue> {
     status: Csp1dFinalMilpStatus,
     produce: Produce<V>,
     yield_result: Option<crate::domain::r#yield::YieldModelingResult<V>>,
@@ -2052,13 +1997,105 @@ struct HeuristicMilpResult<V: SolveValue> {
     failure_message: Option<String>,
 }
 
+fn solve_milp<V: SolveValue>(
+    backend: Option<&dyn crate::application::report_solver::Csp1dMilpBackend>,
+    problem: &Csp1dProblem<V>,
+    cutting_plans: &[CuttingPlan<V>],
+    solve_config: &Csp1dSolveConfig<V>,
+    warm_start_plan_usages: &[CuttingPlanUsage<V>],
+    is_final_milp: bool,
+) -> MilpResult<V> {
+    let Some(backend) = backend else {
+        return solve_milp_heuristic(problem, cutting_plans, solve_config, warm_start_plan_usages, is_final_milp);
+    };
+    let input = ProduceInput {
+        cutting_plans: cutting_plans.to_vec(), demands: problem.demands.clone(), materials: problem.materials.clone(),
+        machines: problem.machines.clone(), warm_start_plan_usages: warm_start_plan_usages.to_vec(),
+    };
+    let result = solve_milp_input_report(backend, input, MilpRegistration {
+        yield_config: solve_config.yield_config.clone(), waste_config: solve_config.waste_config.clone(),
+        length_config: solve_config.length_config.clone(), extensions: solve_config.all_extensions(),
+        objective_policies: solve_config.extension_set.objective_policies.clone(), is_final_milp,
+    });
+    match result {
+        Ok(result) => MilpResult {
+            status: Csp1dFinalMilpStatus::Solved, produce: result.produce, yield_result: result.yield_result,
+            waste_result: result.waste_result, length_result: result.length_result, failure_message: None,
+        },
+        Err(message) => MilpResult {
+            status: Csp1dFinalMilpStatus::Failed, produce: empty_produce(problem), yield_result: None,
+            waste_result: None, length_result: None, failure_message: Some(message),
+        },
+    }
+}
+
+fn solve_milp_input_report<V: SolveValue>(
+    backend: &dyn crate::application::report_solver::Csp1dMilpBackend,
+    input: ProduceInput<V>,
+    options: MilpRegistration<V>,
+) -> Result<Csp1dMilpSolveResult<V>, String> {
+    let mut warm_counts = std::collections::BTreeMap::new();
+    for usage in &input.warm_start_plan_usages {
+        let key = usage.plan.canonical_key();
+        if !input.cutting_plans.iter().any(|plan| plan.canonical_key() == key) {
+            return Err("CSP1D warm start refers to a foreign plan".into());
+        }
+        let amount = warm_counts.entry(key).or_insert(0u64);
+        *amount = amount.checked_add(usage.amount).ok_or_else(|| "CSP1D warm start usage overflow".to_string())?;
+        if *amount > 9_007_199_254_740_991 {
+            return Err("CSP1D warm start usage is not safely representable".into());
+        }
+    }
+    let final_milp = options.is_final_milp;
+    let (context, mut model) = register_milp_input(input, options)?;
+    let snapshot = model.linear_model_snapshot().map_err(|error| error.to_string())?;
+    let compiled = snapshot.compile_flt64().map_err(|error| error.to_string())?;
+    let mut report = backend.solve_milp(&model, final_milp).map_err(|error| error.to_string())?;
+    crate::application::report_solver::validate_csp1d_report(&compiled.model, &mut report, FEASIBILITY_TOLERANCE)
+        .map_err(|error| error.to_string())?;
+    let solution = report.solution.as_ref().ok_or_else(|| format!("CSP1D MILP has no feasible solution: {:?}/{:?}", report.problem_status, report.termination_reason))?;
+    let values = compiled.model.basic.variables.iter().zip(&solution.values).map(|(token, value)| (token.id(), *value))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    snapshot.validate_solution(&values, &FEASIBILITY_TOLERANCE).map_err(|error| error.to_string())?;
+    snapshot.evaluate_objective_flt64(&values).map_err(|error| error.to_string())?
+        .validate_reported(solution.objective_value.or(solution.objective), FEASIBILITY_TOLERANCE)
+        .map_err(|error| error.to_string())?;
+    // 领域提取会舍入并饱和；先验证舍入后的完整向量和计数范围，不能让提取悄悄修复非法解。
+    // Domain extraction rounds and saturates; first validate the rounded full vector and count ranges, never silently repair an invalid incumbent.
+    let mut extracted_values = values.clone();
+    let mut total = 0u64;
+    for (index, _) in context.produce.cutting_plans.iter().enumerate() {
+        if !context.produce.is_plan_active(index) { continue; }
+        let token = context.produce.plan_variable_index(index).and_then(|index| model.tokens().get(index))
+            .ok_or_else(|| "CSP1D plan lost its registered variable".to_string())?;
+        let value = *values.get(&token.id()).ok_or_else(|| "CSP1D report lost a plan value".to_string())?;
+        let rounded = value.round();
+        if !(0.0..=9_007_199_254_740_991.0).contains(&rounded) || (value - rounded).abs() > FEASIBILITY_TOLERANCE {
+            return Err("CSP1D plan usage must be a nonnegative safely representable integer".into());
+        }
+        total = total.checked_add(rounded as u64).ok_or_else(|| "CSP1D aggregate plan usage overflow".to_string())?;
+        extracted_values.insert(token.id(), rounded);
+    }
+    snapshot.validate_solution(&extracted_values, &FEASIBILITY_TOLERANCE).map_err(|error| error.to_string())?;
+    snapshot.evaluate_objective_flt64(&extracted_values).map_err(|error| error.to_string())?
+        .validate_reported(solution.objective_value.or(solution.objective), FEASIBILITY_TOLERANCE)
+        .map_err(|error| error.to_string())?;
+    let solution_by_id = extracted_values.into_iter().collect();
+    model.set_solution_by_id(&solution_by_id);
+    let produce = context.extract_solution(&model).map_err(|error| error.to_string())?;
+    let yield_result = context.extract_yield_result(&model);
+    let waste_result = context.extract_waste_result(&model);
+    let length_result = context.extract_length_result(&model);
+    Ok(Csp1dMilpSolveResult { produce, yield_result, waste_result, length_result, model, solution_by_id })
+}
+
 fn solve_milp_heuristic<V: SolveValue>(
     problem: &Csp1dProblem<V>,
     cutting_plans: &[CuttingPlan<V>],
     solve_config: &Csp1dSolveConfig<V>,
     warm_start_plan_usages: &[crate::domain::produce::CuttingPlanUsage<V>],
     is_final_milp: bool,
-) -> HeuristicMilpResult<V> {
+) -> MilpResult<V> {
     let mut selected = select_plans_heuristically(problem, cutting_plans);
     selected.extend(warm_start_plan_usages.iter().cloned());
     let input = ProduceInput {
@@ -2077,7 +2114,7 @@ fn solve_milp_heuristic<V: SolveValue>(
         solve_config.extension_set.objective_policies.clone(),
         is_final_milp,
     ) {
-        Ok(result) => HeuristicMilpResult {
+        Ok(result) => MilpResult {
             status: Csp1dFinalMilpStatus::Solved,
             produce: result.produce,
             yield_result: result.yield_result,
@@ -2085,7 +2122,7 @@ fn solve_milp_heuristic<V: SolveValue>(
             length_result: result.length_result,
             failure_message: None,
         },
-        Err(message) => HeuristicMilpResult {
+        Err(message) => MilpResult {
             status: Csp1dFinalMilpStatus::Failed,
             produce: empty_produce(problem),
             yield_result: None,
@@ -2096,19 +2133,20 @@ fn solve_milp_heuristic<V: SolveValue>(
     }
 }
 
-fn solve_milp_input_heuristic<V: SolveValue>(
-    input: ProduceInput<V>,
+struct MilpRegistration<V: SolveValue> {
     yield_config: Option<crate::domain::r#yield::YieldModelingConfig<V>>,
     waste_config: Option<crate::domain::wasting_minimization::WasteMinimizationConfig<V>>,
     length_config: Option<crate::domain::length_assignment::LengthAssignmentModelingConfig<V>>,
     extensions: Vec<crate::domain::produce::Csp1dModelingExtension<V>>,
     objective_policies: Vec<std::sync::Arc<dyn crate::domain::produce::Csp1dObjectivePolicy<V>>>,
     is_final_milp: bool,
-) -> Result<Csp1dMilpSolveResult<V>, String> {
-    if input.cutting_plans.is_empty() {
-        return Err("No cutting plans for CSP1D MILP".into());
-    }
-    let selected = input.warm_start_plan_usages.clone();
+}
+
+fn register_milp_input<V>(input: ProduceInput<V>, options: MilpRegistration<V>) -> Result<(Csp1dProduceContext<V>, ospf_rust_core::model::MetaModel<f64>), String>
+where
+    V: SolveValue,
+{
+    let MilpRegistration { yield_config, waste_config, length_config, extensions, objective_policies, is_final_milp } = options;
     let resolved_length_config = resolve_default_length_bounds(&input, length_config);
     let mut builder = Csp1dProduceContextBuilder::new(input);
     builder
@@ -2131,14 +2169,33 @@ fn solve_milp_input_heuristic<V: SolveValue>(
     }
     let mut context = builder.build().map_err(|error| error.to_string())?;
     let model_name = if is_final_milp {
-        "csp1d_final_heuristic"
+        "csp1d_final_milp"
     } else {
-        "csp1d_milp_heuristic"
+        "csp1d_milp"
     };
     let mut model = ospf_rust_core::model::MetaModel::<f64>::new(model_name);
     context
         .register(&mut model)
         .map_err(|error| error.to_string())?;
+    Ok((context, model))
+}
+
+fn solve_milp_input_heuristic<V: SolveValue>(
+    input: ProduceInput<V>,
+    yield_config: Option<crate::domain::r#yield::YieldModelingConfig<V>>,
+    waste_config: Option<crate::domain::wasting_minimization::WasteMinimizationConfig<V>>,
+    length_config: Option<crate::domain::length_assignment::LengthAssignmentModelingConfig<V>>,
+    extensions: Vec<crate::domain::produce::Csp1dModelingExtension<V>>,
+    objective_policies: Vec<std::sync::Arc<dyn crate::domain::produce::Csp1dObjectivePolicy<V>>>,
+    is_final_milp: bool,
+) -> Result<Csp1dMilpSolveResult<V>, String> {
+    if input.cutting_plans.is_empty() {
+        return Err("No cutting plans for CSP1D MILP".into());
+    }
+    let selected = input.warm_start_plan_usages.clone();
+    let (context, mut model) = register_milp_input(input, MilpRegistration {
+        yield_config, waste_config, length_config, extensions, objective_policies, is_final_milp,
+    })?;
     let mut solution_by_id = std::collections::HashMap::new();
     let usage_by_key = selected
         .iter()

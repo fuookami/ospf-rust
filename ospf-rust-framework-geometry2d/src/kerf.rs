@@ -52,9 +52,8 @@ where
 
 /// 按刀缝膨胀放置的形状与坐标 / Inflate a placement's shape and position
 ///
-/// 膨胀以形状中心为基准，因此坐标需要回退半个间距，保持中心不动。
-/// Inflation is centred on the shape centre, so the position retreats by half the spacing to keep the
-/// centre fixed.
+/// 现有实现保留原左下角，尺寸向右/上增加；不提供中心不变的膨胀。
+/// The existing implementation preserves the lower-left corner and grows right/up; it does not provide centred inflation.
 pub fn inflated_by_placement<V, U>(
     placement: &Placement2<V, U>,
     spacing: &Quantity<V, U>,

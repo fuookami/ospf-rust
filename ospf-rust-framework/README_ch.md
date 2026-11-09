@@ -98,7 +98,25 @@ f64，其他数值域可以建模和 seed，但未获得受控证据时不能声
 | `DiagnosticPersistenceFieldResolver`、`PersistenceFieldResolution` | 保留字段缺失、歧义和非法配置诊断。 | migration |
 | `SqlxRelationalQueryCompiler` | 将白名单关系计划编译为参数化 SQLx SQL，并提供执行统计。 | feature-gated |
 
+## 共享报告驱动线性执行
+
+`LinearReportExecutor<S>` 是 CSP1D 与 BPP2D 共用的同步原生执行边界，领域 crate 不互相依赖。`S` 标记子阶段；`LinearExecutionOptions` 提供总预算（默认 60 秒）、原快照可行性容差、取消、原始进度回调及报告保留上限。每次领域调用独立创建 executor，显式注入 `Arc<dyn LinearSolver>`，不选择默认后端或启发式回退。
+
+`solve(&model, stage, LinearExecutionMode::{Lp, Milp})` 只编译一次实际 MetaModel 快照，保留该编译模型的类型、行元数据、指纹与映射，按原快照复验完整稳定 ID 解，并将报告中的无常数目标与独立保留的常数分开检查。`LinearExecutionResult.objective` 只计一次常数，不改写原报告。`LinearStageReport<S>` 只保留通过全部执行门禁的报告，包括有效的限时／取消／不可行终态；后端、回调及报告契约错误直接返回错误，不进入有效报告历史，也不伪造业务输出。
+
+LP 模式拒绝整数变量。只有完整复验的最优 LP 证书才能交付 `original_duals`，按 MetaModel 原始约束顺序还原符号并汇总等式拆行；非最优 incumbent 可以保留，但不提供定价对偶。两种模式的不可行状态都要求匹配、可靠且完整的 core 证据。这是数学契约检查，不是来源认证或源问题全局证明提升。
+
+总预算包含编译、调用间的生成时间及前序子求解；预算耗尽或预取消不启动后端。取消采用独立的子完成标记和弱引用转发，避免首个 LP 完成吞掉后续 MILP 取消。同一个 executor 禁止重入；读取 `reports()` 不等待当前求解结束。这是合作限制，不硬抢占生成、编译或不合作的原生代码。此 Rust 执行 API 本身不代表新增 HTTP／N-API／SDK 导出。
+
+### 既有 MetaModel 执行器的报告后端
+
+`ReportMetaModelBackend::new(solver, options)` 将同一执行器适配为 `MetaModelSolverBackend`，可注入 BPP3D 原有 solver-backed RMP／final 执行器。clone 共用总预算、取消转发和有效报告历史；每次 application 调用应创建新实例。`MetaModelStage::RestrictedMaster` 拒绝整数域，只有认证后的原行 LP 对偶才能进入旧定价流程；`FinalMilp` 保留实际整数域，允许经复验的非最优 incumbent，不伪造对偶或提升证明。
+
+`execute(&model, stage)` 在有效无解终态和非最优 LP 时仍返回报告原生结果。`reports()` 保留实际编译模型、原报告和独立目标常数。旧 `solve_rmp`／`solve_final` 缺少必要证据时返回错误并保留已接受报告，不提供可被领域执行器替换为 no-op 默认值的空向量；合法空 primal 也不能进入此兼容路径，空模型应使用 `execute`。无行且空对偶的 LP 报告由 core 证书门禁拒绝。错误证据和后端异常不进入有效历史。BPP3D 的分配重数、物理 trace 复验及无损领域协议仍需独立实施；该适配器不是 BPP3D SDK 入口，也不是完整列生成算法。
+
 ## 建模扩展点
+
+原生语言桥接已通过类型化内置策略开放现有 `SerialCombinatorialLinearSolver` 和 `ParallelCombinatorialLinearSolver`，见 [TypeScript 桥接能力](../docs/typescript-bridge_ch.md)。编排保留在 Rust，保留原始 attempt 轨迹及绑定源模型的聚合报告。取消/中断/超时报告停止串行 fallback；没有 incumbent 的超时保持 `TimeLimit`，不改写为 `BackendFailure`。并行 `First` 请求合作式取消 loser 后仍等待全部 worker；`Best` 选择最佳 incumbent，无 incumbent 时按配置顺序选择首个有可靠证明的数学终态，不把未经证明的裸状态提升为证明。这不意味着任意远程回调、列生成或 Benders 已开放。
 
 framework-level 扩展应表达为：
 
@@ -196,6 +214,14 @@ Remote checkpoint recovery 保留旧的 `CheckpointResumeExpectation` 和 `valid
 
 remote solver 支持遵循 Cargo feature，不按 Maven-style backend module 拆分。公共 feature 提供 `RemoteSolverClient`、`RemoteLinearSolver`、`RemoteQuadraticSolver`、async `SolverExecutionPort` 与 `ObjectStoragePort`、`RemoteSolverHttpClient`、`LocalFileObjectStoragePort` 和 `OspfRemoteModelSerializer`。
 
+运行时无关的语言桥接使用 `remote-codec`，不启用 Tokio 或 HTTP 客户端。
+其中独立 `CompiledLinearModelArtifact` 与 `encode_compiled_linear_model` /
+`decode_compiled_linear_model` 保留实际 backend 模型准确的 token/solver 类型、
+行元数据、模型局部行名、core 指纹和稳定映射。它是独立 schema 1 执行封装，
+不改变既有较粗远程交换协议；复用原稀疏 DTO 和有符号无穷界编码，校验 canonical
+字节及完整载荷摘要，每个模型文本限 8 MiB。解码分配新局部变量 ID，不转移原 arena
+所有权和可变 token 结果。详见[子模型身份边界](../docs/typescript-bridge_ch.md#原生子模型身份前置能力)。
+
 在 current-thread Tokio runtime 内，建议使用 `solve_remote(...)` / `solve_remote_with_options(...)`，因为同步 trait 入口会主动拒绝阻塞该 runtime flavor。需要读取终态语义的新代码应使用 `solve_remote_report(...)` 或 core 的 `solve_linear_report` / `solve_quadratic_report` 入口。版本化 remote report 保留 core `SolveReport`、run/attempt identity 和 artifact digest；旧 `SolveResult` 与 `SerializedSolution` 仍支持兼容读取，但未知 report schema version 会被拒绝。
 
 ## Persistence 边界
@@ -291,3 +317,15 @@ cargo test -p ospf-rust-framework --features "scip-bundled async"
 ## 许可证
 
 本项目与主 OSPF Rust 项目使用相同许可证。
+
+### 原生同源投影列生成
+
+`ColumnGenerationAlgorithm(client, { backend, blocks })` 调用原生 `column-generation` / `columnGeneration` 策略，配置、块、停止原因和摘要由 Rust 生成。块显式映射不同的源交换列索引，未映射变量保留为全局变量。每块表示恰选一列的局部配置，**不是**任意装箱领域可无限重复选图案的主问题。空白/重复块、重复/未知变量和任意回调明确拒绝。上限为 256 块、100000 个映射变量、10000 轮 RMP/列；默认 128 轮、10000 列、容差 1e-7。
+
+实际 Rust `ProjectedColumnGeneration` 全程复用 `ColumnProjection`：空池人工变量 Phase I（无大 M）、独立校验 RMP 最优 LP 证书和行映射、保留源边界/整数性/局部行的原生定价、每块每轮最多一列、整批加列、旧对偶失效与重建，最后求受限整数主问题并复核完整源赋值。跨块/全局行仅通过对偶进入局部目标。定价主问题去除凸性已隐含的列上界，避免冗余上界对偶造成重复负检验数；原有普通 master 默认不变。SCIP 显式使用 LP 子问题预设以保留可用对偶。
+
+`timeLimitMs` 是包含 RMP、定价和 final 的总求解预算，各子求解接收剩余时间；源 codec/决策映射初始化在计时之前，编译过程不可抢占。省略时 Rust 默认 60 秒。进度为最近子求解器原始快照，不代表整体百分比。HTTP/N-API 共用取消、任务存储和释放，提交后错误保留 `jobId`。无完整源 MILP 回退、隐式后端替换或 TS 回调到 trait 的转换。
+
+`ColumnGenerationReport.fromJson(job.reportJson, artifact)` 复验 schema、源身份、计数、完整原域赋值/目标及 core 子报告契约。`summary()` 区分 Phase I 完成、Phase II 定价收敛、限制/停滞和实际子问题终态；不可行/无界保留在子报告，不伪造成源证明。`masterReportJson()` / `pricingReportJson()` / `finalReportJson()` 以无损文本保留最后真实报告及 u64 元数据，`pricingBlock` 标识最后定价块。final **仅使用已生成列**：定价收敛和受限整数最优都不证明源 MILP 全局最优，受限不可行也不证明源不可行；因此不暴露源 `bestBound` 或伪造源 SolveReport 证明。迭代/列数耗尽后若 Phase I 已完成，仍可求当前池的 final；超时/取消不启动新的 final，但已运行 final 返回的有效 incumbent 继续保留。报告 dispose 与任务 release 独立。
+
+任意 context/pipeline 注册、动态删列策略、branch-and-price 和完整领域流程仍待后续接入，不由 SDK 隐式模拟。

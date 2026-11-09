@@ -9,8 +9,8 @@
 pub enum ParallelCombinatorialMode {
     /// 返回第一个成功结果 / Return first successful result
     ///
-    /// 当任何一个求解器成功找到解时，立即返回该结果并取消其他求解器。
-    /// When any solver successfully finds a solution, immediately return that result and cancel other solvers.
+    /// 接受首个可选报告并请求合作式取消其他求解器，仍等待全部 worker 回收后返回。
+    /// Accept the first selectable report and request cooperative cancellation of other solvers, still joining all workers before returning.
     First,
 
     /// 返回最优结果（默认）/ Return best result (default)

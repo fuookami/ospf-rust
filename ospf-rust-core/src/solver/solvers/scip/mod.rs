@@ -8,9 +8,9 @@ use crate::error::{CoreError, Result, SolverError};
 use crate::model::ConstraintRelation;
 use crate::model::ObjectiveCategory;
 use crate::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
-use crate::solver::solver::{emit_progress_start, emit_progress_terminal};
+use crate::solver::solver::{emit_progress_start, emit_progress_terminal, emit_progress_update};
 use crate::solver::{
-    CapabilitySupport, LinearSolver, QuadraticSolver, SolveHandle, SolveOptions, SolveReport,
+    CapabilitySupport, LinearSolver, QuadraticSolver, SolveHandle, SolveOptions, SolveProgressReporter, SolveReport,
     SolveWarning, SolverCapabilities, SolverCapability, SolverDescriptor, SolverInfo, SolverOutput,
     SolverProvenance, SolverStatus, SolvingStatus, attach_linear_solution_audit,
     attach_quadratic_model_mapping, cancelled_solve_report, linear_dual_certificate_is_valid,
@@ -50,6 +50,7 @@ pub use config::{PresolvingMode, SCIPConfig, ScipConfig};
 #[cfg(feature = "scip")]
 #[derive(Clone)]
 struct SCIPTelemetryRuntime {
+    solver_name: String,
     objective_category: ObjectiveCategory,
     scip_vars: Vec<Variable>,
     no_improvement_time_limit: Option<f64>,
@@ -59,6 +60,7 @@ struct SCIPTelemetryRuntime {
     telemetry_min_interval: Option<f64>,
     native_event_mask: EventMask,
     telemetry_callback: Option<SCIPTelemetryCallback>,
+    progress_reporter: Option<SolveProgressReporter>,
     snapshot_observers: Vec<SCIPSnapshotObserver>,
     native_callback: Option<SCIPNativeCallback>,
     native_observers: Vec<SCIPNativeObserver>,
@@ -73,6 +75,7 @@ impl SCIPTelemetryRuntime {
     fn enabled(&self) -> bool {
         self.no_improvement_time_limit.is_some()
             || self.telemetry_callback.is_some()
+            || self.progress_reporter.is_some()
             || !self.snapshot_observers.is_empty()
             || self.native_callback.is_some()
             || !self.native_observers.is_empty()
@@ -87,6 +90,7 @@ struct SCIPTelemetryEventHandler {
     solve_started_at: Instant,
     last_improvement: Instant,
     last_telemetry_emit: Option<Instant>,
+    last_progress_emit: Option<Instant>,
     best_objective: Option<f64>,
     initial_objective_value: Option<f64>,
 }
@@ -100,6 +104,7 @@ impl SCIPTelemetryEventHandler {
             solve_started_at: now,
             last_improvement: now,
             last_telemetry_emit: None,
+            last_progress_emit: None,
             best_objective: None,
             initial_objective_value: None,
         }
@@ -131,15 +136,24 @@ impl SCIPTelemetryEventHandler {
     }
 
     fn build_snapshot(&mut self, model: &Model<Solving>) -> SCIPTelemetryStatus {
+        // Model<Solving> 事件也可能发生在预求解；该统计 API 不允许这些阶段。
+        // Model<Solving> events can occur during presolve, where this statistics API is invalid.
+        // SCIP 指针在借用的 Model 生命周期内有效 / The SCIP pointer is valid for the borrowed Model lifetime.
+        let stage = unsafe { russcip::ffi::SCIPgetStage(model.scip_ptr()) };
+        let iterations = if Self::can_read_lp_iterations(stage) { Some(model.n_lp_iterations()) } else { None };
         let best_solution = model.best_sol();
         let objective_value = best_solution
             .as_ref()
             .map(|sol| sol.obj_val())
-            .filter(|v| v.is_finite());
+            .filter(|v| v.is_finite() && unsafe { russcip::ffi::SCIPisInfinity(model.scip_ptr(), v.abs()) == 0 });
         if self.initial_objective_value.is_none() {
             self.initial_objective_value = objective_value;
         }
-        let incumbent_solution = best_solution.as_ref().map(|solution| {
+        let needs_values = self.runtime.telemetry_callback.is_some()
+            || !self.runtime.snapshot_observers.is_empty()
+            || self.runtime.native_callback.is_some()
+            || !self.runtime.native_observers.is_empty();
+        let incumbent_solution = best_solution.as_ref().filter(|_| needs_values).map(|solution| {
             self.runtime
                 .scip_vars
                 .iter()
@@ -148,7 +162,11 @@ impl SCIPTelemetryEventHandler {
         });
         let best_bound = {
             let bound = model.best_bound();
-            if bound.is_finite() { Some(bound) } else { None }
+            if bound.is_finite() && unsafe { russcip::ffi::SCIPisInfinity(model.scip_ptr(), bound.abs()) == 0 } {
+                Some(bound)
+            } else {
+                None
+            }
         };
         let mip_gap = objective_value
             .zip(best_bound)
@@ -161,9 +179,15 @@ impl SCIPTelemetryEventHandler {
             incumbent_solution,
             best_bound,
             mip_gap,
-            iterations: Some(model.n_lp_iterations()),
+            iterations,
             node_count: Some(model.n_nodes()),
         }
+    }
+
+    fn can_read_lp_iterations(stage: russcip::ffi::SCIP_Stage) -> bool {
+        matches!(stage,
+            russcip::ffi::SCIP_Stage_SCIP_STAGE_SOLVING | russcip::ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+        )
     }
 
     fn should_emit_telemetry(&self) -> bool {
@@ -260,6 +284,31 @@ impl Eventhdlr for SCIPTelemetryEventHandler {
                 return;
             }
             self.last_telemetry_emit = Some(Instant::now());
+        }
+
+        if let Some(reporter) = self.runtime.progress_reporter.as_ref() {
+            let interval = self.runtime.telemetry_min_interval
+                .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
+                .unwrap_or(0.1);
+            if self.last_progress_emit.is_none_or(|last| last.elapsed().as_secs_f64() >= interval) {
+                if let Err(error) = emit_progress_update(
+                    reporter,
+                    &self.runtime.solver_name,
+                    snapshot.solve_time,
+                    snapshot.objective_value,
+                    snapshot.best_bound,
+                    snapshot.mip_gap,
+                ) {
+                    let mut callback_error = self.runtime.callback_error.lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if callback_error.is_none() {
+                        *callback_error = Some(error);
+                    }
+                    unsafe { russcip::ffi::SCIPinterruptSolve(model.inner()); }
+                    return;
+                }
+                self.last_progress_emit = Some(Instant::now());
+            }
         }
 
         let mut request_interrupt = iteration_limit_reached
@@ -496,6 +545,7 @@ impl SCIPSolver {
         objective_category: ObjectiveCategory,
         scip_vars: &[Variable],
         cancellation_handle: Option<&SolveHandle>,
+        progress_reporter: Option<&SolveProgressReporter>,
         callback_error: Arc<Mutex<Option<CoreError>>>,
     ) -> SCIPTelemetryRuntime {
         let native_event_mask =
@@ -505,6 +555,7 @@ impl SCIPSolver {
                 self.config.native_event_mask
             };
         SCIPTelemetryRuntime {
+            solver_name: self.name().to_owned(),
             objective_category,
             scip_vars: scip_vars.to_vec(),
             no_improvement_time_limit: self.config.no_improvement_time_limit,
@@ -514,6 +565,7 @@ impl SCIPSolver {
             telemetry_min_interval: self.config.telemetry_min_interval,
             native_event_mask,
             telemetry_callback: self.config.telemetry_callback.clone(),
+            progress_reporter: progress_reporter.cloned(),
             snapshot_observers: self.config.snapshot_observers.clone(),
             native_callback: self.config.native_callback.clone(),
             native_observers: self.config.native_observers.clone(),
@@ -530,12 +582,14 @@ impl SCIPSolver {
         objective_category: ObjectiveCategory,
         scip_vars: &[Variable],
         cancellation_handle: Option<&SolveHandle>,
+        progress_reporter: Option<&SolveProgressReporter>,
         callback_error: Arc<Mutex<Option<CoreError>>>,
     ) -> Arc<AtomicBool> {
         let runtime = self.build_telemetry_runtime(
             objective_category,
             scip_vars,
             cancellation_handle,
+            progress_reporter,
             callback_error,
         );
         let iteration_limit_reached = Arc::clone(&runtime.iteration_limit_reached);
@@ -688,6 +742,7 @@ impl SCIPSolver {
         &self,
         objective_category: ObjectiveCategory,
     ) -> Result<Model<ProblemCreated>> {
+        Self::validate_runtime_version(Self::runtime_version())?;
         let model = self.apply_unsolved_config(Model::new())?;
         let model = model.include_default_plugins();
         let model = model.create_prob("model");
@@ -776,6 +831,25 @@ impl SCIPSolver {
         Some(duals)
     }
 
+    fn verify_linear_dual_candidate(
+        model: &LinearTriadModel,
+        primal_values: &[f64],
+        mut candidate: Vec<f64>,
+    ) -> Option<Vec<f64>> {
+        if candidate.len() != model.num_constraints() || candidate.iter().any(|value| !value.is_finite()) { return None; }
+        // 求解器舍入可能让无上界列的约化成本略微越界；只尝试有限步向零舍入，每步仍通过原精确证书门禁。
+        // Solver rounding can slightly violate reduced-cost signs on unbounded columns; try bounded ULP steps toward zero, retaining the original exact certificate gate at every step.
+        for attempt in 0..=8 {
+            if linear_dual_certificate_is_valid(model, primal_values, &candidate) { return Some(candidate); }
+            if attempt == 8 { break; }
+            for value in &mut candidate {
+                if *value < 0.0 { *value = value.next_up(); }
+                else if *value > 0.0 { *value = value.next_down(); }
+            }
+        }
+        None
+    }
+
     fn resolve_verified_linear_dual(
         &self,
         model: &LinearTriadModel,
@@ -783,7 +857,7 @@ impl SCIPSolver {
         native_dual: Option<Vec<f64>>,
     ) -> Option<Vec<f64>> {
         if let Some(dual) = native_dual
-            && linear_dual_certificate_is_valid(model, primal_values, &dual)
+            && let Some(dual) = Self::verify_linear_dual_candidate(model, primal_values, dual)
         {
             return Some(dual);
         }
@@ -807,8 +881,7 @@ impl SCIPSolver {
         if dual_values.len() < row_count {
             return None;
         }
-        let candidate = dual_values[..row_count].to_vec();
-        linear_dual_certificate_is_valid(model, primal_values, &candidate).then_some(candidate)
+        Self::verify_linear_dual_candidate(model, primal_values, dual_values[..row_count].to_vec())
     }
 
     fn relative_gap(objective_value: f64, best_bound: f64) -> Option<f64> {
@@ -899,10 +972,30 @@ impl SCIPSolver {
         "SCIP"
     }
 
-    fn native_version() -> String {
+    fn runtime_version() -> (i32, i32, i32) {
         let major = unsafe { russcip::ffi::SCIPmajorVersion() };
         let minor = unsafe { russcip::ffi::SCIPminorVersion() };
         let technical = unsafe { russcip::ffi::SCIPtechVersion() };
+        (major, minor, technical)
+    }
+
+    fn validate_runtime_version(actual: (i32, i32, i32)) -> Result<()> {
+        let expected = (
+            russcip::ffi::SCIP_VERSION_MAJOR as i32,
+            russcip::ffi::SCIP_VERSION_MINOR as i32,
+            russcip::ffi::SCIP_VERSION_PATCH as i32,
+        );
+        if actual != expected {
+            return Err(CoreError::solver_environment(format!(
+                "SCIP runtime {}.{}.{} does not match build headers {}.{}.{}; install the matching SCIP runtime",
+                actual.0, actual.1, actual.2, expected.0, expected.1, expected.2
+            )));
+        }
+        Ok(())
+    }
+
+    fn native_version() -> String {
+        let (major, minor, technical) = Self::runtime_version();
         format!("{}.{}.{}", major, minor, technical)
     }
 
@@ -1169,6 +1262,7 @@ impl SCIPSolver {
             model.objective_category,
             &scip_vars,
             cancellation_handle,
+            per_solve_options.and_then(|options| options.progress_reporter),
             Arc::clone(&callback_error),
         );
         self.emit_stage_status(SCIPStage::Configuration, None, start_time.elapsed(), None)?;
@@ -1198,11 +1292,11 @@ impl SCIPSolver {
         output.solution_count = Some(solved.n_sols());
 
         let best_bound = solved.best_bound();
-        if best_bound.is_finite() {
+        if best_bound.is_finite() && unsafe { russcip::ffi::SCIPisInfinity(solved.scip_ptr(), best_bound.abs()) == 0 } {
             output.best_bound = Some(best_bound);
         }
 
-        if solver_status.is_feasible()
+        if solver_status.can_extract_incumbent()
             && let Some(solution) = solution
         {
             let objective_value = solution.obj_val();
@@ -1507,6 +1601,7 @@ impl SCIPSolver {
             model.objective_category,
             &scip_vars,
             cancellation_handle,
+            per_solve_options.and_then(|options| options.progress_reporter),
             Arc::clone(&callback_error),
         );
         self.emit_stage_status(SCIPStage::Configuration, None, start_time.elapsed(), None)?;
@@ -1536,11 +1631,11 @@ impl SCIPSolver {
         output.solution_count = Some(solved.n_sols());
 
         let best_bound = solved.best_bound();
-        if best_bound.is_finite() {
+        if best_bound.is_finite() && unsafe { russcip::ffi::SCIPisInfinity(solved.scip_ptr(), best_bound.abs()) == 0 } {
             output.best_bound = Some(best_bound);
         }
 
-        if solver_status.is_feasible()
+        if solver_status.can_extract_incumbent()
             && let Some(solution) = solution
         {
             let objective_value = solution.obj_val();
@@ -1843,6 +1938,67 @@ mod tests {
     use crate::variable::{BinaryVariableItem, UContinuousVariableItem};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn bounded_dual_rounding_preserves_exact_feasibility_gates() {
+        use crate::model::{LinearObjectiveInput, MetaModel};
+        use crate::variable::UContinuous;
+        let mut model = MetaModel::new("irrational-area-dual");
+        let x = model.register_auto_variable::<UContinuous>("copies").unwrap();
+        let area = std::f64::consts::PI / 2.0;
+        model.add_ge_constraint(&[(x, 2.0)], 3.0, "count").unwrap();
+        model.add_ge_constraint(&[(x, area)], 1.5 * area, "area").unwrap();
+        model.add_linear_objective_input(LinearObjectiveInput::minimize("cost").term(x, 2.0));
+        let compiled = model.linear_model_snapshot().unwrap().compile_flt64().unwrap().model;
+        let candidate = vec![0.0, -(2.0 / area).next_up()];
+        assert!(!linear_dual_certificate_is_valid(&compiled, &[1.5], &candidate));
+        let verified = SCIPSolver::verify_linear_dual_candidate(&compiled, &[1.5], candidate.clone()).unwrap();
+        assert!(verified[1] > candidate[1]);
+        assert!(linear_dual_certificate_is_valid(&compiled, &[1.5], &verified));
+        for bad in [vec![], vec![0.0, f64::NAN], vec![0.0, -2.0], vec![0.0, 2.0], vec![0.0, 0.0]] {
+            assert!(SCIPSolver::verify_linear_dual_candidate(&compiled, &[1.5], bad).is_none());
+        }
+        assert!(SCIPSolver::verify_linear_dual_candidate(&compiled, &[0.0], vec![-1.0, 0.0]).is_none());
+    }
+
+    #[test]
+    fn bounded_dual_rounding_never_erases_an_unbounded_objective_direction() {
+        use crate::model::{LinearObjectiveInput, MetaModel};
+        use crate::variable::Continuous;
+        let mut model = MetaModel::new("unbounded-tiny-cost");
+        let x = model.register_auto_variable::<Continuous>("free").unwrap();
+        model.add_le_constraint(&[], 0.0, "empty").unwrap();
+        model.add_linear_objective_input(LinearObjectiveInput::minimize("cost").term(x, 1e-8));
+        let compiled = model.linear_model_snapshot().unwrap().compile_flt64().unwrap().model;
+        assert!(SCIPSolver::verify_linear_dual_candidate(&compiled, &[0.0], vec![0.0]).is_none());
+    }
+
+    #[test]
+    fn telemetry_skips_lp_statistics_outside_solving_stages() {
+        assert!(!SCIPTelemetryEventHandler::can_read_lp_iterations(russcip::ffi::SCIP_Stage_SCIP_STAGE_PRESOLVING));
+        assert!(!SCIPTelemetryEventHandler::can_read_lp_iterations(russcip::ffi::SCIP_Stage_SCIP_STAGE_EXITPRESOLVE));
+        assert!(SCIPTelemetryEventHandler::can_read_lp_iterations(russcip::ffi::SCIP_Stage_SCIP_STAGE_SOLVING));
+        assert!(SCIPTelemetryEventHandler::can_read_lp_iterations(russcip::ffi::SCIP_Stage_SCIP_STAGE_SOLVED));
+    }
+
+    #[test]
+    fn runtime_version_must_match_build_headers() {
+        let expected = (
+            russcip::ffi::SCIP_VERSION_MAJOR as i32,
+            russcip::ffi::SCIP_VERSION_MINOR as i32,
+            russcip::ffi::SCIP_VERSION_PATCH as i32,
+        );
+        assert!(SCIPSolver::validate_runtime_version(expected).is_ok());
+        for actual in [
+            (expected.0 + 1, expected.1, expected.2),
+            (expected.0, expected.1 + 1, expected.2),
+            (expected.0, expected.1, expected.2 + 1),
+        ] {
+            let error = SCIPSolver::validate_runtime_version(actual).unwrap_err();
+            assert_eq!(error.solver_error_class(), SolverErrorClass::Environment);
+            assert!(error.to_string().contains("does not match build headers"));
+        }
+    }
 
     fn build_single_var_quadratic_model(name: &str) -> QuadraticTetradModel {
         let mut basic = BasicQuadraticTetradModel::new(name);

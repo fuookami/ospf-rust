@@ -104,7 +104,25 @@ incremental matrix or Branch-and-Price, and root-LP convergence is not an intege
 | `DiagnosticPersistenceFieldResolver`, `PersistenceFieldResolution` | Preserve missing, ambiguous, and invalid field mapping diagnostics. | migration |
 | `SqlxRelationalQueryCompiler` | Compile allowlisted relational plans into parameterized SQLx SQL and execution statistics. | feature-gated |
 
+## Shared Report-Driven Linear Execution
+
+`LinearReportExecutor<S>` is the synchronous native execution boundary shared by CSP1D and BPP2D, without a cross-domain crate dependency. `S` labels a child stage; `LinearExecutionOptions` holds the total budget (default 60 seconds), original-snapshot feasibility tolerance, cancellation, raw progress callback and retained-report limit. Create one executor per domain invocation and inject an explicit `Arc<dyn LinearSolver>`; no default backend or heuristic fallback is selected.
+
+`solve(&model, stage, LinearExecutionMode::{Lp, Milp})` compiles the actual MetaModel snapshot once, retains that compiled model's types/row metadata/fingerprint/mapping, revalidates complete stable-ID assignments against the original snapshot, and checks the variable-only reported objective independently of the retained constant. `LinearExecutionResult.objective` counts that constant once; the original report is not rewritten. `LinearStageReport<S>` retains only reports accepted by all execution gates, including valid timeout/cancellation/infeasibility terminals. Backend, callback or report-contract errors return errors rather than entering accepted history or inventing business output.
+
+LP mode rejects integer variables. Only a fully validated optimal LP certificate yields `original_duals`, restored to original MetaModel constraint order with signed rows/equality splits aggregated; non-optimal incumbents remain available without pricing duals. Infeasibility requires matching reliable, complete core evidence in both modes. This is mathematical contract checking, not provenance authentication or a source-wide proof promotion.
+
+The total budget includes compilation, generation time between calls and earlier children; an exhausted budget or pre-cancellation never starts the solver. Cancellation uses independent child completion markers and weak forwarding handles so the first completed LP cannot swallow later MILP cancellation. Calls on one executor are non-reentrant; observing `reports()` does not wait for an active solve. These are cooperative limits, not hard preemption of generation, compilation or uncooperative native code. This Rust execution API is not itself a new HTTP/N-API/SDK export.
+
+### Report Backend for Existing MetaModel Executors
+
+`ReportMetaModelBackend::new(solver, options)` adapts this same executor to `MetaModelSolverBackend`, including BPP3D's existing solver-backed RMP/final executors. Clones share one budget, cancellation forwarding and accepted-report history; create a new backend for each application invocation. `MetaModelStage::RestrictedMaster` rejects integer variables and requires certified original-row LP duals before legacy pricing can proceed. `FinalMilp` retains actual integer domains and allows a validated nonoptimal incumbent without inventing duals or promoting proofs.
+
+`execute(&model, stage)` returns the report-native result even for valid no-incumbent terminals or nonoptimal LPs. `reports()` retains the actual compiled models, raw reports and separate objective constants. Legacy `solve_rmp`/`solve_final` return an error when required evidence is absent, retaining accepted reports rather than supplying an empty vector that a domain executor could replace with no-op defaults. Empty actual primal vectors are also rejected by this compatibility path; use `execute` for empty models. Core's LP-certificate gate rejects rowless empty-dual reports. Invalid evidence and backend errors are not accepted history. BPP3D's assignment multiplicity, physical trace validation and lossless domain protocol remain separate work; this adapter is not a BPP3D SDK entry or a complete column-generation algorithm.
+
 ## Modeling Extensions
+
+The native language bridge exposes the existing `SerialCombinatorialLinearSolver` and `ParallelCombinatorialLinearSolver` through typed built-in strategies; see [TypeScript bridge coverage](../docs/typescript-bridge.md). Orchestration stays in Rust, with original attempt traces and source-bound aggregate reports. Cancellation/interruption/timeout reports stop serial fallback; a timeout without an incumbent remains `TimeLimit`, not `BackendFailure`. Parallel `First` requests cooperative loser cancellation and joins all workers before returning; `Best` chooses the best incumbent or, without incumbents, the first certified mathematical terminal in configured order. Bare unverified statuses are never promoted to proofs. This does not expose arbitrary remote callbacks or imply column-generation/Benders coverage.
 
 Framework-level extensions should be expressed as:
 
@@ -207,6 +225,17 @@ the [traceability table](../ospf-rust-core/README.md#source-traceability) for Ko
 
 Remote solver support follows Cargo features instead of Maven-style backend modules. The common feature provides `RemoteSolverClient`, `RemoteLinearSolver`, `RemoteQuadraticSolver`, async `SolverExecutionPort` and `ObjectStoragePort`, `RemoteSolverHttpClient`, `LocalFileObjectStoragePort`, and `OspfRemoteModelSerializer`.
 
+For runtime-independent language bridges, `remote-codec` enables codecs without
+Tokio or the HTTP client. Its separate `CompiledLinearModelArtifact` and
+`encode_compiled_linear_model` / `decode_compiled_linear_model` preserve the
+actual backend model's exact token/solver kinds, row metadata, model-local row
+names, core fingerprint and stable mapping. This is an independent schema-1
+execution artifact, not a change to the older, coarser remote exchange. It
+reuses existing sparse DTOs and signed infinite-bound encoding, verifies
+canonical bytes and a full-payload digest, and bounds model text to 8 MiB.
+Decoding allocates new local variable IDs; original arena ownership and mutable
+token results are not transferred. See the [child-identity boundary](../docs/typescript-bridge.md#native-child-identity-prerequisite).
+
 Inside a current-thread Tokio runtime, prefer `solve_remote(...)` / `solve_remote_with_options(...)` because the synchronous trait entry intentionally refuses to block that runtime flavor. New code that needs terminal semantics should use `solve_remote_report(...)` or the core `solve_linear_report` / `solve_quadratic_report` entries. Versioned remote reports preserve the core `SolveReport` together with run/attempt identity and artifact digest; legacy `SolveResult` and `SerializedSolution` remain read-compatible, while unknown report schema versions are rejected.
 
 ## Persistence Boundary
@@ -306,3 +335,15 @@ cargo test -p ospf-rust-framework --features "scip-bundled async"
 ## License
 
 This project is licensed under the same license as the main OSPF Rust project.
+
+### Native Source-Projected Column Generation
+
+`ColumnGenerationAlgorithm(client, { backend, blocks })` invokes the native `column-generation` / `columnGeneration` strategy. `ColumnGenerationOptions`, block definitions, stop reasons and summaries are generated from Rust. Blocks explicitly map distinct source exchange column indices; unmapped variables remain global. Each block is a local configuration with exactly one selected column, **not** an unbounded multiplicity pattern master for arbitrary packing domains. Blank/duplicate blocks, repeated/unknown variables and arbitrary callbacks are rejected. Limits: 256 blocks, 100000 mapped variables, 10000 RMP rounds/columns; defaults are 128 rounds, 10000 columns and tolerance 1e-7.
+
+The actual Rust `ProjectedColumnGeneration` uses `ColumnProjection` throughout: empty-pool artificial-variable Phase I (no big M), independently validated optimal RMP LP certificates and row mappings, local pricing models with original bounds/integrality/local rows, one improving column per block/round, atomic batch addition, dual invalidation/rebuild, then a restricted integer master and complete source-assignment validation. Cross-block/global rows enter local pricing only through duals. Pricing masters omit column upper bounds already implied by convexity, avoiding spurious negative reduced costs from redundant bound duals; existing ordinary master defaults remain unchanged. SCIP uses its explicit LP-subproblem preset to retain usable duals.
+
+`timeLimitMs` is a total solve budget including RMP, pricing and final; each child gets the remaining time. Source codec/decision initialization precedes this budget, and compilation is not preemptible. Without an explicit limit Rust uses 60 seconds. Progress is the latest raw child snapshot, not an overall percentage. HTTP/N-API share cancellation, job storage and release; post-submission errors retain `jobId`. No source-MILP fallback, implicit backend substitution or TS-to-trait conversion occurs.
+
+`ColumnGenerationReport.fromJson(job.reportJson, artifact)` validates schemas, source identity, counters, source-domain full assignments/objective and core child-report contracts. `summary()` distinguishes Phase I completion, Phase II pricing convergence, limits/stalls and actual child termination; infeasibility/unboundedness remains in child reports and is not fabricated into a source proof. `masterReportJson()`, `pricingReportJson()` and `finalReportJson()` retain the last actual reports with u64 metadata as lossless text; `pricingBlock` identifies the last pricing block. The final solve is **only over generated columns**: even completed pricing and an optimal restricted integer master do not establish global source-MILP optimality, and restricted infeasibility does not prove source infeasibility. There is deliberately no source `bestBound` or source SolveReport proof. Iteration/column limits may still finalize a feasible current pool after Phase I; time/cancellation do not start a new final solve, but retain a validated incumbent if returned by an already running final solve. Dispose reports separately from releasing jobs.
+
+This does not expose arbitrary context/pipeline registration, dynamic column-removal policies, branch-and-price or all domain workflows. Those remain subsequent implementation work, not silently emulated SDK functionality.

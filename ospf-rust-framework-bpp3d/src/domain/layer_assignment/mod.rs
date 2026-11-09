@@ -12,7 +12,8 @@ pub use service::{
     Bpp3dDemandEntry, Bpp3dSolverValueAdapter, Bpp3dSolverValueAdapterKind, Capacity,
     DefaultBpp3dSolverValueAdapter, DemandShadowPriceKey, ImpreciseAssignment,
     IterativeLayerAssignmentContext, IterativeLayerColumn, LayerAggregation,
-    LayerAssignmentAggregation, LayerAssignmentContext, Load, PreciseAssignment,
+    LayerAssignment, LayerAssignmentAggregation, LayerAssignmentContext, Load, PreciseAssignment,
+    PreciseAssignmentSelection,
     PreciseLoadCapacity, ScaledBpp3dSolverValueAdapter, SolutionAnalyzer,
     build_linear_expression_symbol, next_bpp3d_symbol_id,
 };

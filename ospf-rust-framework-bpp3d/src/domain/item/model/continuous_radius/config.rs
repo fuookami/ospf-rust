@@ -22,7 +22,7 @@ pub struct ContinuousCylinderRadiusSolution {
 /// 管理连续半径圆柱在求解器中的变量注册和结果提取。
 /// Manages variable registration and result extraction for continuous-radius
 /// cylinders in the solver.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ContinuousRadiusModelComponent {
     /// 原型列表 / Prototypes
     pub prototypes: Vec<ContinuousCylinderRadiusSolverPrototype>,
@@ -35,7 +35,7 @@ pub struct ContinuousRadiusModelComponent {
 }
 
 /// 连续半径注册计划 / Continuous radius registration plan
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ContinuousRadiusRegistrationPlan {
     /// 变量名 / Variable names
     pub variable_names: Vec<String>,

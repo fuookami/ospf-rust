@@ -47,6 +47,86 @@ Application services build the problem, choose generator and solve configuration
 
 ## Public API
 
+### Explicit Native Report Backend
+
+`Csp1dMilp::default()`, `Csp1dColumnGeneration::default()` and the low-level
+`Csp1dMilpSolver` retain their legacy heuristic behavior. Enabling a solver feature
+does **not** automatically replace it. To run actual LP/MILP solves, explicitly
+inject `Csp1dNativeBackend`; column generation needs **both** `lp_solver` and
+`milp_solver` set to the same per-invocation backend. Plain MILP only needs
+`milp_solver`.
+
+```rust,no_run
+use std::sync::Arc;
+use ospf_rust_core::solver::LinearSolver;
+use ospf_rust_framework_csp1d::{Csp1dColumnGeneration, Csp1dNativeBackend};
+
+fn service(solver: Arc<dyn LinearSolver>) -> ospf_rust_core::Result<Csp1dColumnGeneration<f64>> {
+    let backend = Arc::new(Csp1dNativeBackend::new(solver, Default::default())?);
+    Ok(Csp1dColumnGeneration {
+        lp_solver: Some(backend.clone()),
+        milp_solver: Some(backend),
+        ..Default::default()
+    })
+}
+```
+
+Construct a fresh backend before **each** domain invocation; do not reuse the
+example service for another solve. Keep an `Arc` clone of the backend to retrieve
+`reports()` (raw child reports with their stage and separate objective constant).
+SCIP pricing requires `SCIPConfig::with_lp_subproblem_defaults()` to retain usable
+LP certificates. The backend never selects another solver or fabricates duals.
+LP certificates are independently verified; standardized `>=` and split equality
+duals map back by real row origins/signs to the registered context. The trace uses
+the actual LP objective. Phase I prices real columns at zero cost.
+
+Ordinary/final MILP and legacy extraction share the same context registration,
+extensions and policies. Before extraction, report identity, complete vector,
+original variable domains/integrality, all source rows and objective are checked.
+Rounded plan counts are revalidated, capped at `2^53 - 1` per plan, and aggregate
+overflow is rejected. Invalid or no-incumbent native reports never silently fall
+back to heuristic business output or an empty `Partial` result. Reports retained
+before a later certificate/source-feasibility failure remain raw diagnostics,
+not certified results. Warm starts must reference current plans and have safe
+aggregate counts; acceptance does not guarantee backend use.
+
+`Csp1dExecutionOptions` provides a shared total cooperative time budget,
+cancellation, raw child progress and retained-report limit. Each child gets an
+independent completion/cancellation race; generation is not preemptively
+interrupted. Concurrent backend execution is rejected. Legacy business status
+does not encode every cancellation/timeout detail: inspect the raw child reports.
+
+`reports()` returns independent copies of each actual submitted compiled model,
+raw report and separate objective constant. Model-local row identities must not
+be replaced by recompiling an equivalent problem. The runtime-independent
+framework `remote-codec` offers a separate `CompiledLinearModelArtifact` for
+preserving exact token/solver types and row metadata with canonical digest,
+core fingerprint and stable-mapping checks. The Rust bridge can validate these
+child artifacts with full-vector and optimal-LP certificate checks, including
+portable u64 report counters. The bridge additionally binds integer children to
+the complete source candidate pool: original-context rows, columns, types,
+bounds and objective must agree before production is derived from the actual
+vector. This is exposed as the SDK's `CuttingContext.readProductionReport`;
+candidate-pool proof semantics are never promoted to source-wide claims.
+
+The separate [bridge](../docs/typescript-bridge.md#complete-native-csp1d-execution)
+exposes default-rule Roll/Sheet MILP and column generation through the shared
+native executor, HTTP and N-API, with explicit SCIP/Gurobi selection. WASM only
+handles portable calculations and source-bound integer/complete workflow readers;
+it never runs these native solvers. The SDK subpath is `ospf-wasm/csp1d`.
+Phase I attaches under-production to original demand rows (no duplicate yield row),
+using each demand's own unit, so a restricted infeasible pool can recover through
+real pricing, including mixed Roll/Sheet demand. Ordinary yield/hard-demand
+registration and legacy heuristic defaults remain unchanged.
+The default native initial generator emits single-product, one-slice patterns;
+default pricing searches a restricted generator, not all possible patterns.
+`PricingConverged`, a restricted master proof or a final-pool incumbent does not
+establish source-wide optimality or infeasibility. Optional yield/waste/length
+and arbitrary custom policies are not a claim of a complete LP relaxation or an
+exact pricing oracle. This boundary has Windows x64 runtime tests for real SCIP
+and Gurobi 10 (LP row mapping, MILP, column generation, registered constraints and
+infeasibility); other runtimes/versions remain unverified here.
+
 | API | Responsibility | Stability |
 | --- | --- | --- |
 | `csp1d_problem` / `Csp1dProblemBuilder` | Builder DSL for problem construction. | migration |
@@ -54,11 +134,14 @@ Application services build the problem, choose generator and solve configuration
 | `Csp1dColumnGeneration` | Column-generation application entry with trace. | migration |
 | `Csp1dSchedule` | Kotlin-compatible scheduling entry that delegates to column generation by default. | migration |
 | `Csp1dMilpSolver` | Low-level Kotlin `Csp1dMilpSolver` parity over `ProduceInput<V>`. | migration |
+| `Csp1dNativeBackend` / `Csp1dMilpBackend` | Explicit native report execution; shared budget, cancellation, child reports and strict incumbent gates. | migration |
 | `Csp1dSolveConfig` / `Csp1dExtensionSet` | Modeling extensions, policy families, Top-K, partial solution, and recovery controls. | migration |
 | `Csp1dModelingExtension` / `Csp1dIncrementalPipeline` | Extension pipeline and accepted-column refresh hooks. | migration |
 | `SimpleInitialCuttingPlanGenerator`, `DFSGenerator`, `NSameGenerator`, `NSumGenerator`, `FullSumGenerator`, `CostarFiller` | Initial plan generation. | migration |
 | `SimplePricingGenerator`, `ReducedCostPricingGenerator` | Pricing generation. | migration |
 | `RenderSchemaDTO` and related DTOs | Renderer serialization boundary. | stable within migration |
+
+The report-driven `Csp1dNativeBackend` now delegates to the shared framework `LinearReportExecutor`, also used by BPP2D. Existing CSP1D API names, options, stage records and wire contracts stay intact. Original-snapshot feasibility and LP certificates are validated before reports enter accepted history; invalid report/backend contracts return errors without heuristic fallback. Infeasible integer reports must also carry reliable, complete, matching core evidence.
 
 ## Modeling Extensions
 
@@ -255,9 +338,10 @@ message instead of fabricated zeros.
 
 ### Not yet done
 
-Real Gurobi/SCIP dual extraction is still limited by the core crate not exposing a dual API; the adapter has
-already fixed the two failure paths ("terminal state unusable" and "duals missing"), so wiring a backend only
-requires filling in the dual source.
+The explicit `Csp1dNativeBackend` now obtains real Gurobi/SCIP duals through the
+unified-report API and verifies complete LP certificates. Legacy default entry
+points remain heuristic; HTTP/N-API execution, full workflow reports and
+full-pattern-space pricing are not exported by this bridge yet.
 
 ## Related Modules
 

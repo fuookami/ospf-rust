@@ -122,6 +122,45 @@ fn circle_tangent_to_rectangle_does_not_overlap() {
 }
 
 // ============================================================================
+// 精确圆盘相交 / Exact disk intersection
+// ============================================================================
+
+/// 外接方重叠但圆盘分离：盒判定说是重叠，精确判定必须否认
+/// Enclosing squares overlap while the disks are apart: the box predicate says overlap and the exact
+/// predicate must deny it.
+#[test]
+fn exact_disk_intersection_differs_from_bounding_squares() {
+    let circle = || PackingShape2::Circle(circle_shape2(meters(1.0)).expect("circle"));
+    // 圆心距 1.5 < 2r，斜向摆放使外接方重叠但圆盘相交。
+    // Centre distance 1.5 < 2r; a diagonal offset keeps the squares overlapping while the disks intersect.
+    let left = Box2Geometry::new(meters(0.0), meters(0.0), circle());
+    let near = Box2Geometry::new(meters(1.5), meters(1.5), circle());
+    assert!(left.overlapped(&near), "bounding squares overlap");
+    // 圆心距 sqrt(1.5² + 1.5²) ≈ 2.121 > 2，圆盘实际不相交。
+    // Centre distance sqrt(1.5² + 1.5²) ≈ 2.121 > 2, so the disks do not actually intersect.
+    assert_eq!(left.disk_overlaps(&near), Some(false), "exact disks must not intersect");
+
+    // 圆心距 sqrt(1.0² + 1.0²) ≈ 1.414 < 2，圆盘确实相交。
+    // Centre distance sqrt(1.0² + 1.0²) ≈ 1.414 < 2, so the disks do intersect.
+    let closer = Box2Geometry::new(meters(1.0), meters(1.0), circle());
+    assert_eq!(left.disk_overlaps(&closer), Some(true));
+}
+
+/// 精确圆盘判定只接受两个圆；矩形没有圆盘语义
+/// Exact disk intersection only accepts two circles; a rectangle has no disk semantics.
+#[test]
+fn exact_disk_intersection_rejects_non_circles() {
+    let circle = Box2Geometry::new(meters(0.0), meters(0.0), PackingShape2::Circle(circle_shape2(meters(1.0)).expect("circle")));
+    let rectangle = Box2Geometry::of_rectangle(meters(0.0), meters(0.0), meters(2.0), meters(2.0));
+
+    assert_eq!(circle.disk_overlaps(&rectangle), None);
+    assert_eq!(rectangle.disk_overlaps(&circle), None);
+    // 相切圆盘恰好相交边界不算相交 / Tangent disks sit exactly on the boundary and do not intersect.
+    let tangent = Box2Geometry::new(meters(2.0), meters(0.0), PackingShape2::Circle(circle_shape2(meters(1.0)).expect("circle")));
+    assert_eq!(circle.disk_overlaps(&tangent), Some(false));
+}
+
+// ============================================================================
 // 刀缝 / Kerf
 // ============================================================================
 

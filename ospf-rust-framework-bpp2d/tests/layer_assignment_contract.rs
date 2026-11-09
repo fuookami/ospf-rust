@@ -153,8 +153,8 @@ fn reduced_cost_without_duals_equals_area() {
     let _ = prices;
 
     let cost = layer_reduced_cost(&l, &entries, &BTreeMap::new(), 1.0);
-    // 3 件 × 4 = 12。
-    assert!((cost - 12.0).abs() < 1e-9);
+    // 板材面积 10×8 = 80，不是占用面积 12。 / Sheet area is 10×8 = 80, not occupied area 12.
+    assert!((cost - 80.0).abs() < 1e-9);
 }
 
 /// 对偶足够大时列成为改进列 / A large enough dual makes the column improving
@@ -165,12 +165,12 @@ fn dual_makes_column_improving() {
     let mut prices = BTreeMap::new();
     prices.insert(
         Bpp2dDemandShadowPriceKey::new(entries[0].mode, "a"),
-        5.0,
+        30.0,
     );
 
-    // 面积 12 − 对偶 5×3 = 15 → −3。
+    // 板材面积 80 − 对偶 30×3 = −10。 / Sheet area 80 minus dual 30×3 equals −10.
     let cost = layer_reduced_cost(&l, &entries, &prices, 1.0);
-    assert!((cost + 3.0).abs() < 1e-9, "cost={cost}");
+    assert!((cost + 10.0).abs() < 1e-9, "cost={cost}");
     assert!(is_improving_column(&l, &entries, &prices, 1.0, 1e-6));
     assert_eq!(
         filter_improving_columns(vec![l], &entries, &prices, 1.0, 1e-6).len(),
@@ -189,7 +189,7 @@ fn small_dual_is_not_improving() {
         1.0,
     );
 
-    // 面积 12 − 对偶 1×3 = 3 → 正。
+    // 板材面积 80 − 对偶 1×3 = 77。 / Sheet area 80 minus dual 1×3 equals 77.
     assert!(!is_improving_column(&l, &entries, &prices, 1.0, 1e-6));
     assert!(
         filter_improving_columns(vec![l], &entries, &prices, 1.0, 1e-6).is_empty()
@@ -199,15 +199,15 @@ fn small_dual_is_not_improving() {
 /// 检验数恰好等于零时不算改进 / A zero reduced cost does not count as improving
 #[test]
 fn zero_reduced_cost_is_not_improving() {
-    let l = layer("S1", 2.0, 2.0, 3, "a");
+    let l = layer("S1", 2.0, 2.0, 4, "a");
     let entries = vec![Bpp2dAssignmentDemandEntry::item_amount("a", 10)];
     let mut prices = BTreeMap::new();
     prices.insert(
         Bpp2dDemandShadowPriceKey::new(entries[0].mode, "a"),
-        4.0,
+        20.0,
     );
 
-    // 面积 12 − 对偶 4×3 = 0。
+    // 板材面积 80 − 对偶 20×4 = 0。 / Sheet area 80 minus dual 20×4 equals 0.
     assert_eq!(layer_reduced_cost(&l, &entries, &prices, 1.0), 0.0);
     assert!(!is_improving_column(&l, &entries, &prices, 1.0, 1e-6));
 }

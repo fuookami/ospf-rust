@@ -20,6 +20,7 @@ use crate::domain::item::{BinLayer, BinType, Bpp3dDemandKey, Bpp3dDemandMode};
 include!("symbol_builder.rs");
 include!("value_adapter.rs");
 include!("assignment.rs");
+include!("selection.rs");
 include!("load.rs");
 include!("capacity.rs");
 include!("layer_aggregation.rs");

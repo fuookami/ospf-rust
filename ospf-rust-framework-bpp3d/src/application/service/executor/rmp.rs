@@ -15,6 +15,7 @@ impl MetaModelRmpExecutor {
         &self,
         state: &ColumnGenerationApplicationState,
         model: &mut MetaModel<f64>,
+        amounts: Option<&[u64]>,
     ) -> Result<(
         LayerAssignmentContext<f64, Meter>,
         ImpreciseAssignment<f64, Meter>,
@@ -22,7 +23,7 @@ impl MetaModelRmpExecutor {
         IterativeLayerAssignmentContext<f64, Meter>,
         DemandConstraint<f64, Meter>,
     ), String> {
-        let demand_entries = item_demand_entries(&state.items);
+        let demand_entries = item_demand_entries(&state.items, amounts)?;
         let upper_bounds = rmp_column_upper_bounds(&state.layers, &demand_entries);
         let mut assignment = ImpreciseAssignment {
             layers: Vec::new(),
@@ -65,12 +66,47 @@ impl MetaModelRmpExecutor {
             demand_constraint,
         ))
     }
+
+    fn registered_model(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        amounts: Option<&[u64]>,
+        extension: Option<&dyn ColumnGenerationRmpModelExtension>,
+    ) -> Result<(MetaModel<f64>, Vec<Bpp3dDemandEntry>, IterativeLayerAssignmentContext<f64, Meter>, DemandConstraint<f64, Meter>), String> {
+        let mut model = MetaModel::<f64>::new(&self.config.model_name);
+        let (mut context, _, demand_entries, mut iterative_context, demand_constraint) = self.build_context(state, &mut model, amounts)?;
+        context.register(&mut model)
+            .and_then(|_| extension.map(|extension| extension.register(state, &mut model)).unwrap_or(Ok(())))
+            .and_then(|_| context.invoke(&model))?;
+        if let Some(assignment) = context.aggregation.imprecise_assignment.as_ref() {
+            iterative_context.bind_assignment(assignment);
+        }
+        Ok((model, demand_entries, iterative_context, demand_constraint))
+    }
+
+    /// 仅装配带分组需求的原 RMP，不调用求解器或注册扩展。
+    /// Assemble the original grouped-demand RMP without calling a solver or registering extensions.
+    pub fn model_with_item_amounts(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        amounts: &[u64],
+    ) -> Result<MetaModel<f64>, String> {
+        self.registered_model(state, Some(amounts), None).map(|(model, _, _, _)| model)
+    }
 }
 
 impl ColumnGenerationRmpExecutor for MetaModelRmpExecutor {
     fn execute(&self, state: &ColumnGenerationApplicationState) -> ColumnGenerationRmpExecution {
         let backend = NoopMetaModelSolverBackend;
         self.execute_with_backend(state, &backend)
+    }
+
+    fn execute_result_with_item_amounts(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        amounts: &[u64],
+    ) -> Result<ColumnGenerationRmpExecution, ColumnGenerationExecutionError> {
+        rmp_execution_result(self.execute_with_backend_and_amounts(state, &NoopMetaModelSolverBackend, None, Some(amounts)))
     }
 }
 
@@ -104,6 +140,15 @@ where
         let executor = MetaModelRmpExecutor::new(self.config.clone());
         executor.execute_with_backend(state, &self.backend)
     }
+
+    fn execute_result_with_item_amounts(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        amounts: &[u64],
+    ) -> Result<ColumnGenerationRmpExecution, ColumnGenerationExecutionError> {
+        let executor = MetaModelRmpExecutor::new(self.config.clone());
+        rmp_execution_result(executor.execute_with_backend_and_amounts(state, &self.backend, None, Some(amounts)))
+    }
 }
 
 impl MetaModelRmpExecutor {
@@ -122,15 +167,23 @@ impl MetaModelRmpExecutor {
         backend: &dyn MetaModelSolverBackend,
         extension: Option<&dyn ColumnGenerationRmpModelExtension>,
     ) -> ColumnGenerationRmpExecution {
-        let mut model = MetaModel::<f64>::new(&self.config.model_name);
+        self.execute_with_backend_and_amounts(state, backend, extension, None)
+    }
+
+    fn execute_with_backend_and_amounts(
+        &self,
+        state: &ColumnGenerationApplicationState,
+        backend: &dyn MetaModelSolverBackend,
+        extension: Option<&dyn ColumnGenerationRmpModelExtension>,
+        amounts: Option<&[u64]>,
+    ) -> ColumnGenerationRmpExecution {
         let (
-            mut context,
-            _assignment,
+            mut model,
             demand_entries,
-            mut iterative_context,
+            iterative_context,
             demand_constraint,
-        ) = match self.build_context(state, &mut model) {
-            Ok(context) => context,
+        ) = match self.registered_model(state, amounts, extension) {
+            Ok(result) => result,
             Err(error) => {
                 return ColumnGenerationRmpExecution {
                     objective: None,
@@ -145,30 +198,6 @@ impl MetaModelRmpExecutor {
                 };
             }
         };
-        if let Err(error) = context
-            .register(&mut model)
-            .and_then(|_| {
-                extension
-                    .map(|extension| extension.register(state, &mut model))
-                    .unwrap_or(Ok(()))
-            })
-            .and_then(|_| context.invoke(&model))
-        {
-            return ColumnGenerationRmpExecution {
-                objective: None,
-                shadow_price_summary: HashMap::new(),
-                additional_shadow_prices: HashMap::new(),
-                diagnostics: None,
-                info: HashMap::from([
-                    ("executor".to_string(), "meta_model_rmp".to_string()),
-                    ("status".to_string(), "registration_failed".to_string()),
-                    ("error".to_string(), error),
-                ]),
-            };
-        }
-        if let Some(assignment) = context.aggregation.imprecise_assignment.as_ref() {
-            iterative_context.bind_assignment(assignment);
-        }
         let mut lifecycle = DynamicModelLifecycle::new();
 
         let diagnostics = MetaModelExecutionDiagnostics::from_model(

@@ -55,12 +55,13 @@ where
 
     /// 生成层候选 / Generate layer candidates
     ///
-    /// 按 `request.bins` 逐箱型展开调用生成器链，再按列身份去重并截取到 max_candidates。
+    /// 按 `request.bins` 逐箱型展开调用生成器链，按列身份去重，达到 max_candidates 后停止。
     /// 未指定任何箱型时保持单次直通，使不依赖箱型的生成器（如历史层生成器）仍可工作。
-    /// Expands the generator chain per bin type from `request.bins`, then deduplicates by column identity and
-    /// truncates to max_candidates. When no bin type is specified the request is passed through once, so
+    /// Expands the generator chain per bin type from `request.bins`, deduplicating by column identity and
+    /// stopping at max_candidates. When no bin type is specified the request is passed through once, so
     /// generators that do not depend on a bin type (such as the historical generator) keep working.
     pub fn generate(&self, request: &LayerGenerationRequest<V, U>) -> Vec<LayerGenerationResult<V, U>> {
+        if request.max_candidates == 0 { return Vec::new(); }
         let candidate_bins = request.candidate_bins();
         let bin_requests: Vec<LayerGenerationRequest<V, U>> = if candidate_bins.is_empty() {
             vec![request.clone()]
@@ -74,31 +75,17 @@ where
                 .collect()
         };
 
-        let mut all_results: Vec<LayerGenerationResult<V, U>> = Vec::new();
         let mut seen = std::collections::HashSet::new();
         let mut deduped = Vec::new();
         for bin_request in bin_requests {
-            if deduped.len() >= request.max_candidates {
-                break;
-            }
             for generator in &self.generators {
-                let results = generator.generate(&bin_request);
-                all_results.extend(results);
-                if deduped.len() >= request.max_candidates {
-                    break;
+                for result in generator.generate(&bin_request) {
+                    // 列身份包含箱型，避免错误合并不同箱型。 / Column identity includes bin type to avoid merging distinct bin types.
+                    if seen.insert(result.layer.identity_key()) {
+                        deduped.push(result);
+                        if deduped.len() >= request.max_candidates { return deduped; }
+                    }
                 }
-            }
-        }
-
-        for result in all_results {
-            // 列身份必须包含箱型：同一排布放在不同箱型上是不同的列。
-            // Column identity must include the bin type: the same layout on different bin types is a
-            // different column.
-            if seen.insert(result.layer.identity_key()) {
-                deduped.push(result);
-            }
-            if deduped.len() >= request.max_candidates {
-                break;
             }
         }
         deduped

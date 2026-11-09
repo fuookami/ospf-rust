@@ -224,6 +224,16 @@ fn feasibility_phase_objective_contains_only_deficits() {
             );
         }
     }
+
+    // 原需求行必须可由人工短缺满足，且只有这一行承载需求对偶。
+    // Artificial deficits must satisfy the original demand row, which alone carries its demand dual.
+    let deficit = context.r#yield.as_ref().unwrap().variables.under_index(0).unwrap();
+    let rows = model.constraints().iter().filter(|row| row.args.as_deref().is_some_and(|args| args.starts_with("product-demand:"))).collect::<Vec<_>>();
+    assert_eq!(rows.len(), 1, "Phase I must not split the demand dual across duplicate rows");
+    assert_eq!(rows[0].name, "demand_0");
+    let terms = rows[0].inequality.polynomial.monomials();
+    assert_eq!(terms.iter().filter(|term| term.var_index() == deficit).count(), 1);
+    assert_eq!(*terms.iter().find(|term| term.var_index() == deficit).unwrap().coefficient(), 1.0);
 }
 
 /// 默认（非可行性）阶段的目标仍含业务项 / The default phase keeps business objective terms

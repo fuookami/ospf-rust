@@ -2,6 +2,16 @@
 
 [English](README.md)
 
+TypeScript 桥接现已通过 `ospf-wasm/bpp` 开放默认规则稀疏模型注册、原方案复核及无损报告读取；导出的零目标
+可行性 MILP 使用既有显式原生 SCIP/Gurobi 客户端执行。现另开放原普通及连续资源 Benders application、类型化货物／占位／布局最小化成本、
+分区生命周期／资源补全、原生根分区 application 及 Benders／分区加速后的显式预留完整源 MILP 收尾；不代表 branch-and-price、任意扩展或
+BPP3D 几何已绑定。注册前可选 `with_namespace` 指定稳定名称，默认 context 隔离不变；桥接使用 canonical 源摘要，
+使数学相同但货物身份不同的源也不能互换报告。详见[共享 BPP 桥接边界](../docs/typescript-bridge_ch.md#共享-bpp-稀疏装载建模)。
+
+默认约束使用显式稳定行 ID，使相同命名空间的原 application snapshot 编译可独立重建。默认自动命名空间仍隔离各 context。
+`toApplicationModel()` 与 mechanism 路径 `toLinearTriadModel()` 的身份／行映射分开保留；无损 application 报告严格
+复验其实际 snapshot 模型，前置取消／时限不伪造注册、模型身份、证明或零方案。
+
 维度无关的稀疏离散装载。`DiscreteLoadingContext` 将合法分配、整体占位和可选布局注册到
 `MetaModel<V>`。重量使用 Quantity，通过显式 `PackingValueAdapter` 一次归一化；直到明确
 solver 边界之前保持原数值类型。件数保持 `u64`，模型件数系数必须能精确转换。
@@ -11,6 +21,7 @@ solver 边界之前保持原数值类型。件数保持 `u64`，模型件数系�
 件数和重量容量，不使用任意 epsilon 或大 M。允许空预留；固定货物、外部固定占用及任何
 严格正附加重量都必须整体占位。`link_additional_weight` 每舱位接受一个合并表达式并保存
 用于结果提取，不能分别注册多份附加重量而漏算合计。
+附加重量行使用命名空间内稳定 ID，使显式同名源的独立注册同时可重建 snapshot 和 mechanism 指纹；默认 context 隔离不变。
 
 冲突边不具有传递性。`ConflictIndex` 贪心生成真实团，并保全所有原始边。仅对显式选择组
 注册布局。`loading_conflicts` 纵向扫描候选区间，物理空间相互隔离，贴边不冲突，可通过
@@ -70,3 +81,11 @@ Benders 合并源报告仍保守为 Feasible，实际 master／sub 报告及有�
 精确 Benders。BPP1D 和 BPP2D 各自提供共享领域几何 adapter，互不依赖。
 [Demo2](../ospf-rust-example/src/framework/demo2/README_ch.md) 的三条航空装载路径使用这些
 共享服务，机型业务规则与结果提取仍保留在自身的领域 context 中。
+
+语言桥接另通过显式 HTTP／N-API 客户端开放原普通 application 和连续资源 Benders。预注册资源为有界附加重量变量，
+边界带单位，装载比例无量纲，最小化成本按模型重量单位计价；显式资源身份选择真实追索。全新 MILP 回退须主动开启，
+分解合并源报告保持无证明，初始 snapshot 身份与回退 token 分开保留。可移植 reader 复验源／资源方案及证据一致性，
+不独立重放全部割或认证 solver 来源。分区生命周期／资源补全基础对象、支持无时钟完整重放的原生根分区 application 与完整源 MILP 收尾已单独绑定；
+分区加速与完整源认证可在同一总预算内显式组合，branch-and-price 及任意回调领域扩展仍未绑定。原分区 context 的借用入口保持兼容，
+新增安全 owned 构造及可在 wasm32 保留 u64 计数器的完整 LP 报告门禁。
+详见[桥接边界](../docs/typescript-bridge_ch.md#共享-bpp-分区生命周期基础对象)。

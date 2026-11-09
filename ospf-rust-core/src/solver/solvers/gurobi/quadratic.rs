@@ -332,6 +332,7 @@ fn solve_quadratic_internal(
         model.objective_category,
         Some(&grb_vars),
         cancellation_handle,
+        per_solve_options.and_then(|options| options.progress_reporter).map(|reporter| (reporter, start_time)),
     )?;
 
     // 获取结果；当状态为 InfOrUnbd 时，关闭 DualReductions 再优化一次以区分 Infeasible/Unbounded
@@ -347,6 +348,7 @@ fn solve_quadratic_internal(
             model.objective_category,
             Some(&grb_vars),
             cancellation_handle,
+            per_solve_options.and_then(|options| options.progress_reporter).map(|reporter| (reporter, start_time)),
         )?;
         status = grb_model
             .status()
@@ -381,11 +383,12 @@ fn solve_quadratic_internal(
     }
     if let Ok(bound) = grb_model.get_attr(attr::ObjBound)
         && bound.is_finite()
+        && bound.abs() < grb::INFINITY
     {
         output.best_bound = Some(bound);
     }
 
-    if solver_status.is_feasible() && has_solution {
+    if solver_status.can_extract_incumbent() && has_solution {
         let obj = grb_model
             .get_attr(attr::ObjVal)
             .map_err(|e| CoreError::solver_backend(format!("Gurobi get ObjVal error: {}", e)))?;
@@ -446,7 +449,7 @@ fn solve_quadratic_internal(
         }
     }
 
-    if solver_status.is_feasible() && has_solution {
+    if solver_status.can_extract_incumbent() && has_solution {
         // 按统一报告合同由 incumbent 和 best bound 重算 gap。
         // Recompute the gap from the incumbent and best bound for the unified report contract.
         output.mip_gap = output

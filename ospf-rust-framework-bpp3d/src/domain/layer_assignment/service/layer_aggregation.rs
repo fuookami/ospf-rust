@@ -40,8 +40,18 @@ where
     where
         V: Clone + PartialEq,
     {
+        self.add_columns_with_positions(new_layers)
+            .into_iter()
+            .map(|(_, layer)| layer)
+            .collect()
+    }
+
+    fn add_columns_with_positions(&mut self, new_layers: Vec<BinLayer<V, U>>) -> Vec<(usize, BinLayer<V, U>)>
+    where
+        V: Clone + PartialEq,
+    {
         let mut added = Vec::new();
-        for layer in new_layers {
+        for (position, layer) in new_layers.into_iter().enumerate() {
             let identity = layer.identity_key();
             let is_dup = self
                 .layers
@@ -49,11 +59,11 @@ where
                 .any(|existing| existing.identity_key() == identity);
             if !is_dup {
                 self.layers.push(layer.clone());
-                added.push(layer);
+                added.push((position, layer));
             }
         }
         if !added.is_empty() {
-            self.iterations.push(added.clone());
+            self.iterations.push(added.iter().map(|(_, layer)| layer.clone()).collect());
         }
         added
     }

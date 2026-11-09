@@ -1695,12 +1695,34 @@ pub struct SerializedVariable {
     /// 变量名称 / Variable name
     pub name: String,
     /// 下界 / Lower bound
+    #[serde(serialize_with = "serialize_model_bound", deserialize_with = "deserialize_model_bound")]
     pub lower_bound: f64,
     /// 上界 / Upper bound
+    #[serde(serialize_with = "serialize_model_bound", deserialize_with = "deserialize_model_bound")]
     pub upper_bound: f64,
     /// 变量类型 / Variable type
     #[serde(rename = "type")]
     pub variable_type: SerializedVariableType,
+}
+
+// 字符串仅用于无穷边界，避免 JSON null 丢失方向。
+// Strings are reserved for infinite bounds to avoid losing their sign through JSON null.
+fn deserialize_model_bound<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Bound { Number(f64), Text(String) }
+    match Bound::deserialize(deserializer)? {
+        Bound::Number(value) if value.is_finite() => Ok(value),
+        Bound::Text(value) if value == "Infinity" => Ok(f64::INFINITY),
+        Bound::Text(value) if value == "-Infinity" => Ok(f64::NEG_INFINITY),
+        _ => Err(serde::de::Error::custom("expected a finite number or signed Infinity")),
+    }
+}
+
+fn serialize_model_bound<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+    if value.is_finite() { serializer.serialize_f64(*value) }
+    else if value.is_infinite() { serializer.serialize_str(if value.is_sign_positive() { "Infinity" } else { "-Infinity" }) }
+    else { Err(serde::ser::Error::custom("NaN is not a model bound")) }
 }
 
 /// 序列化线性约束。

@@ -1,5 +1,7 @@
 # ospf-rust
 
+TypeScript bindings, native execution and current coverage are documented in the [TypeScript bridge](docs/typescript-bridge.md). The independent `ospf-typescript` repository owns the public npm SDK, `ospf-wasm`.
+
 :us: English | :cn: [简体中文](README_ch.md)
 
 ## Introduction

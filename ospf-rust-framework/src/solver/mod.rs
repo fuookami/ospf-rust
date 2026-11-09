@@ -34,6 +34,7 @@ pub mod framework_async;
 pub mod framework_number_aliases;
 pub mod framework_solve_options;
 pub mod linear_benders_decomposition_solver;
+pub mod linear_report_executor;
 pub mod logic_based_benders;
 #[cfg(feature = "serde")]
 pub mod logic_based_benders_checkpoint;
@@ -47,6 +48,7 @@ pub mod parallel_combinatorial_column_generation_solver;
 pub mod parallel_combinatorial_linear_solver;
 pub mod parallel_combinatorial_mode;
 pub mod parallel_combinatorial_quadratic_solver;
+pub mod projected_column_generation;
 #[doc(hidden)]
 pub mod parallel_linear;
 #[doc(hidden)]
@@ -54,7 +56,7 @@ pub mod parallel_mode;
 #[doc(hidden)]
 pub mod parallel_quadratic;
 pub mod quadratic_benders_decomposition_solver;
-#[cfg(feature = "remote-solver")]
+#[cfg(feature = "remote-codec")]
 pub mod remote;
 #[doc(hidden)]
 pub mod serial_column_generation;
@@ -80,6 +82,7 @@ pub use fixed_recourse::*;
 pub use framework_number_aliases::*;
 pub use framework_solve_options::*;
 pub use linear_benders_decomposition_solver::*;
+pub use linear_report_executor::*;
 pub use logic_based_benders::*;
 #[cfg(feature = "serde")]
 pub use logic_based_benders_checkpoint::*;
@@ -93,9 +96,10 @@ pub use parallel_combinatorial_column_generation_solver::*;
 pub use parallel_combinatorial_linear_solver::*;
 pub use parallel_combinatorial_mode::*;
 pub use parallel_combinatorial_quadratic_solver::*;
+pub use projected_column_generation::*;
 pub use quadratic_benders_decomposition_solver::*;
 
-#[cfg(feature = "remote-solver")]
+#[cfg(feature = "remote-codec")]
 pub use remote::*;
 pub use serial_combinatorial_column_generation_solver::*;
 pub use serial_combinatorial_linear_solver::*;

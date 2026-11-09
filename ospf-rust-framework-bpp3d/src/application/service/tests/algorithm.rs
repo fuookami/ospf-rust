@@ -85,13 +85,14 @@
         assert_eq!(algorithm.active_column_count(), 1);
         assert_eq!(algorithm.removed_column_count(), 1);
 
-        let state = application_state_from_algorithm(
+        let state = application_state_from_algorithm_with_continuous_radius(
             &algorithm,
             vec![item("i0")],
             Vec::new(),
             Vec::new(),
             HashMap::new(),
             HashMap::new(),
+            None,
         );
         assert_eq!(state.layers.len(), 1);
         assert_eq!(state.layers[0].from, "seed-b");

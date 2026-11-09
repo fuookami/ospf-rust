@@ -6,7 +6,7 @@ use num_traits::One;
 use ospf_rust_core::error::{CoreError, ModelError, Result};
 use ospf_rust_core::model::flatten::{Linear, LinearMonomial};
 use ospf_rust_core::model::intermediate::LinearTriadModel;
-use ospf_rust_core::model::{ConstraintRelation, LinearModelRevision, LinearModelSnapshot, LinearModelValue, LinearVariableState, MetaModel, SubObjective};
+use ospf_rust_core::model::{ConstraintRelation, LinearInequality, LinearModelRevision, LinearModelSnapshot, LinearModelValue, LinearVariableState, MetaModel, SubObjective};
 use ospf_rust_core::solver::audit::linear_model_mapping;
 use ospf_rust_core::solver::{SolveReport, require_optimal_lp_certificate_for_linear_model};
 use ospf_rust_core::token::TokenVariableData;
@@ -373,6 +373,22 @@ impl<V: LinearModelValue + One> ColumnProjection<V> {
     /// Phase I 使用非负人工变量而非大 M；包括空列池的凸性缺额。
     /// Phase I uses nonnegative artificials instead of big M, including convexity deficits for empty pools.
     pub fn master(&mut self, source: &MetaModel<V>, options: ColumnMasterOptions<V>) -> Result<ColumnMasterRegistration<V>> {
+        self.build_master(source, options, true)
+    }
+
+    /// 定价专用 LP 主问题，去掉凸性已隐含的列上界，避免上界对偶制造重复负检验数。
+    /// Pricing-only LP master omitting column upper bounds already implied by convexity, preventing bound duals from producing duplicate negative reduced costs.
+    pub fn master_for_pricing(&mut self, source: &MetaModel<V>, options: ColumnMasterOptions<V>) -> Result<ColumnMasterRegistration<V>> {
+        if options.integer || !options.refined_resources.is_empty() { return Err(invalid("pricing master must be continuous and unrefined")); }
+        self.build_master(source, options, false)
+    }
+
+    fn build_master(
+        &mut self,
+        source: &MetaModel<V>,
+        options: ColumnMasterOptions<V>,
+        explicit_column_upper_bound: bool,
+    ) -> Result<ColumnMasterRegistration<V>> {
         let snapshot = self.snapshot(source)?;
         validate_tolerance(&options.tolerance)?;
         let mapped = self.decisions.iter().map(|decision| decision.variable).collect::<BTreeSet<_>>();
@@ -388,9 +404,9 @@ impl<V: LinearModelValue + One> ColumnProjection<V> {
         for (index, column) in self.columns.iter().enumerate() {
             let variable = new_variable(&mut model, format!("column_{index}"),
                 if options.integer { VariableType::Binary } else { VariableType::UContinuous },
-                // 恰选一的配置系数不超过一；LP 也保留显式边界，供精确证书残差校验。
-                // Exactly-one configuration coefficients never exceed one; retain explicit LP bounds for exact certificate residual validation.
-                Some(V::one()))?;
+                // 普通入口保留显式边界；定价入口依赖凸性隐含边界并独立校验完整 LP 证书。
+                // Ordinary masters retain explicit bounds; pricing masters use convexity-implied bounds and independently validate the full LP certificate.
+                if explicit_column_upper_bound { Some(V::one()) } else { None })?;
             column_variables.insert(column.id.clone(), model.tokens()[variable].id());
         }
         let mut global_variables = BTreeMap::new();
@@ -412,8 +428,8 @@ impl<V: LinearModelValue + One> ColumnProjection<V> {
                 Self::artificials(&mut model, &mut terms, &mut objective_terms, ConstraintRelation::Equal)?;
             }
             convex_positions.insert(block.clone(), model.num_constraints());
-            model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()),
-                ConstraintRelation::Equal, V::one(), &format!("choose_{index}"))?;
+            model.register_linear_row(&format!("choose_{index}"), LinearInequality::new(
+                Linear::new(terms, V::zero()), ConstraintRelation::Equal, V::one()))?;
         }
         if !options.phase_one {
             for (variable, coefficient) in &snapshot.objective {
@@ -439,8 +455,8 @@ impl<V: LinearModelValue + One> ColumnProjection<V> {
                 Self::artificials(&mut model, &mut terms, &mut objective_terms, row.relation)?;
             }
             row_positions.insert(row.id.clone(), model.num_constraints());
-            model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), row.relation,
-                row.rhs.clone(), &format!("source_row_{index}"))?;
+            model.register_linear_row(&format!("source_row_{index}"), LinearInequality::new(
+                Linear::new(terms, V::zero()), row.relation, row.rhs.clone()))?;
         }
         model.add_sub_objective(SubObjective::minimize(Linear::new(objective_terms,
             if options.phase_one { V::zero() } else { snapshot.objective_constant.clone() }), "projected_objective"));
@@ -623,7 +639,8 @@ impl<V: LinearModelValue + One> ColumnProjection<V> {
         }
         for (index, row) in snapshot.rows.iter().filter(|row| row.coefficients.keys().all(|variable| indices.contains_key(variable))).enumerate() {
             let terms = row.coefficients.iter().map(|(variable, coefficient)| LinearMonomial::new(coefficient.clone(), indices[variable])).collect();
-            model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), row.relation, row.rhs.clone(), &format!("local_{index}"))?;
+            model.register_linear_row(&format!("local_{index}"), LinearInequality::new(
+                Linear::new(terms, V::zero()), row.relation, row.rhs.clone()))?;
         }
         model.add_sub_objective(SubObjective::minimize(Linear::new(objective, -request.convexity_price.clone()), "reduced_cost"));
         Ok(model)
@@ -679,6 +696,21 @@ impl ColumnProjection<f64> {
     ) -> Result<SolveReport<f64>>
     where
         F: FnOnce(&LinearTriadModel) -> Result<SolveReport<f64>>,
+    {
+        self.solve_master_lp_report(source, registration, solve)
+    }
+
+    /// 保留调用方计数器域的完整 LP 证书门禁；语言桥可使用 u64 而不经过 usize。
+    /// Full LP certificate gate retaining the caller's counter domain; language bridges can use u64 without usize conversion.
+    pub fn solve_master_lp_report<C, F>(
+        &mut self,
+        source: &MetaModel<f64>,
+        registration: &ColumnMasterRegistration<f64>,
+        solve: F,
+    ) -> Result<SolveReport<f64, C>>
+    where
+        C: Copy + Ord + TryFrom<usize>,
+        F: FnOnce(&LinearTriadModel) -> Result<SolveReport<f64, C>>,
     {
         self.prices = None;
         self.require_current(source, registration)?;
@@ -858,6 +890,20 @@ mod tests {
             assert!(!columns.is_empty());
             assert!(columns.iter().all(|variable| variable.lower_bound == Some(0.0) && variable.upper_bound == Some(1.0)));
         }
+    }
+
+    #[test]
+    fn pricing_master_removes_only_redundant_column_bounds_and_rejects_integer_mode() {
+        let mut f = fixture();
+        for phase_one in [false, true] {
+            let master = f.projection.master_for_pricing(&f.source, ColumnMasterOptions { phase_one, ..Default::default() }).unwrap();
+            let columns = master.snapshot.variables.iter().filter(|variable| variable.name.starts_with("column_")).collect::<Vec<_>>();
+            assert!(!columns.is_empty());
+            assert!(columns.iter().all(|variable| variable.lower_bound == Some(0.0) && variable.upper_bound.is_none()));
+            assert_eq!(master.convexities.len(), 2);
+            assert!(master.convexities.values().all(|id| master.snapshot.rows.iter().any(|row| &row.id == id && row.rhs == 1.0 && row.relation == ConstraintRelation::Equal)));
+        }
+        assert!(f.projection.master_for_pricing(&f.source, ColumnMasterOptions { integer: true, ..Default::default() }).is_err());
     }
 
     #[test]

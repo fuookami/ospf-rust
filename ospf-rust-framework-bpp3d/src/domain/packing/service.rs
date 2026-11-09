@@ -28,6 +28,7 @@ include!("service/geometry_contract.rs");
 include!("service/geometry_guard.rs");
 include!("service/layer_placement_adapter.rs");
 include!("service/layer_trace_replay_adapter.rs");
+include!("service/strict_layer_trace_replay.rs");
 include!("service/packer.rs");
 include!("service/material_packer.rs");
 include!("service/renderer_adapter.rs");

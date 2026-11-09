@@ -8,10 +8,12 @@
 
 pub mod context;
 pub mod model;
+pub mod registration;
 pub mod service;
 
 pub use context::{
     FinalAssignmentArtifacts, LayerAssignmentContext, RmpAssignmentArtifacts,
 };
 pub use model::*;
+pub use registration::{LayerAssignmentModel, LayerAssignmentModelInput, LayerAssignmentStage};
 pub use service::*;

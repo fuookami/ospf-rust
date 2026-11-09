@@ -60,6 +60,7 @@ The framework supports axis-aligned cylinders with the following semantics:
 - **Conservative envelope**: `rMax` envelope bounds for production-ready continuous radius variables.
 - **Production-ready path**: `RealVar` solver variables with constraint-based bounds and target equality constraint.
 - **Renderer output**: Solver-selected radius applied to `actualVolume` and `radius`/`diameter` DTO fields.
+- The one-round CSV flow supplies the continuous-radius component to both RMP states for extensions; this does not automatically register it in the RMP model.
 - **PWL diagnostics**: `pwl_volume`, `pwl_error`, `pwl_segments`, `pwl_within_envelope` in renderer item info.
 
 ## Core Concepts
@@ -77,6 +78,8 @@ The framework supports axis-aligned cylinders with the following semantics:
 | `application::ColumnGenerationApplicationService` | Application-facing column-generation orchestration. | migration |
 | `application::MetaModelSolverBackend` | Pluggable solver backend boundary for RMP/final executors. | migration |
 | `application::ColumnGenerationStandardExecutors` | Standard RMP/final executor wiring. | migration |
+| `application::TraceValidatedMetaModelFinalExecutor` | Opt-in report-driven final with strict physical replay. | experimental; verification pending |
+| `application::Bpp3dOneRoundEvidence` | Actual per-stage models, reports, column pools and final selection for an opt-in one-round flow. | experimental; Rust only |
 | `application::CsvDatasetLoader` | CSV dataset loading when `serde` is enabled. | migration |
 | `application::Bpp3dRunReport` | Structured run and comparison reporting. | migration |
 | `domain::layer_assignment::*` | Layer-assignment context, aggregation, limits, objectives, and dynamic columns. | migration |
@@ -188,6 +191,30 @@ explicitly in the config.
 `MetaModelExecutionDiagnostics` moved into `ospf-rust-framework` so that BPP2D/BPP3D/CSP1D/CSP2D share one
 solving boundary. This crate keeps compatibility re-exports and exposes `layer_count` / `bin_count` read-only
 aliases plus `write_bpp3d_info` through `Bpp3dExecutionDiagnosticsExt`, leaving the existing info keys unchanged.
+
+### Actual-Report Backend Foundation
+
+`ReportMetaModelBackend` and `MetaModelStage` are also re-exported from this crate. Construct one backend with an explicit `Arc<dyn LinearSolver>` and `LinearExecutionOptions`, then pass clones to `SolverBackedMetaModelRmpExecutor` and `SolverBackedMetaModelFinalExecutor`. The existing `run_csv_materialized_one_generation_round` flow remains RMP -> original layer generators -> refreshed RMP -> final MILP. It is one generation round, not a complete automatic column-generation loop or complete pricing proof.
+
+The shared backend preserves each accepted actual compiled model, fingerprint/mapping, original `SolveReport` and separate objective constant in `backend.reports()`. Only certified optimal LPs supply original-row pricing duals; final retains integer domains and actual incumbent/terminal semantics. A timeout/cancellation without an incumbent or an uncertified LP stops legacy result extraction instead of using configured no-op vectors, objectives or shadow prices. The typed `backend.execute` entry retains accepted no-incumbent reports without fabricating a vector. Clones share one total cooperative budget, raw progress, independent child cancellation and bounded history; create a new backend per application invocation.
+
+Contract tests cover no-op fallback rejection and pre-cancellation. Feature-gated actual SCIP and Gurobi 10 tests exercise the original CSV one-round flow and retain both LP certificates and the final integer report; they require the respective runtime/license. To run both, explicitly enable `serde,scip,scip-bundled,gurobi10` (the bundled dependency feature alone does not enable this crate's `scip` test gate).
+
+This is **the Rust execution foundation behind the bound BPP3D SDK/HTTP/N-API entry**, not a general BPP3D solver. The SDK exposes portable source validation, explicit source-layer plan replay and a bounded one-round execution report reader; native execution runs only through the native engine and its explicit `bpp3d` strategy. The legacy final extractor still collapses assignments across bins to a selected-layer set, and packing replay can construct fallback placement from coverage when physical traces are missing. Do not treat renderability, an optimal restricted final report or this one-round test as a source-wide feasible/optimal BPP3D certificate.
+
+### Experimental strict final replay
+
+`TraceValidatedMetaModelFinalExecutor` is an opt-in Rust path under verification; it does not change the legacy executor. `execute_with_selection` retains original bin/layer assignments and the backend report even when validation fails. For grouped demand, `execute_with_selection_and_item_amounts` accepts counts in item-catalog order and retains the same assignments, including when physical replay fails. Its strict replay rejects missing traces, ambiguous multi-item placement summaries and partially specified block grids rather than inventing positions. It checks geometry, item IDs, per-layer item coverage, exact item demand and bin weight capacity; `FinalPackingValidation` can add a geometry gate without weakening the base checks. A physical failure is propagated as `FinalMilp` through the application `execute_result` path.
+
+`replay_strict_grouped_packing` reuses those physical and exact-demand gates for a supplied application state, selection, grouped amounts and placement limit, without invoking a solver. The caller remains responsible for binding the state to its source and for any model or solver provenance; passing physical replay is not an optimality proof.
+
+The opt-in `run_materialized_with_traced_initial_layers` and `run_materialized_one_generation_round_with_traced_initial_layers` entries accept existing `LayerGenerationResult` values and carry their physical traces through final extraction. `run_csv_materialized_one_generation_round_with_traced_initial_layers` instead accepts a `LayerTracePair` for each CSV initial layer, in request order, with item indices into `request.items`. It derives empty item coverage from the supplied traces, retains explicit coverage, package attributes and continuous-radius configuration, and passes each unique CSV ID's positive grouped quantity into both RMPs, generation and final validation. The total demand is limited to 100,000 items; strict replay defaults to 10,000 and may be configured up to 100,000. For actual solving use `SolverBackedMetaModelRmpExecutor` with a real backend and `TraceValidatedMetaModelFinalExecutor`; `MetaModelRmpExecutor` uses a no-op backend. Legacy/custom executors reject grouped quantities unless they explicitly implement `execute_result_with_item_amounts`. Trace data is supplied separately, not read from the CSV itself. Empty traces are allowed for unused seeds, but selecting one fails strict replay.
+
+`run_csv_materialized_one_generation_round_with_evidence` creates a fresh report backend for this same flow using an explicitly supplied solver and `Bpp3dOneRoundOptions`. It uses the default RMP and final model configurations. It retains each RMP's actual input state and accepted model/report, the final pool and original block/placement traces, and the actual final bin/layer selection. Earlier stages remain available if a later stage fails, and physical failure retains the final report and extracted selection. Reports rejected by the backend's identity or feasibility checks are not accepted as evidence. This Rust-only in-memory result is not a source-bound serialized report and does not support model extensions or establish global optimality. Its budget and cancellation are cooperative, not a hard interruption of generation or physical replay.
+
+Feature-gated tests exercise strict final and one-round flows with two certified RMPs using actual SCIP and Gurobi 10. The grouped trace path has been run with both for two items in one layer and reuse of one layer across two bins. Broader native acceptance remains outstanding. The built-in grouped application path does not yet attach RMP/final model extensions; custom quantity-aware executors must implement their own extension handling. The legacy materialized and CSV entries still accept bare initial layers without traces. **Legacy CSV application flows do not currently apply `item_amounts` to RMP/final demand**, so they must not be treated as evidence that grouped quantities were satisfied. Initial and generated traces are associated with the first accepted normalized layer identity, never with an unrelated seed or a later duplicate. The gate does not certify arbitrary package rules or source-wide optimality. BPP3D source and plan validation, bounded one-round native execution over HTTP/N-API and its versioned execution-report reader are available through the TypeScript SDK; broader rules, a configurable generator chain and cylinder support remain unbound.
+
+The evidence entry has additionally been tested with both real backends on a grouped instance whose final solution requires an actual two-item `BlockLayerGenerator` column, including its grid trace. Tests also cover a restricted-final infeasibility report and retention of earlier stages after physical failure, cancellation between children and report-limit stops; they do not constitute cross-environment report acceptance.
 
 ## Related Modules
 

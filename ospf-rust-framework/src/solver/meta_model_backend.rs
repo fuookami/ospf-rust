@@ -16,6 +16,9 @@ use ospf_rust_core::model::MetaModel;
 use super::column_generation_solver::ColumnGenerationSolver;
 use super::framework_solve_options::FrameworkSolveOptions;
 
+mod report;
+pub use report::*;
+
 // ============================================================================
 // MetaModelExecutorSolveResult - 执行器求解结果 / Executor solve result
 // ============================================================================

@@ -48,16 +48,16 @@ pub struct PartitionColumnGenerationIteration {
 
 /// 根 LP 与受限整数池结果，不冒充 branch-and-price 或原问题不可行证明。
 /// Root LP and restricted integer-pool result, never branch-and-price or a proof of original infeasibility.
-pub struct PartitionColumnGenerationResult {
+pub struct PartitionColumnGenerationResult<C = usize> {
     /// 已有完整源方案之后的可恢复加速后端错误。 / Recoverable accelerator backend error after obtaining a complete-source plan.
     pub acceleration_error: Option<CoreError>,
     /// 源模型 Feasible 或执行终态；受限模型证明另行保留，不被提升。
     /// Source-model Feasible or execution terminal; restricted-model proofs stay separate and are never promoted.
     pub report: SolveReport<f64>,
     /// 实际资源补全模型报告，不转为源模型证明。 / Actual refinement-model report, never promoted to a source-model proof.
-    pub refinement_report: Option<SolveReport<f64>>,
+    pub refinement_report: Option<SolveReport<f64, C>>,
     /// 实际最终受限模型报告，不转为源模型证明。 / Actual final restricted-model report, never promoted to a source-model proof.
-    pub final_report: Option<SolveReport<f64>>,
+    pub final_report: Option<SolveReport<f64, C>>,
     /// 独立验证后的源模型装载解。 / Independently validated source-model loading solution.
     pub solution: Option<DiscreteLoadingSolution>,
     /// 按源变量身份的完整向量。 / Complete vector keyed by source-variable identity.
@@ -85,7 +85,7 @@ enum PricingOutcome {
     Stopped(TerminationReason),
 }
 
-fn check_report(report: &SolveReport<f64>, model: &LinearTriadModel) -> Result<()> {
+fn check_report<C: Copy + Ord + TryFrom<usize>>(report: &SolveReport<f64, C>, model: &LinearTriadModel) -> Result<()> {
     report.validate()?;
     if report.model_mapping.as_ref() != Some(&linear_model_mapping(model)?)
         || report.fingerprints.model.as_ref() != Some(&linear_model_fingerprint(model)?)
@@ -93,12 +93,21 @@ fn check_report(report: &SolveReport<f64>, model: &LinearTriadModel) -> Result<(
     Ok(())
 }
 
-fn check_objective(report: &SolveReport<f64>, model: &LinearTriadModel, tolerance: f64) -> Result<()> {
+fn check_objective<C: Copy + Ord + TryFrom<usize>>(report: &SolveReport<f64, C>, model: &LinearTriadModel, tolerance: f64) -> Result<()> {
     let solution = report.solution.as_ref().ok_or_else(|| invalid("restricted partition model has no incumbent; original infeasibility is not proven"))?;
     if solution.values.len() != model.num_variables() { return Err(invalid("incomplete partition objective vector")); }
     let objective = LinearObjectiveEvaluationFlt64::new(model.c.iter().copied().zip(solution.values.iter().copied()), 0.0)?;
     objective.validate_reported(solution.objective_value.or(solution.objective), tolerance.max(1e-7))?;
     Ok(())
+}
+
+/// 原算法的可移植预算观察，不要求时钟、线程或原生运行时。
+/// Portable budget observations for the original algorithm, without clocks, threads or a native runtime.
+pub trait PartitionColumnGenerationControl {
+    /// 当前剩余时间；失败必须显式传播。 / Current remaining duration; failures must propagate explicitly.
+    fn remaining(&self) -> Result<Duration>;
+    /// 只允许取消或时间耗尽；运行中返回空。 / Only cancellation or time exhaustion; absent while running.
+    fn terminal(&self) -> Result<Option<TerminationReason>>;
 }
 
 struct Budget<'a> {
@@ -107,33 +116,36 @@ struct Budget<'a> {
     handle: &'a SolveHandle,
 }
 
-impl Budget<'_> {
-    fn remaining(&self) -> Duration { self.limit.saturating_sub(self.started.elapsed()) }
-    fn terminal(&self) -> Option<TerminationReason> {
-        if self.handle.is_cancelled() { Some(TerminationReason::Cancelled) }
-        else if self.remaining().is_zero() { Some(TerminationReason::TimeLimit) } else { None }
+impl PartitionColumnGenerationControl for Budget<'_> {
+    fn remaining(&self) -> Result<Duration> { Ok(self.limit.saturating_sub(self.started.elapsed())) }
+    fn terminal(&self) -> Result<Option<TerminationReason>> {
+        Ok(if self.handle.is_cancelled() { Some(TerminationReason::Cancelled) }
+            else if self.remaining()?.is_zero() { Some(TerminationReason::TimeLimit) } else { None })
     }
 }
 
-fn price<U, F>(
+fn price<U, C, F, B>(
     context: &PartitionLoadingContext<f64, U>,
     source: &ospf_rust_core::model::MetaModel,
     master: Option<&ColumnMasterRegistration<f64>>,
     request: &ColumnPricingRequest<f64>,
     tolerance: f64,
-    budget: &Budget<'_>,
+    budget: &B,
+    handle: &SolveHandle,
     solve: &mut F,
 ) -> Result<PricingOutcome>
 where
     U: UnitTrait + Clone,
-    F: FnMut(&LinearTriadModel, Duration, &SolveHandle) -> Result<SolveReport<f64>>,
+    C: Copy + Ord + TryFrom<usize>,
+    B: PartitionColumnGenerationControl + ?Sized,
+    F: FnMut(&LinearTriadModel, Duration, &SolveHandle) -> Result<SolveReport<f64, C>>,
 {
-    if let Some(reason) = budget.terminal() { return Ok(PricingOutcome::Stopped(reason)); }
+    if let Some(reason) = budget.terminal()? { return Ok(PricingOutcome::Stopped(reason)); }
     let model = context.pricing_model(source, master, request)?;
     let snapshot = model.linear_model_snapshot()?;
     let compilation = snapshot.compile_flt64()?;
-    let report = solve(&compilation.model, budget.remaining(), budget.handle)?;
-    if let Some(reason) = budget.terminal() { return Ok(PricingOutcome::Stopped(reason)); }
+    let report = solve(&compilation.model, budget.remaining()?, handle)?;
+    if let Some(reason) = budget.terminal()? { return Ok(PricingOutcome::Stopped(reason)); }
     check_report(&report, &compilation.model)?;
     if matches!(report.termination_reason, TerminationReason::Cancelled | TerminationReason::Interrupted | TerminationReason::TimeLimit) {
         return Ok(PricingOutcome::Stopped(report.termination_reason));
@@ -157,7 +169,7 @@ where
     Ok(PricingOutcome::Priced(Priced { values, cost, optimal: report.is_optimal() }))
 }
 
-fn stopped(reason: TerminationReason, root: usize, trace: Vec<PartitionColumnGenerationIteration>) -> Result<PartitionColumnGenerationResult> {
+fn stopped<C: Copy + Ord + TryFrom<usize>>(reason: TerminationReason, root: usize, trace: Vec<PartitionColumnGenerationIteration>) -> Result<PartitionColumnGenerationResult<C>> {
     Ok(PartitionColumnGenerationResult { acceleration_error: None, report: SolveReport::builder(ProblemStatus::Unknown, reason).build()?, refinement_report: None, final_report: None, solution: None,
         values: BTreeMap::new(), objective: None, lp_converged: false, root_column_count: root, completion_column_count: 0, trace })
 }
@@ -168,11 +180,11 @@ struct Candidate {
     objective: Option<f64>,
 }
 
-fn read_candidate<U: UnitTrait + Clone>(
+fn read_candidate<U: UnitTrait + Clone, C: Copy + Ord + TryFrom<usize>>(
     registration: &RegisteredDiscreteLoading<f64, U>,
     context: &PartitionLoadingContext<f64, U>,
     master: &ColumnMasterRegistration<f64>,
-    report: &SolveReport<f64>,
+    report: &SolveReport<f64, C>,
     tolerance: f64,
 ) -> Result<Candidate> {
     let mut candidate = Candidate { values: BTreeMap::new(), solution: None, objective: None };
@@ -221,13 +233,32 @@ impl PartitionColumnGenerationApplicationService {
         options: PartitionLoadingOptions<f64>,
         config: PartitionColumnGenerationConfig,
         handle: &SolveHandle,
-        mut solve: F,
+        solve: F,
     ) -> Result<PartitionColumnGenerationResult>
     where
         U: UnitTrait + Clone,
         F: FnMut(&LinearTriadModel, Duration, &SolveHandle) -> Result<SolveReport<f64>>,
     {
-        let budget = Budget { started: Instant::now(), limit: config.time_limit, handle };
+        let control = Budget { started: Instant::now(), limit: config.time_limit, handle };
+        Self::solve_with_control(registration, options, config, handle, &control, solve)
+    }
+
+    /// 共用原迭代流程与证书门禁；外部预算可用于原生记录或无时钟证据重放。
+    /// Share the original iteration flow and certificate gates; external controls allow native recording or clock-free evidence replay.
+    pub fn solve_with_control<U, C, F, B>(
+        registration: &RegisteredDiscreteLoading<f64, U>,
+        options: PartitionLoadingOptions<f64>,
+        config: PartitionColumnGenerationConfig,
+        handle: &SolveHandle,
+        budget: &B,
+        mut solve: F,
+    ) -> Result<PartitionColumnGenerationResult<C>>
+    where
+        U: UnitTrait + Clone,
+        C: Copy + Ord + TryFrom<usize>,
+        B: PartitionColumnGenerationControl + ?Sized,
+        F: FnMut(&LinearTriadModel, Duration, &SolveHandle) -> Result<SolveReport<f64, C>>,
+    {
         let resources = !options.refinable_resources.is_empty();
         if config.iteration_limit == 0 || config.column_limit < options.partitions.len()
             || (resources && config.completion_column_limit < options.partitions.len())
@@ -240,9 +271,9 @@ impl PartitionColumnGenerationApplicationService {
         let mut trace = Vec::new();
         let mut seeds = Vec::new();
         for block in &blocks {
-            if let Some(reason) = budget.terminal() { return stopped(reason, 0, trace); }
+            if let Some(reason) = budget.terminal()? { return stopped(reason, 0, trace); }
             let request = context.pricing_request(source, None, block, true)?;
-            let priced = match price(&context, source, None, &request, config.tolerance, &budget, &mut solve)? {
+            let priced = match price(&context, source, None, &request, config.tolerance, budget, handle, &mut solve)? {
                 PricingOutcome::Priced(priced) => priced,
                 PricingOutcome::Stopped(reason) => return stopped(reason, 0, trace),
             };
@@ -252,11 +283,11 @@ impl PartitionColumnGenerationApplicationService {
         let mut phase_one = true;
         let mut converged = false;
         for _ in 0..config.iteration_limit {
-            if let Some(reason) = budget.terminal() { return stopped(reason, context.columns().len(), trace); }
+            if let Some(reason) = budget.terminal()? { return stopped(reason, context.columns().len(), trace); }
             let master = context.master(source, phase_one, false, false)?;
             let mut terminal = None;
-            let lp = context.solve_master_lp(source, &master, |model| {
-                let report = solve(model, budget.remaining(), handle)?;
+            let lp = context.solve_master_lp_report(source, &master, |model| {
+                let report = solve(model, budget.remaining()?, handle)?;
                 check_report(&report, model)?;
                 if matches!(report.termination_reason, TerminationReason::Cancelled | TerminationReason::Interrupted | TerminationReason::TimeLimit) {
                     terminal = Some(report.termination_reason);
@@ -267,7 +298,7 @@ impl PartitionColumnGenerationApplicationService {
             });
             if let Some(reason) = terminal { return stopped(reason, context.columns().len(), trace); }
             let lp = lp?;
-            if let Some(reason) = budget.terminal() { return stopped(reason, context.columns().len(), trace); }
+            if let Some(reason) = budget.terminal()? { return stopped(reason, context.columns().len(), trace); }
             let solution = lp.solution.as_ref().ok_or_else(|| invalid("optimal master LP lacks incumbent"))?;
             let values = master.snapshot().variables.iter().zip(&solution.values).map(|(state, value)| (state.variable, *value)).collect();
             let objective = master.snapshot().evaluate_objective_flt64(&values)?.total_value()?;
@@ -282,9 +313,9 @@ impl PartitionColumnGenerationApplicationService {
             let before = context.columns().len();
             let mut available = config.column_limit.saturating_sub(before);
             for block in &blocks {
-                if let Some(reason) = budget.terminal() { return stopped(reason, before, trace); }
+                if let Some(reason) = budget.terminal()? { return stopped(reason, before, trace); }
                 let request = context.pricing_request(source, Some(&master), block, phase_one)?;
-                let priced = match price(&context, source, Some(&master), &request, config.tolerance, &budget, &mut solve)? {
+                let priced = match price(&context, source, Some(&master), &request, config.tolerance, budget, handle, &mut solve)? {
                     PricingOutcome::Priced(priced) => priced,
                     PricingOutcome::Stopped(reason) => return stopped(reason, before, trace),
                 };
@@ -312,13 +343,13 @@ impl PartitionColumnGenerationApplicationService {
         let mut acceleration_error = None;
         let mut terminal = None;
         if resources {
-            if let Some(reason) = budget.terminal() { return stopped(reason, root, trace); }
+            if let Some(reason) = budget.terminal()? { return stopped(reason, root, trace); }
             let refinement = context.master(source, false, true, true)?;
             let compilation = refinement.snapshot().compile_flt64()?;
-            let report = solve(&compilation.model, budget.remaining(), handle)?;
+            let report = solve(&compilation.model, budget.remaining()?, handle)?;
             check_report(&report, &compilation.model)?;
             best = read_candidate(registration, &context, &refinement, &report, config.tolerance)?;
-            terminal = budget.terminal().or_else(|| matches!(report.termination_reason,
+            terminal = budget.terminal()?.or_else(|| matches!(report.termination_reason,
                 TerminationReason::TimeLimit | TerminationReason::Cancelled | TerminationReason::Interrupted).then_some(report.termination_reason));
             if terminal.is_none() && best.solution.is_some() {
                 context.materialize_completed_resources(source, &refinement,
@@ -327,20 +358,20 @@ impl PartitionColumnGenerationApplicationService {
             } else if terminal.is_none() { terminal = Some(report.termination_reason); }
             refinement_report = Some(report);
         }
-        terminal = terminal.or_else(|| budget.terminal());
+        if terminal.is_none() { terminal = budget.terminal()?; }
         if terminal.is_none() {
             let master = context.master(source, false, true, false)?;
             let compilation = master.snapshot().compile_flt64()?;
-            match solve(&compilation.model, budget.remaining(), handle) {
+            match solve(&compilation.model, budget.remaining()?, handle) {
                 Ok(report) => {
                     check_report(&report, &compilation.model)?;
                     let candidate = read_candidate(registration, &context, &master, &report, config.tolerance)?;
                     if candidate.objective.is_some_and(|value| best.objective.is_none_or(|previous| value < previous)) { best = candidate; }
-                    terminal = Some(budget.terminal().unwrap_or(report.termination_reason));
+                    terminal = Some(budget.terminal()?.unwrap_or(report.termination_reason));
                     final_report = Some(report);
                 }
                 Err(error) if best.solution.is_some() && super::benders::recoverable(&error) => {
-                    terminal = Some(budget.terminal().unwrap_or(if error.solver_error_class() == ospf_rust_core::error::SolverErrorClass::Numerical {
+                    terminal = Some(budget.terminal()?.unwrap_or(if error.solver_error_class() == ospf_rust_core::error::SolverErrorClass::Numerical {
                         TerminationReason::NumericalFailure } else { TerminationReason::BackendFailure }));
                     acceleration_error = Some(error);
                 }

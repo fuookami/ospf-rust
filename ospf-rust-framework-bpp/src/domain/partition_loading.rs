@@ -1,10 +1,11 @@
 //! 完整源模型上的显式分区组合列。 / Explicit partition-configuration columns over a complete source model.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Deref;
 use num_traits::{FromPrimitive, One, ToPrimitive};
 use ospf_rust_core::error::{ModelError, Result};
 use ospf_rust_core::model::flatten::{Linear, LinearMonomial};
-use ospf_rust_core::model::{ConstraintRelation, LinearModelValue, MetaModel};
+use ospf_rust_core::model::{ConstraintRelation, LinearInequality, LinearModelValue, MetaModel};
 use ospf_rust_core::token::TokenVariableData;
 use ospf_rust_core::variable::{VariableId, VariableType, new_standalone_id};
 use ospf_rust_framework::solver::column_projection::{ColumnDecision, ColumnMasterOptions, ColumnMasterRegistration, ColumnPricingRequest, ColumnProjection, ProjectedColumn};
@@ -80,10 +81,22 @@ pub struct PartitionLoadingColumn<V, U: UnitTrait> {
     pub compatible_layouts: BTreeMap<String, BTreeSet<String>>,
 }
 
+enum LoadingContext<'a, V: LinearModelValue, U: UnitTrait> {
+    Borrowed(&'a DiscreteLoadingContext<V, U>),
+    Owned(Box<DiscreteLoadingContext<V, U>>),
+}
+
+impl<V: LinearModelValue, U: UnitTrait> Deref for LoadingContext<'_, V, U> {
+    type Target = DiscreteLoadingContext<V, U>;
+    fn deref(&self) -> &Self::Target {
+        match self { Self::Borrowed(context) => context, Self::Owned(context) => context }
+    }
+}
+
 /// 领域分区适配，共享投影持有唯一行、目标和定价会话定义。
 /// Domain partition adapter; the shared projection alone defines rows, objective and pricing sessions.
 pub struct PartitionLoadingContext<'a, V: LinearModelValue, U: UnitTrait> {
-    loading: &'a DiscreteLoadingContext<V, U>,
+    loading: LoadingContext<'a, V, U>,
     options: PartitionLoadingOptions<V>,
     decisions: Vec<ColumnDecision>,
     projection: ColumnProjection<V>,
@@ -101,6 +114,24 @@ where
     /// Build unique exhaustive partition ownership from a domain context registered in this same model.
     pub fn new(
         loading: &'a DiscreteLoadingContext<V, U>,
+        source: &MetaModel<V>,
+        options: PartitionLoadingOptions<V>,
+    ) -> Result<Self> {
+        Self::build(LoadingContext::Borrowed(loading), source, options)
+    }
+
+    /// 拥有完整领域 context，供独立语言绑定使用；不使用自引用或延长借用生命周期。
+    /// Own the complete domain context for independent language bindings, without self-references or extended borrow lifetimes.
+    pub fn new_owned(
+        loading: DiscreteLoadingContext<V, U>,
+        source: &MetaModel<V>,
+        options: PartitionLoadingOptions<V>,
+    ) -> Result<Self> {
+        Self::build(LoadingContext::Owned(Box::new(loading)), source, options)
+    }
+
+    fn build(
+        loading: LoadingContext<'a, V, U>,
         source: &MetaModel<V>,
         options: PartitionLoadingOptions<V>,
     ) -> Result<Self> {
@@ -161,7 +192,7 @@ where
     }
 
     /// 不可变领域入口。 / Immutable domain entry.
-    pub fn loading(&self) -> &DiscreteLoadingContext<V, U> { self.loading }
+    pub fn loading(&self) -> &DiscreteLoadingContext<V, U> { &self.loading }
 
     /// 显式分区。 / Explicit partitions.
     pub fn partitions(&self) -> &[LoadingPartition] { &self.options.partitions }
@@ -316,14 +347,16 @@ where
         for (i, item) in self.loading.problem().items.iter().enumerate() {
             let terms = self.loading.aggregation().assignments.iter().filter(|(key, _)| key.item_id == item.id && positions.contains(&key.position_id))
                 .map(|(_, variable)| Ok(LinearMonomial::new(V::one(), index(&model, *variable)?))).collect::<Result<Vec<_>>>()?;
-            model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual, V::one(), &format!("local_cargo_{i}"))?;
+            model.register_linear_row(&format!("local_cargo_{i}"), LinearInequality::new(
+                Linear::new(terms, V::zero()), ConstraintRelation::LessEqual, V::one()))?;
         }
         for (i, clique) in self.loading.conflict_index().cliques().iter().enumerate() {
             let local = clique.intersection(positions).collect::<Vec<_>>();
             if local.len() < 2 { continue; }
             let terms = local.iter().map(|position| Ok(LinearMonomial::new(V::one(), index(&model, self.loading.aggregation().occupied[*position])?)))
                 .collect::<Result<Vec<_>>>()?;
-            model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual, V::one(), &format!("local_conflict_{i}"))?;
+            model.register_linear_row(&format!("local_conflict_{i}"), LinearInequality::new(
+                Linear::new(terms, V::zero()), ConstraintRelation::LessEqual, V::one()))?;
         }
         for (g, group) in self.loading.problem().layout_groups.iter().enumerate() {
             if group.position_ids.is_disjoint(positions) { continue; }
@@ -334,12 +367,13 @@ where
                     var_type: VariableType::Binary, lower_bound: Some(V::zero()), upper_bound: Some(V::one()) })?;
                 layouts.push((layout, index(&model, variable)?));
             }
-            model.add_linear_polynomial_constraint(Linear::new(layouts.iter().map(|(_, index)| LinearMonomial::new(V::one(), *index)).collect(), V::zero()),
-                ConstraintRelation::Equal, V::one(), &format!("local_layout_choice_{g}"))?;
+            model.register_linear_row(&format!("local_layout_choice_{g}"), LinearInequality::new(
+                Linear::new(layouts.iter().map(|(_, index)| LinearMonomial::new(V::one(), *index)).collect(), V::zero()), ConstraintRelation::Equal, V::one()))?;
             for (p, position) in group.position_ids.intersection(positions).enumerate() {
                 let mut terms = vec![LinearMonomial::new(V::one(), index(&model, self.loading.aggregation().occupied[position])?)];
                 terms.extend(layouts.iter().filter(|(layout, _)| layout.position_ids.contains(position)).map(|(_, index)| LinearMonomial::new(-V::one(), *index)));
-                model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual, V::zero(), &format!("local_layout_member_{g}_{p}"))?;
+                model.register_linear_row(&format!("local_layout_member_{g}_{p}"), LinearInequality::new(
+                    Linear::new(terms, V::zero()), ConstraintRelation::LessEqual, V::zero()))?;
             }
         }
         Ok(model)
@@ -412,6 +446,21 @@ where
         F: FnOnce(&ospf_rust_core::model::intermediate::LinearTriadModel) -> Result<ospf_rust_core::solver::SolveReport<f64>>,
     {
         self.projection.solve_master_lp(source, master, solve)
+    }
+
+    /// 可移植计数器的完整 LP 报告门禁；不转换或截断原始 u64 元数据。
+    /// Full LP report gate with portable counters, without converting or truncating original u64 metadata.
+    pub fn solve_master_lp_report<C, F>(
+        &mut self,
+        source: &MetaModel<f64>,
+        master: &ColumnMasterRegistration<f64>,
+        solve: F,
+    ) -> Result<ospf_rust_core::solver::SolveReport<f64, C>>
+    where
+        C: Copy + Ord + TryFrom<usize>,
+        F: FnOnce(&ospf_rust_core::model::intermediate::LinearTriadModel) -> Result<ospf_rust_core::solver::SolveReport<f64, C>>,
+    {
+        self.projection.solve_master_lp_report(source, master, solve)
     }
 }
 

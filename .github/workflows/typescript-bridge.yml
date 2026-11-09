@@ -1,0 +1,201 @@
+name: TypeScript Bridge Candidates
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ospf-wasm/**'
+      - 'ospf-rust-bridge/**'
+      - 'ospf-rust-native/**'
+      - 'ospf-rust-host/**'
+      - 'ospf-rust-node/**'
+      - 'ospf-rust-framework/**'
+      - 'ospf-rust-framework-bpp/**'
+      - 'ospf-rust-framework-bpp1d/**'
+      - 'ospf-rust-framework-bpp2d/**'
+      - 'ospf-rust-framework-bpp3d/**'
+      - 'ospf-rust-framework-csp1d/**'
+      - 'ospf-rust-framework-csp2d/**'
+      - 'ospf-rust-framework-geometry2d/**'
+      - 'ospf-rust-core/**'
+      - 'ospf-rust-base/**'
+      - 'ospf-rust-math/**'
+      - 'ospf-rust-multiarray/**'
+      - 'ospf-rust-quantities/**'
+      - 'Cargo.toml'
+      - 'scripts/build-*-bindings.ps1'
+      - '.github/workflows/typescript-bridge.yml'
+  pull_request:
+    paths:
+      - 'ospf-wasm/**'
+      - 'ospf-rust-bridge/**'
+      - 'ospf-rust-native/**'
+      - 'ospf-rust-host/**'
+      - 'ospf-rust-node/**'
+      - 'ospf-rust-framework/**'
+      - 'ospf-rust-framework-bpp/**'
+      - 'ospf-rust-framework-bpp1d/**'
+      - 'ospf-rust-framework-bpp2d/**'
+      - 'ospf-rust-framework-bpp3d/**'
+      - 'ospf-rust-framework-csp1d/**'
+      - 'ospf-rust-framework-csp2d/**'
+      - 'ospf-rust-framework-geometry2d/**'
+      - 'ospf-rust-core/**'
+      - 'ospf-rust-base/**'
+      - 'ospf-rust-math/**'
+      - 'ospf-rust-multiarray/**'
+      - 'ospf-rust-quantities/**'
+      - 'Cargo.toml'
+      - 'scripts/build-*-bindings.ps1'
+      - '.github/workflows/typescript-bridge.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidates:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure isolated Cargo output
+        shell: pwsh
+        run: '"CARGO_TARGET_DIR=$(Join-Path $env:RUNNER_TEMP ''ospf-bridge-target'')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install compatible Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install nightly-2026-08-01 --profile minimal
+          rustup target add --toolchain nightly-2026-08-01 wasm32-unknown-unknown
+          cargo +nightly-2026-08-01 install wasm-bindgen-cli --version 0.2.129 --locked
+      - name: Contract and HTTP tests
+        shell: pwsh
+        run: |
+          cargo +nightly-2026-08-01 test -p ospf-rust-bridge -p ospf-rust-native -p ospf-rust-host --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-bpp -p ospf-rust-framework-bpp1d --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-geometry2d
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-bpp2d
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-bpp3d --features serde --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-bpp3d --features serde,async --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 check -p ospf-rust-framework-bpp3d --features serde --target wasm32-unknown-unknown
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp1d
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp2d
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework --features remote-codec --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework --features async --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework --features remote-solver --test checkpoint_wire_contract
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER = 'wasm-bindgen-test-runner'
+          cargo +nightly-2026-08-01 test -p ospf-wasm --target wasm32-unknown-unknown --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build binding candidates
+        shell: pwsh
+        run: |
+          ./scripts/build-wasm-bindings.ps1
+          ./scripts/build-node-bindings.ps1 -Features scip-bundled,scip-quadratic
+          if (!(Test-Path -LiteralPath (Join-Path $env:CARGO_TARGET_DIR 'npm/ospf-node-bindings-0.1.0.tgz'))) { throw 'Node binding package missing from CARGO_TARGET_DIR' }
+          cargo +nightly-2026-08-01 build -p ospf-rust-host --features scip-bundled,scip-quadratic --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify real SCIP domain masters, domain workflows and HTTP reports
+        shell: pwsh
+        run: |
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test csp1d_production_report --no-run
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $install = Get-ChildItem (Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/debug/build') -Directory -Recurse -Filter scip_install | Select-Object -First 1
+          if (-not $install) { throw 'Bundled SCIP runtime not found' }
+          $env:PATH = "$(Join-Path $install.FullName 'bin');$env:PATH"
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-bpp3d --features serde,scip,scip-bundled --target x86_64-pc-windows-msvc --lib actual_scip_
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test bpp3d_source
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-bpp2d --features scip-bundled --target x86_64-pc-windows-msvc --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp2d --features scip-bundled --target x86_64-pc-windows-msvc --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 run -p ospf-rust-framework-csp2d --example report_column_generation --features scip-bundled --target x86_64-pc-windows-msvc -- scip
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-core --features scip-bundled --target x86_64-pc-windows-msvc --lib bounded_dual_rounding
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp1d --features scip-bundled,serde --target x86_64-pc-windows-msvc --lib
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:OSPF_CSP1D_FIXTURE_DIR = Join-Path $env:CARGO_TARGET_DIR 'csp1d-report-fixtures'
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test csp1d_production_report
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:OSPF_BPP2D_FIXTURE_DIR = Join-Path $env:CARGO_TARGET_DIR 'bpp2d-report-fixtures'
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test bpp2d_execution_report
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:OSPF_CSP2D_FIXTURE_DIR = Join-Path $env:CARGO_TARGET_DIR 'csp2d-report-fixtures'
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test csp2d_execution_report
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:OSPF_BPP3D_FIXTURE_DIR = Join-Path $env:CARGO_TARGET_DIR 'bpp3d-execution-fixtures'
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test bpp3d_execution_report
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:OSPF_GANTT_ACTIVITY_FIXTURE_DIR = Join-Path $env:CARGO_TARGET_DIR 'gantt-activity-fixtures'
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test gantt_activity_execution_report
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:OSPF_BPP_LOADING_FIXTURE_DIR = Join-Path $env:CARGO_TARGET_DIR 'bpp-loading-fixtures'
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test bpp_loading
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-native --features scip-bundled --target x86_64-pc-windows-msvc --test bpp_partition
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test linear_bounds
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test http_network
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test csp1d_execution
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test gantt_activity_execution
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test bpp3d_execution
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test bpp2d_execution
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test csp2d_execution
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo +nightly-2026-08-01 test -p ospf-rust-host --features scip-bundled --target x86_64-pc-windows-msvc --test bpp_loading
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-csp1d-report-evidence
+          path: ${{ runner.temp }}/ospf-bridge-target/csp1d-report-fixtures/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-bpp2d-report-evidence
+          path: ${{ runner.temp }}/ospf-bridge-target/bpp2d-report-fixtures/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-csp2d-report-evidence
+          path: ${{ runner.temp }}/ospf-bridge-target/csp2d-report-fixtures/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-bpp3d-execution-evidence
+          path: ${{ runner.temp }}/ospf-bridge-target/bpp3d-execution-fixtures/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-gantt-activity-evidence
+          path: ${{ runner.temp }}/ospf-bridge-target/gantt-activity-fixtures/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-bpp-loading-evidence
+          path: ${{ runner.temp }}/ospf-bridge-target/bpp-loading-fixtures/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-binding-candidates
+          path: ${{ runner.temp }}/ospf-bridge-target/npm/*.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ospf-host-candidate
+          path: ${{ runner.temp }}/ospf-bridge-target/x86_64-pc-windows-msvc/debug/ospf-rust-host.exe

@@ -7,6 +7,10 @@
 
 pub mod master_problem;
 pub mod pricing;
+mod context;
+
+pub use context::{Csp2dDemandShadowPriceKey, Csp2dMasterShadowPrices, ProduceContext, ProduceModel, ProduceModelInput, ProduceObjective, ProducePricingInput, ProduceStage};
+pub(crate) use context::geometry::validate as validate_physical_plans;
 
 pub use pricing::{
     Csp2dPricingConfig, Csp2dReducedCost, Csp2dShadowPrices, DEFAULT_REDUCED_COST_TOLERANCE,

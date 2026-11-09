@@ -135,7 +135,7 @@ mod tests {
     use super::*;
     use crate::model::constraint_programming::{
         ConstraintDefinition, ConstraintProgrammingConstraint, ConstraintProgrammingModel,
-        IntegerDomain, IntegerExpression, IntegerRelation, IntegerVariable,
+        IntegerDomain, IntegerExpression, IntegerObjective, IntegerRelation, IntegerTerm, IntegerVariable,
     };
 
     fn snapshot_with_constraint(
@@ -188,5 +188,85 @@ mod tests {
                 .get(&crate::solver::StableConstraintId::from("constraint")),
             Some(&super::super::ConstraintProgrammingSupport::ExactLowering)
         );
+    }
+
+    #[test]
+    fn scip_executes_cp_objective_constants_in_both_directions() {
+        for (maximize, constant, expected) in [(false, -7, -7), (true, 7, 10)] {
+            let mut model = ConstraintProgrammingModel::new("scip-cp-objective-constant");
+            let x = IntegerVariable::new("x");
+            model.register_variable(x.clone(), IntegerDomain::range(0, 3).unwrap()).unwrap();
+            let expression = IntegerExpression::linear(constant, [IntegerTerm { variable: x, coefficient: 1 }]).unwrap();
+            model.set_objective(if maximize { IntegerObjective::maximize(expression) } else { IntegerObjective::minimize(expression) });
+            let snapshot = model.freeze().unwrap();
+            let observed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+            let captured = std::sync::Arc::clone(&observed);
+            let reporter: crate::solver::SolveProgressReporter = std::sync::Arc::new(move |progress| {
+                captured.lock().unwrap().push(progress.clone());
+                Ok(())
+            });
+            let options = ConstraintProgrammingSolveOptions::builder().progress_reporter(Some(&reporter)).finish();
+            let solver = ScipConstraintProgrammingSolver::with_config(SCIPConfig::default().with_output(false));
+            let report = solver.solve_constraint_programming(&snapshot, &options).expect("SCIP solve");
+            assert!(report.is_optimal());
+            assert_eq!(report.solution.as_ref().and_then(|solution| solution.objective), Some(expected));
+            assert_eq!(report.solution.as_ref().unwrap().values.len(), 1);
+            assert_eq!(report.statistics.best_bound, Some(expected));
+            assert_eq!(report.statistics.best_bound_value, Some(expected as f64));
+            let observed = observed.lock().unwrap();
+            let terminal = observed.iter().find(|progress| progress.terminal).expect("terminal progress");
+            assert_eq!(terminal.objective_value, Some(expected as f64));
+            assert_eq!(terminal.best_bound, Some(expected as f64));
+        }
+    }
+
+    #[test]
+    fn scip_cp_intermediate_progress_includes_the_objective_constant() {
+        use crate::solver::ProgressValue;
+        use crate::solver::solvers::scip::PresolvingMode;
+        use std::sync::{Arc, Mutex};
+
+        let mut model = ConstraintProgrammingModel::new("scip-cp-progress");
+        let mut objective_terms = Vec::new();
+        let mut limit_terms = Vec::new();
+        for index in 0..48 {
+            let variable = IntegerVariable::new(format!("x{index}"));
+            model.register_variable(variable.clone(), IntegerDomain::boolean()).unwrap();
+            objective_terms.push(IntegerTerm { variable: variable.clone(), coefficient: index + 2 });
+            limit_terms.push(IntegerTerm { variable, coefficient: 1 });
+        }
+        model.add_constraint(ConstraintDefinition::new(
+            "limit",
+            ConstraintProgrammingConstraint::integer(
+                IntegerExpression::linear(0, limit_terms).unwrap(),
+                IntegerRelation::LessOrEqual,
+                17,
+            ),
+        )).unwrap();
+        model.set_objective(IntegerObjective::maximize(IntegerExpression::linear(137, objective_terms).unwrap()));
+        let snapshot = model.freeze().unwrap();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let recorded = events.clone();
+        let reporter: crate::solver::SolveProgressReporter = Arc::new(move |event| {
+            recorded.lock().unwrap().push(event.clone());
+            Ok(())
+        });
+        let options = ConstraintProgrammingSolveOptions::builder().progress_reporter(Some(&reporter)).finish();
+        let config = SCIPConfig::default().with_output(false).with_presolving(PresolvingMode::Off)
+            .with_heuristics_priority(0).with_telemetry_min_interval(1e-9);
+        let report = ScipConstraintProgrammingSolver::with_config(config)
+            .solve_constraint_programming(&snapshot, &options).unwrap();
+        assert!(report.is_optimal());
+        let events = events.lock().unwrap();
+        let intermediate: Vec<_> = events.iter().filter(|event| event.stage_progress == ProgressValue::Indeterminate).collect();
+        assert!(!intermediate.is_empty());
+        assert!(intermediate.iter().any(|event| event.objective_value.is_some() || event.best_bound.is_some()));
+        for event in intermediate {
+            assert!(event.objective_value.is_none_or(|value| value >= 137.0));
+            assert!(event.best_bound.is_none_or(|value| value >= 137.0));
+        }
+        let terminal = events.last().unwrap();
+        assert!(terminal.terminal);
+        assert_eq!(terminal.objective_value, report.solution.as_ref().and_then(|solution| solution.objective).map(|value| value as f64));
     }
 }

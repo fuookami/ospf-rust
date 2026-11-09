@@ -313,6 +313,7 @@ impl<V: SolveValue> Default for CuttingPlanGenerationInput<V> {
 
 /// 生成终止原因 / Generation stop reason
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CuttingPlanGenerationStopReason {
     /// 搜索穷尽 / Search exhausted
     Exhausted,
@@ -324,6 +325,7 @@ pub enum CuttingPlanGenerationStopReason {
 
 /// 生成统计 / Generation statistics
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CuttingPlanGenerationStatistics {
     /// 访问节点数 / Visited node count
     pub visited_nodes: i64,

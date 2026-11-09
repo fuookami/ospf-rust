@@ -54,9 +54,10 @@
             ) -> Result<MetaModelExecutorSolveResult, String> {
                 assert!(diagnostics.constraint_count >= diagnostics.demand_count);
                 Ok(MetaModelExecutorSolveResult {
-                    objective: Some(6.0 + diagnostics.layer_count as f64),
+                    objective: Some(6.0 + diagnostics.layer_count() as f64),
                     primal_solution: vec![1.0; diagnostics.variable_count],
                     dual_solution: vec![2.0; diagnostics.demand_count],
+                    additional_shadow_prices: HashMap::new(),
                     info: HashMap::from([("backend_phase".to_string(), "rmp".to_string())]),
                 })
             }
@@ -76,6 +77,7 @@
                     objective: Some(1.0),
                     primal_solution,
                     dual_solution: Vec::new(),
+                    additional_shadow_prices: HashMap::new(),
                     info: HashMap::from([("backend_phase".to_string(), "final".to_string())]),
                 })
             }
@@ -287,3 +289,98 @@ l1,b1,4
             .contains("no available bin type for final packing"));
     }
 
+    #[cfg(feature = "serde")]
+    #[test]
+    fn csv_declared_grouped_demand_reaches_executors_and_is_never_silently_dropped() {
+        #[derive(Debug)]
+        struct NoGenerator;
+
+        impl crate::domain::layer_generation::LayerGenerator<f64, Meter> for NoGenerator {
+            fn name(&self) -> &str {
+                "no_generator"
+            }
+
+            fn generate(
+                &self,
+                _request: &LayerGenerationRequest<f64, Meter>,
+            ) -> Vec<LayerGenerationResult<f64, Meter>> {
+                Vec::new()
+            }
+        }
+
+        #[derive(Debug, Clone)]
+        struct LegacyBackend;
+
+        impl MetaModelSolverBackend for LegacyBackend {
+            fn name(&self) -> &str {
+                "legacy_fake"
+            }
+
+            fn solve_rmp(
+                &self,
+                _model: &MetaModel<f64>,
+                diagnostics: &MetaModelExecutionDiagnostics,
+            ) -> Result<MetaModelExecutorSolveResult, String> {
+                Ok(MetaModelExecutorSolveResult {
+                    objective: Some(1.0),
+                    primal_solution: vec![1.0; diagnostics.variable_count],
+                    dual_solution: vec![1.0; diagnostics.demand_count],
+                    additional_shadow_prices: HashMap::new(),
+                    info: HashMap::new(),
+                })
+            }
+
+            fn solve_final(
+                &self,
+                _model: &MetaModel<f64>,
+                diagnostics: &MetaModelExecutionDiagnostics,
+            ) -> Result<MetaModelExecutorSolveResult, String> {
+                Ok(MetaModelExecutorSolveResult {
+                    objective: Some(1.0),
+                    primal_solution: vec![1.0; diagnostics.variable_count],
+                    dual_solution: Vec::new(),
+                    additional_shadow_prices: HashMap::new(),
+                    info: HashMap::new(),
+                })
+            }
+        }
+
+        let input = |amount: u32| format!(r#"
+# table:items
+item_id,name,shape_type,width,height,depth,weight,amount
+i1,Item,cuboid,2,3,4,1,{amount}
+# table:bins
+bin_id,type_code,width,height,depth,capacity
+b1,BIN,10,10,10,1000
+# table:layers
+layer_id,bin_id,depth
+l1,b1,4
+"#);
+        let service = ColumnGenerationApplicationService::new(ColumnGenerationConfig::default());
+        let rmp = SolverBackedMetaModelRmpExecutor::new(MetaModelRmpExecutorConfig::default(), LegacyBackend);
+        let final_executor = SolverBackedMetaModelFinalExecutor::new(MetaModelFinalExecutorConfig::default(), LegacyBackend);
+        // 分组需求必须到达执行器并被拒绝，而不是按 1 件静默求解。
+        // Grouped demand must reach executors and be rejected instead of being silently solved as one unit.
+        let mut layer_generation = LayerGenerationContext::new();
+        layer_generation.add_generator(Box::new(NoGenerator));
+        let grouped = crate::application::csv::CsvDatasetLoader::load_str(&input(2)).unwrap().materialize().unwrap();
+        let error = service
+            .run_csv_materialized_one_generation_round(grouped, layer_generation, &rmp, &final_executor)
+            .unwrap_err();
+        assert!(error.iter().any(|message| message.contains("grouped item demand")), "{error:?}");
+        let mut layer_generation = LayerGenerationContext::new();
+        layer_generation.add_generator(Box::new(NoGenerator));
+        let unit = crate::application::csv::CsvDatasetLoader::load_str(&input(1)).unwrap().materialize().unwrap();
+        assert!(service.run_csv_materialized_one_generation_round(unit, layer_generation, &rmp, &final_executor).is_ok());
+        // 全流程入口只能按初始层覆盖单件需求，必须明确拒绝分组需求。
+        // Full-flow entries cover only single-unit demand from initial layers and must reject grouped demand explicitly.
+        for entry in ["run_csv_materialized", "run_csv_materialized_with_bins"] {
+            let grouped = crate::application::csv::CsvDatasetLoader::load_str(&input(3)).unwrap().materialize().unwrap();
+            let error = if entry == "run_csv_materialized" {
+                service.run_csv_materialized(grouped, &rmp, &final_executor).unwrap_err()
+            } else {
+                service.run_csv_materialized_with_bins(grouped, &rmp, &final_executor).unwrap_err()
+            };
+            assert!(error.iter().any(|message| message.contains("traced one-generation-round entry")), "{entry}: {error:?}");
+        }
+    }

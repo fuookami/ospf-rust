@@ -161,6 +161,58 @@
         assert_eq!(results.len(), 3);
     }
 
+    #[test]
+    fn layer_generation_context_stops_after_deduplicated_budget() {
+        use std::sync::{Arc, Mutex};
+
+        #[derive(Debug)]
+        struct RecordingGenerator {
+            name: &'static str,
+            depths: Vec<f64>,
+            calls: Arc<Mutex<Vec<&'static str>>>,
+        }
+
+        impl LayerGenerator<f64, Meter> for RecordingGenerator {
+            fn name(&self) -> &str { self.name }
+            fn generate(&self, request: &LayerGenerationRequest<f64, Meter>) -> Vec<LayerGenerationResult<f64, Meter>> {
+                self.calls.lock().unwrap().push(self.name);
+                self.depths.iter().map(|depth| LayerGenerationResult {
+                    layer: BinLayer { iteration: 0, from: "same".into(), bin: request.bin.clone(), depth: meters(*depth), demand_coverage: Vec::new() },
+                    reduced_cost: None, score: None, numeric_score: None, block_traces: Vec::new(),
+                    placement_traces: Vec::new(), diagnostics: Vec::new(), source: self.name.into(),
+                }).collect()
+            }
+        }
+
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let mut context = LayerGenerationContext::new();
+        for (name, depths) in [("first", vec![1.0, 1.0]), ("second", vec![1.0, 2.0]), ("third", vec![3.0])] {
+            context.add_generator(Box::new(RecordingGenerator { name, depths, calls: calls.clone() }));
+        }
+        for (limit, expected_depths, expected_calls) in [
+            (0, vec![], vec![]),
+            (1, vec![1.0], vec!["first"]),
+            (2, vec![1.0, 2.0], vec!["first", "second"]),
+            (3, vec![1.0, 2.0, 3.0], vec!["first", "second", "third"]),
+        ] {
+            calls.lock().unwrap().clear();
+            let request = LayerGenerationRequest::new(0, vec![]).with_max_candidates(limit);
+            let results = context.generate(&request);
+            assert_eq!(results.iter().map(|result| result.layer.depth.value).collect::<Vec<_>>(), expected_depths);
+            assert_eq!(*calls.lock().unwrap(), expected_calls);
+        }
+        calls.lock().unwrap().clear();
+        let bins = ["first-bin", "second-bin"].into_iter().map(|code| BinType {
+            width: meters(3.0), height: meters(3.0), depth: meters(3.0), capacity: meters(1.0),
+            type_code: code.into(), is_main: false,
+        }).collect();
+        let request = LayerGenerationRequest::new(0, vec![]).with_bins(bins).with_max_candidates(4);
+        let results = context.generate(&request);
+        assert_eq!(results.iter().map(|result| result.layer.bin.as_ref().unwrap().type_code.as_str()).collect::<Vec<_>>(),
+            vec!["first-bin", "first-bin", "first-bin", "second-bin"]);
+        assert_eq!(*calls.lock().unwrap(), vec!["first", "second", "third", "first"]);
+    }
+
     // ========================================================================
     // 阶段 6 验收测试 / Phase 6 acceptance tests
     // ========================================================================

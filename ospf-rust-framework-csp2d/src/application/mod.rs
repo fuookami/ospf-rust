@@ -7,6 +7,11 @@
 pub mod master_solver;
 pub mod model;
 pub mod service;
+mod report_solver;
+mod column_generation;
+
+pub use report_solver::{Csp2dExecutionOptions, Csp2dMasterResult, Csp2dNativeBackend, Csp2dStageReport};
+pub use column_generation::{Csp2dColumnGenerationConfig, Csp2dColumnGenerationInput, Csp2dColumnGenerationResult, Csp2dColumnGenerationStage, Csp2dColumnGenerationStop, Csp2dPricingIteration, solve_csp2d_column_generation};
 
 pub use master_solver::{
     Csp2dHeuristicMasterSolver, Csp2dMasterSolveResult, Csp2dMasterSolver,

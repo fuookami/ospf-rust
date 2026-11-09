@@ -2970,12 +2970,15 @@ mod tests {
                 .expect("reserved assumption should keep the residual prefix"),
         )
         .expect("reserved assumption should carry JSON");
-        let residual_keys: Vec<&str> = residual
+        let mut residual_keys: Vec<&str> = residual
             .as_object()
             .expect("residual payload should be an object")
             .keys()
             .map(String::as_str)
             .collect();
+        // 检查字段集合，不依赖 serde_json feature 决定的对象顺序。
+        // Check the field set independently of serde_json's feature-dependent object order.
+        residual_keys.sort_unstable();
         assert_eq!(
             residual_keys,
             vec![

@@ -58,6 +58,10 @@ mod tests {
     include!("tests/application_flow.rs");
     include!("tests/csv_flow.rs");
     include!("tests/real_backends.rs");
+    include!("tests/report_backend.rs");
+    #[cfg(feature = "serde")]
+    include!("tests/recorded_round.rs");
+    include!("tests/trace_validated_final.rs");
     include!("tests/continuous_radius.rs");
     include!("tests/csv_mock_flow.rs");
 }

@@ -45,6 +45,8 @@
 
 ## 架构概览
 
+TypeScript SDK 的底层绑定、原生执行端与当前能力矩阵见 [TypeScript 桥接](docs/typescript-bridge_ch.md)。正式 SDK 在独立 `ospf-typescript` 仓库维护，npm 主包名为 `ospf-wasm`。
+
 workspace 采用分层结构：
 
 1. `base`、`multiarray`、`math` 和 `quantities` 提供可复用基础。

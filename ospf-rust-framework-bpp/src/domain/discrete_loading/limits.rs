@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use num_traits::{FromPrimitive, One, ToPrimitive};
 use ospf_rust_core::error::Result;
 use ospf_rust_core::model::flatten::{Linear, LinearMonomial};
-use ospf_rust_core::model::{ConstraintRelation, LinearModelValue, MetaModel};
+use ospf_rust_core::model::{ConstraintRelation, LinearInequality, LinearModelValue, MetaModel};
 use ospf_rust_quantities::unit::UnitTrait;
 use super::context::{count, index};
 use super::{ConflictIndex, DiscreteLoadingProblem, LoadingAggregation};
@@ -26,9 +26,9 @@ impl LoadingCapacityLimit {
         U: UnitTrait,
     {
         for (i, item) in problem.items.iter().enumerate() {
-            model.add_linear_polynomial_constraint(aggregation.loaded[&item.id].clone(),
+            model.register_linear_row(&format!("{namespace}_item_{i}"), LinearInequality::new(aggregation.loaded[&item.id].clone(),
                 if item.required || item.fixed_position_id.is_some() { ConstraintRelation::Equal } else { ConstraintRelation::LessEqual },
-                V::one(), &format!("{namespace}_item_{i}"))?;
+                V::one()))?;
         }
         for (i, position) in problem.positions.iter().enumerate() {
             let active = index(model, aggregation.occupied[&position.id])?;
@@ -39,8 +39,8 @@ impl LoadingCapacityLimit {
             ] {
                 let mut terms = expression.monomials().to_vec();
                 terms.push(LinearMonomial::new(-bound, active));
-                model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual,
-                    V::zero(), &format!("{namespace}_{label}_{i}"))?;
+                model.register_linear_row(&format!("{namespace}_{label}_{i}"), LinearInequality::new(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual,
+                    V::zero()))?;
             }
         }
         Ok(())
@@ -63,15 +63,15 @@ impl LoadingConflictLimit {
             let terms = clique.iter().map(|position|
                 Ok(LinearMonomial::new(V::one(), index(model, aggregation.occupied[position])?)))
                 .collect::<Result<Vec<_>>>()?;
-            model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual,
-                V::one(), &format!("{namespace}_clique_{i}"))?;
+            model.register_linear_row(&format!("{namespace}_clique_{i}"), LinearInequality::new(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual,
+                V::one()))?;
         }
         for (g, group) in problem.layout_groups.iter().enumerate() {
             let choices = group.layouts.iter().map(|layout| {
                 Ok(LinearMonomial::new(V::one(), index(model, aggregation.layouts[&(group.id.clone(), layout.id.clone())])?))
             }).collect::<Result<Vec<_>>>()?;
-            model.add_linear_polynomial_constraint(Linear::new(choices, V::zero()), ConstraintRelation::Equal,
-                V::one(), &format!("{namespace}_layout_choose_{g}"))?;
+            model.register_linear_row(&format!("{namespace}_layout_choose_{g}"), LinearInequality::new(Linear::new(choices, V::zero()), ConstraintRelation::Equal,
+                V::one()))?;
             for (p, position) in group.position_ids.iter().enumerate() {
                 let mut terms = vec![LinearMonomial::new(V::one(), index(model, aggregation.occupied[position])?)];
                 for layout in &group.layouts {
@@ -80,8 +80,8 @@ impl LoadingConflictLimit {
                             index(model, aggregation.layouts[&(group.id.clone(), layout.id.clone())])?));
                     }
                 }
-                model.add_linear_polynomial_constraint(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual,
-                    V::zero(), &format!("{namespace}_layout_member_{g}_{p}"))?;
+                model.register_linear_row(&format!("{namespace}_layout_member_{g}_{p}"), LinearInequality::new(Linear::new(terms, V::zero()), ConstraintRelation::LessEqual,
+                    V::zero()))?;
             }
         }
         Ok(())

@@ -64,7 +64,7 @@ fn runtime_quantity_to_meters(quantity: Quantity<f64, Unit>) -> Result<f64, Stri
 }
 
 /// 连续半径求解器原型 / Continuous radius solver prototype
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ContinuousCylinderRadiusSolverPrototype {
     /// 货物标识 / Item id
     pub item_id: ItemId,

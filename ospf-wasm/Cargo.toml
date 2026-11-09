@@ -1,0 +1,29 @@
+[package]
+name = "ospf-wasm"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Low-level wasm-bindgen bindings for the OSPF TypeScript SDK"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ospf-rust-bridge = { path = "../ospf-rust-bridge" }
+ospf-rust-core = { path = "../ospf-rust-core", features = ["serde"] }
+ospf-rust-multiarray = { path = "../ospf-rust-multiarray" }
+ospf-rust-math = { path = "../ospf-rust-math" }
+ospf-rust-quantities = { path = "../ospf-rust-quantities" }
+ospf-rust-framework = { path = "../ospf-rust-framework", features = ["remote-codec"] }
+wasm-bindgen = "=0.2.129"
+serde_json = "1"
+serde = "1"
+bigdecimal = "0.4"
+num-bigint = "0.4"
+num-rational = "0.4"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+ospf-rust-framework-bpp2d = { path = "../ospf-rust-framework-bpp2d" }
+ospf-rust-framework-csp1d = { path = "../ospf-rust-framework-csp1d" }
+ospf-rust-framework-csp2d = { path = "../ospf-rust-framework-csp2d" }

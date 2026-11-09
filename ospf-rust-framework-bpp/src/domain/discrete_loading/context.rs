@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use num_traits::{FromPrimitive, One, ToPrimitive};
 use ospf_rust_core::error::{CoreError, ModelError, Result};
 use ospf_rust_core::model::flatten::{Linear, LinearMonomial};
-use ospf_rust_core::model::{ConstraintRelation, LinearModelValue, MetaModel};
+use ospf_rust_core::model::{ConstraintRelation, LinearInequality, LinearModelValue, MetaModel};
 use ospf_rust_core::token::TokenVariableData;
 use ospf_rust_core::variable::{VariableId, VariableType, new_standalone_id};
 use ospf_rust_quantities::unit::{Kilogram, UnitTrait};
@@ -87,6 +87,17 @@ where
 
     /// 不可变领域输入。 / Immutable domain input.
     pub fn problem(&self) -> &DiscreteLoadingProblem<V, U> { &self.problem }
+
+    /// 在注册前指定稳定命名空间；同一模型内的不同 context 应使用不同名称。
+    /// Set a stable namespace before registration; distinct contexts in one model should use distinct names.
+    pub fn with_namespace(mut self, namespace: impl Into<String>) -> Result<Self> {
+        let namespace = namespace.into();
+        if self.model.is_some() || namespace.trim().is_empty() || namespace.len() > 256 {
+            return Err(invalid("loading namespace requires 1..256 UTF-8 bytes before registration"));
+        }
+        self.namespace = namespace;
+        Ok(self)
+    }
 
     /// 注册聚合及扩展建模入口。 / Registration aggregation for extension modeling.
     pub fn aggregation(&self) -> &LoadingAggregation<V> { &self.aggregation }
@@ -223,14 +234,14 @@ where
         let occupied = *self.aggregation.occupied.get(position).ok_or_else(|| invalid("unknown additional-weight position"))?;
         model.transaction(|model| -> Result<()> {
             let suffix = self.additional_weights.len();
-            model.add_linear_polynomial_constraint(additional.clone(), ConstraintRelation::GreaterEqual, V::zero(),
-                &format!("{}_additional_nonnegative_{suffix}", self.namespace))?;
+            model.register_linear_row(&format!("{}_additional_nonnegative_{suffix}", self.namespace),
+                LinearInequality::new(additional.clone(), ConstraintRelation::GreaterEqual, V::zero()))?;
             let weight = &self.aggregation.weights[position];
             let mut terms = weight.monomials().to_vec();
             terms.extend_from_slice(additional.monomials());
             terms.push(LinearMonomial::new(-self.capacities[position].clone(), index(model, occupied)?));
-            model.add_linear_polynomial_constraint(Linear::new(terms, additional.constant_term().clone()),
-                ConstraintRelation::LessEqual, V::zero(), &format!("{}_additional_capacity_{suffix}", self.namespace))?;
+            model.register_linear_row(&format!("{}_additional_capacity_{suffix}", self.namespace),
+                LinearInequality::new(Linear::new(terms, additional.constant_term().clone()), ConstraintRelation::LessEqual, V::zero()))?;
             model.linear_model_snapshot()?;
             Ok(())
         })?;

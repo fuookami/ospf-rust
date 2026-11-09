@@ -12,7 +12,7 @@ pub use model::{
 };
 
 pub use service::{
-    KnownCoordinatePlacement, LayerPlacementAdapter, LayerTraceReplayAdapter,
+    KnownCoordinatePlacement, LayerAssignmentTraceReplayRequest, LayerPlacementAdapter, LayerTraceReplayAdapter,
     LayerTraceReplayResult, MaterialPacker, Packer, PackingAggregation, PackingGeometryContract,
     PackingGeometryGuard, PackingRendererAdapter, PackingResult,
 };

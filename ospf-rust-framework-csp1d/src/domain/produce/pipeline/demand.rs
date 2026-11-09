@@ -20,6 +20,7 @@ pub struct DemandConstraintPipeline<V: SolveValue> {
     name: String,
     group: Option<ConstraintGroup>,
     produce: ProduceAggregation<V>,
+    deficits: Vec<Option<usize>>,
 }
 
 impl<V: SolveValue> DemandConstraintPipeline<V> {
@@ -29,7 +30,15 @@ impl<V: SolveValue> DemandConstraintPipeline<V> {
             name: "demand_constraint".to_string(),
             group: Some(ConstraintGroup::new(10_001, "csp1d_demand_constraint")),
             produce,
+            deficits: Vec::new(),
         }
+    }
+
+    /// 仅 Phase I 将已注册人工短缺接入原需求行，保留同一影子价格身份。
+    /// Only Phase I connects registered artificial deficits to original demand rows, retaining the same shadow-price identity.
+    pub fn with_deficits(mut self, deficits: Vec<Option<usize>>) -> Self {
+        self.deficits = deficits;
+        self
     }
 }
 
@@ -48,7 +57,8 @@ impl<V: SolveValue> Pipeline<MetaModel<f64>> for DemandConstraintPipeline<V> {
             return;
         };
         for (demand_index, demand) in self.produce.demands.iter().enumerate() {
-            let terms = symbols.demand_terms(&demand.product.id, &demand.quantity.unit.symbol());
+            let mut terms = symbols.demand_terms(&demand.product.id, &demand.quantity.unit.symbol());
+            if let Some(Some(variable)) = self.deficits.get(demand_index) { terms.push((*variable, 1.0)); }
             let Some(rhs) = to_f64(&demand.quantity.value) else {
                 log::warn!(
                     "Skip demand constraint {} due to non-convertible rhs",

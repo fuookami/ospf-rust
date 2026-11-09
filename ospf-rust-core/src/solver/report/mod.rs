@@ -389,16 +389,18 @@ impl<V> SolveProof<V> {
 }
 
 /// 求解统计 / Solve statistics.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct SolveStatistics<V> {
+pub struct SolveStatistics<V, C = usize> {
     /// 求解耗时 / Solve duration.
     pub solve_time: Duration,
     /// 迭代数 / Iteration count.
-    pub iterations: Option<usize>,
+    pub iterations: Option<C>,
     /// 节点数 / Node count.
-    pub nodes: Option<usize>,
+    pub nodes: Option<C>,
     /// typed 最优下界 / Typed best bound.
     pub best_bound: Option<V>,
     /// backend 浮点下界快照 / Floating-point best-bound snapshot.
@@ -408,12 +410,12 @@ pub struct SolveStatistics<V> {
     /// 相对 gap / Relative gap.
     pub relative_gap: Option<f64>,
     /// 解数量 / Solution count.
-    pub solution_count: Option<usize>,
+    pub solution_count: Option<C>,
     /// backend 扩展统计 / Backend extension statistics.
     pub extensions: BTreeMap<String, String>,
 }
 
-impl<V> Default for SolveStatistics<V> {
+impl<V, C> Default for SolveStatistics<V, C> {
     fn default() -> Self {
         Self {
             solve_time: Duration::ZERO,
@@ -596,10 +598,12 @@ impl InfeasibilityEvidence {
 }
 
 /// 求解器执行来源 / Solver execution provenance.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SolverProvenance {
+pub struct SolverProvenance<C = usize> {
     /// 稳定 solver ID / Stable solver ID.
     pub solver_id: String,
     /// backend 名称 / Backend name.
@@ -613,7 +617,7 @@ pub struct SolverProvenance {
     /// 实际生效配置 / Effective configuration.
     pub effective_configuration: BTreeMap<String, String>,
     /// 线程数 / Thread count.
-    pub thread_count: Option<usize>,
+    pub thread_count: Option<C>,
     /// 随机种子 / Random seed.
     pub random_seed: Option<u64>,
     /// 是否确定性 / Whether deterministic.
@@ -622,7 +626,7 @@ pub struct SolverProvenance {
     pub environment_summary: BTreeMap<String, String>,
 }
 
-impl Default for SolverProvenance {
+impl<C> Default for SolverProvenance<C> {
     fn default() -> Self {
         Self {
             solver_id: "unknown".to_owned(),
@@ -672,16 +676,19 @@ pub struct SolveFingerprints {
 }
 
 /// Branch-and-Price 等算法的通用 trace / Generic algorithm trace for Branch-and-Price and similar algorithms.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "C: serde::Deserialize<'de> + Default")))]
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct SolveTrace {
+pub struct SolveTrace<C = usize> {
     /// 已探索节点数 / Explored node count.
-    pub nodes_explored: usize,
+    pub nodes_explored: C,
     /// 已剪枝节点数 / Pruned node count.
-    pub nodes_pruned: usize,
+    pub nodes_pruned: C,
     /// 活动节点数 / Active node count.
-    pub active_nodes: usize,
+    pub active_nodes: C,
     /// 全局有效下界 / Global valid lower bound.
     pub global_lower_bound: Option<f64>,
     /// incumbent 上界 / Incumbent upper bound.
@@ -689,29 +696,32 @@ pub struct SolveTrace {
     /// 相对 gap / Relative gap.
     pub relative_gap: Option<f64>,
     /// 总迭代数 / Total iterations.
-    pub total_iterations: usize,
+    pub total_iterations: C,
     /// 定价调用数 / Pricing calls.
-    pub pricing_calls: usize,
+    pub pricing_calls: C,
     /// 生成列数 / Generated columns.
-    pub generated_columns: usize,
+    pub generated_columns: C,
     /// 已耗时 / Elapsed duration.
     pub elapsed: Duration,
     /// 逐轮算法快照 / Per-iteration algorithm snapshots.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub iteration_snapshots: Vec<SolveIterationSnapshot>,
+    pub iteration_snapshots: Vec<SolveIterationSnapshot<C>>,
 }
 
 /// 统一报告中的逐轮算法快照 / Backend-neutral per-iteration algorithm snapshot.
 ///
 /// 该结构只保存可审计的数值和计数，不承载任何算法自己的终态枚举。
 /// This structure stores auditable values and counters without introducing an algorithm-specific terminal enum.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(default))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "C: serde::Deserialize<'de> + Default")))]
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct SolveIterationSnapshot {
+pub struct SolveIterationSnapshot<C = usize> {
     /// 轮次，从 1 开始 / One-based iteration number.
-    pub iteration: usize,
+    pub iteration: C,
     /// 稳定阶段名称 / Stable stage name.
     pub stage: String,
     /// 该轮目标值 / Objective value for the iteration.
@@ -721,9 +731,9 @@ pub struct SolveIterationSnapshot {
     /// 该轮相对间隙 / Relative gap for the iteration.
     pub relative_gap: Option<f64>,
     /// 本轮新增切割或列数 / Cuts or columns added in this iteration.
-    pub items_added: usize,
+    pub items_added: C,
     /// 截止本轮累计切割或列数 / Cumulative cuts or columns through this iteration.
-    pub items_total: usize,
+    pub items_total: C,
     /// 证书引用 / Certificate reference.
     pub proof_reference: Option<String>,
     /// master attempt 身份 / Master-attempt identity.
@@ -777,16 +787,18 @@ pub struct SolveAttemptSummary {
 }
 
 /// 一次组合求解 attempt 的审计记录 / Audit record for one combinatorial solve attempt.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct SolveAttemptTrace {
+pub struct SolveAttemptTrace<C = usize> {
     /// 稳定 attempt ID / Stable attempt ID.
     pub attempt_id: String,
     /// 父 attempt ID / Parent attempt ID.
     pub parent_attempt_id: Option<String>,
     /// solver 来源信息 / Solver provenance.
-    pub provenance: SolverProvenance,
+    pub provenance: SolverProvenance<C>,
     /// attempt 开始时间（epoch milliseconds）/ Attempt start time in epoch milliseconds.
     pub started_at_epoch_ms: Option<u64>,
     /// wrapper 冻结 backend 结果的时间 / Time when the wrapper linearized the backend result.
@@ -897,14 +909,17 @@ fn attempt_outcome(termination_reason: TerminationReason) -> SolveAttemptOutcome
 }
 
 /// 组合求解的统一报告 / Unified report for a combinatorial solve.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "V: serde::Deserialize<'de>, C: serde::Deserialize<'de> + Default")))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct CombinatorialSolveReport<V> {
+pub struct CombinatorialSolveReport<V, C = usize> {
     /// 聚合后的最终报告 / Aggregated final report.
-    pub report: SolveReport<V>,
+    pub report: SolveReport<V, C>,
     /// 所有已执行 attempt / All executed attempts.
-    pub attempts: Vec<SolveAttemptTrace>,
+    pub attempts: Vec<SolveAttemptTrace<C>>,
     /// 被选择的 attempt ID / Selected attempt ID.
     pub selected_attempt_id: Option<String>,
     /// 选择依据 / Selection rationale.
@@ -964,7 +979,12 @@ impl<V: SolveValue> CombinatorialSolveReport<V> {
             selection_reason: Some("single attempt".to_owned()),
         }
     }
+}
 
+impl<V: SolveValue, C> CombinatorialSolveReport<V, C>
+where
+    C: Copy + Ord + TryFrom<usize>,
+{
     /// 校验聚合报告 / Validate the aggregate report.
     pub fn validate(&self) -> Result<()> {
         self.report.validate()?;
@@ -1068,10 +1088,13 @@ impl<V: SolveValue> CombinatorialSolveReport<V> {
 }
 
 /// 统一求解报告 / Unified solve report.
+/// 计数类型 C 原生默认 usize；跨平台报告读取使用 u64。
+/// Counter C defaults to native usize; portable report readers use u64.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "V: serde::Deserialize<'de>, C: serde::Deserialize<'de> + Default")))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct SolveReport<V> {
+pub struct SolveReport<V, C = usize> {
     /// 报告 schema 版本 / Report schema version.
     pub schema_version: String,
     /// 问题结论 / Problem conclusion.
@@ -1085,11 +1108,11 @@ pub struct SolveReport<V> {
     /// 证明信息 / Proof information.
     pub proof: Option<SolveProof<V>>,
     /// 求解统计 / Solve statistics.
-    pub statistics: SolveStatistics<V>,
+    pub statistics: SolveStatistics<V, C>,
     /// 结构化诊断 / Structured diagnostics.
     pub diagnostics: SolveDiagnostics<V>,
     /// 执行来源 / Execution provenance.
-    pub provenance: SolverProvenance,
+    pub provenance: SolverProvenance<C>,
     /// 审计指纹 / Audit fingerprints.
     pub fingerprints: SolveFingerprints,
     /// 报告级模型元素映射 / Report-level model-element mapping.
@@ -1097,7 +1120,7 @@ pub struct SolveReport<V> {
     /// 顶层 warning / Top-level warnings.
     pub warnings: Vec<SolveWarning>,
     /// 算法 trace / Algorithm trace.
-    pub trace: SolveTrace,
+    pub trace: SolveTrace<C>,
 }
 
 impl<V> SolveReport<V> {
@@ -1124,7 +1147,12 @@ impl<V> SolveReport<V> {
             },
         }
     }
+}
 
+impl<V, C> SolveReport<V, C>
+where
+    C: Copy + Ord + TryFrom<usize>,
+{
     /// 校验报告不变量 / Validate report invariants.
     pub fn validate(&self) -> Result<()> {
         if let Some(mapping) = &self.model_mapping {
@@ -1264,7 +1292,8 @@ impl<V> SolveReport<V> {
         }
 
         for (index, snapshot) in self.trace.iteration_snapshots.iter().enumerate() {
-            let expected_iteration = index.saturating_add(1);
+            let expected_iteration = C::try_from(index.saturating_add(1))
+                .map_err(|_| invalid_report("iteration index exceeds the counter domain"))?;
             if snapshot.iteration != expected_iteration {
                 return Err(invalid_report(
                     "iteration trace must use contiguous one-based iteration numbers",
@@ -1397,36 +1426,38 @@ impl<V> SolveReport<V> {
 }
 
 /// 已验证的最优线性规划证书视图 / Verified optimal linear-programming certificate view.
+/// C 原生默认 usize，可移植读取使用 u64；证书复验不会缩窄报告计数。
+/// C defaults to native usize; portable readers use u64, without narrowing counters during certificate revalidation.
 #[derive(Debug, Clone, Copy)]
-pub struct OptimalLinearProgrammingCertificate<'a, V> {
+pub struct OptimalLinearProgrammingCertificate<'a, V, C = usize> {
     /// 原始统一报告 / Original unified report.
-    pub report: &'a SolveReport<V>,
+    pub report: &'a SolveReport<V, C>,
     /// 与报告 incumbent 对应的对偶解 / Dual solution belonging to the report incumbent.
     pub dual: &'a [V],
 }
 
 /// 要求报告包含可用于精确定价的最优 LP 证书 / Require an optimal LP certificate suitable for exact pricing.
-pub fn require_optimal_lp_certificate<V>(
-    report: &SolveReport<V>,
-) -> Result<OptimalLinearProgrammingCertificate<'_, V>> {
+pub fn require_optimal_lp_certificate<V, C: Copy + Ord + TryFrom<usize>>(
+    report: &SolveReport<V, C>,
+) -> Result<OptimalLinearProgrammingCertificate<'_, V, C>> {
     require_optimal_lp_certificate_inner(report, None)
 }
 
 /// 要求已验证的不可行性证书 / Require a verified infeasibility certificate.
-pub fn require_infeasibility_certificate<V>(report: &SolveReport<V>) -> Result<&SolveProof<V>> {
+pub fn require_infeasibility_certificate<V, C: Copy + Ord + TryFrom<usize>>(report: &SolveReport<V, C>) -> Result<&SolveProof<V>> {
     require_infeasibility_certificate_inner(report, None)
 }
 
 /// 要求与指定模型指纹匹配的已验证不可行性证书 / Require a verified infeasibility certificate matching a model fingerprint.
-pub fn require_infeasibility_certificate_for_model<'a, V>(
-    report: &'a SolveReport<V>,
+pub fn require_infeasibility_certificate_for_model<'a, V, C: Copy + Ord + TryFrom<usize>>(
+    report: &'a SolveReport<V, C>,
     expected_model: &ModelFingerprint,
 ) -> Result<&'a SolveProof<V>> {
     require_infeasibility_certificate_inner(report, Some(expected_model))
 }
 
-fn require_infeasibility_certificate_inner<'a, V>(
-    report: &'a SolveReport<V>,
+fn require_infeasibility_certificate_inner<'a, V, C: Copy + Ord + TryFrom<usize>>(
+    report: &'a SolveReport<V, C>,
     expected_model: Option<&ModelFingerprint>,
 ) -> Result<&'a SolveProof<V>> {
     report.validate()?;
@@ -1462,10 +1493,10 @@ fn require_infeasibility_certificate_inner<'a, V>(
 }
 
 /// 要求与指定模型指纹匹配的最优 LP 证书 / Require an optimal LP certificate matching a model fingerprint.
-pub fn require_optimal_lp_certificate_for_model<'a, V>(
-    report: &'a SolveReport<V>,
+pub fn require_optimal_lp_certificate_for_model<'a, V, C: Copy + Ord + TryFrom<usize>>(
+    report: &'a SolveReport<V, C>,
     expected_model: &ModelFingerprint,
-) -> Result<OptimalLinearProgrammingCertificate<'a, V>> {
+) -> Result<OptimalLinearProgrammingCertificate<'a, V, C>> {
     require_optimal_lp_certificate_inner(report, Some(expected_model))
 }
 
@@ -1474,10 +1505,10 @@ pub fn require_optimal_lp_certificate_for_model<'a, V>(
 /// 该入口是精确定价、割生成和其它精确算法的公共门禁。除报告状态、证明、指纹和
 /// 对偶维度外，它还重新计算 primal 可行性、目标值以及线性规划的对偶互补条件。
 /// This is the public gate for exact pricing, cut generation, and other exact algorithms. In addition to report status, proof, fingerprint, and dual dimensions, it independently checks primal feasibility, objective consistency, and the LP dual complementary conditions.
-pub fn require_optimal_lp_certificate_for_linear_model<'a>(
-    report: &'a SolveReport<f64>,
+pub fn require_optimal_lp_certificate_for_linear_model<'a, C: Copy + Ord + TryFrom<usize>>(
+    report: &'a SolveReport<f64, C>,
     model: &LinearTriadModel,
-) -> Result<OptimalLinearProgrammingCertificate<'a, f64>> {
+) -> Result<OptimalLinearProgrammingCertificate<'a, f64, C>> {
     let expected_model = linear_model_fingerprint(model)?;
     let certificate = require_optimal_lp_certificate_for_model(report, &expected_model)?;
     let solution = certificate
@@ -1530,10 +1561,10 @@ pub(crate) fn linear_dual_certificate_is_valid(
     crate::solver::linear_certificate::validate_linear_optimal_dual(model, values, dual, None).is_ok()
 }
 
-fn require_optimal_lp_certificate_inner<'a, V>(
-    report: &'a SolveReport<V>,
+fn require_optimal_lp_certificate_inner<'a, V, C: Copy + Ord + TryFrom<usize>>(
+    report: &'a SolveReport<V, C>,
     expected_model: Option<&ModelFingerprint>,
-) -> Result<OptimalLinearProgrammingCertificate<'a, V>> {
+) -> Result<OptimalLinearProgrammingCertificate<'a, V, C>> {
     report.validate()?;
     if report.problem_status != ProblemStatus::Feasible
         || report.solution_presence != SolutionPresence::Optimal
@@ -3158,4 +3189,33 @@ mod tests {
             TerminationReason::Interrupted
         );
     }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn portable_report_counters_preserve_u64_and_validate_trace_invariants() {
+        let report = SolveReport::<f64>::builder(ProblemStatus::Unknown, TerminationReason::Completed).build().unwrap();
+        let mut json = serde_json::to_value(CombinatorialSolveReport::single(report, "wide-counts")).unwrap();
+        json["report"]["statistics"]["nodes"] = u64::MAX.into();
+        json["report"]["provenance"]["threadCount"] = u64::MAX.into();
+        json["attempts"][0]["provenance"]["threadCount"] = u64::MAX.into();
+        json["report"]["trace"]["generatedColumns"] = u64::MAX.into();
+        json["report"]["trace"]["iterationSnapshots"] = serde_json::to_value(vec![SolveIterationSnapshot::<u64> {
+            iteration: 1, stage: "pricing".into(), items_added: u64::MAX, items_total: u64::MAX,
+            ..Default::default()
+        }]).unwrap();
+        let text = serde_json::to_string(&json).unwrap();
+        let portable: CombinatorialSolveReport<f64, u64> = serde_json::from_str(&text).unwrap();
+        portable.validate().unwrap();
+        assert_eq!(portable.report.statistics.nodes, Some(u64::MAX));
+        assert_eq!(portable.attempts[0].provenance.thread_count, Some(u64::MAX));
+        assert_eq!(portable.report.trace.iteration_snapshots[0].items_total, u64::MAX);
+        assert_eq!(serde_json::to_value(&portable).unwrap(), json);
+        let mut invalid = portable.clone();
+        invalid.report.trace.iteration_snapshots[0].items_total -= 1;
+        assert!(invalid.validate().is_err());
+        invalid = portable;
+        invalid.report.trace.iteration_snapshots[0].iteration = u64::MAX;
+        assert!(invalid.validate().is_err());
+    }
+
 }

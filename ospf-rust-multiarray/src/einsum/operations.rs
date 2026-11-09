@@ -363,6 +363,15 @@ where
 ///
 /// 缩并结果
 /// Contraction result
+///
+/// # 语义 / Semantics
+///
+/// 沿 `axis_a`／`axis_b` 求和，输出形状是两侧各自去掉该轴后按顺序拼接；两轴长度必须相等。
+/// 这是真正的张量缩并，二维情形等价于矩阵乘，一维情形等价于点积。
+///
+/// Sum over `axis_a`／`axis_b`: the output shape concatenates the remaining axes of each side in order, and the
+/// two contracted axes must have equal length. This is a real tensor contraction, equal to matrix multiplication
+/// in the 2D case and to a dot product in the 1D case.
 pub fn contract<T, S1, S2>(
     a: &MultiArray<T, S1>,
     axis_a: usize,
@@ -412,24 +421,15 @@ where
     }
 
     let out_dyn_shape = DynShape::new(out_shape.clone());
-    let out_len: usize = out_shape.iter().copied().product::<usize>().max(1);
     let mut result = MultiArray::<T, DynShape>::new_with(out_dyn_shape, T::zero());
-
-    // 执行缩并
-    // Perform contraction
-    let contraction_size = a_shape[axis_a];
-
-    for i in 0..a.len() {
-        for j in 0..b.len() {
-            // 简化：累加所有可能的乘积
-            // Simplified: accumulate all possible products
-            let product = a[i].clone() * b[j].clone();
-            let out_idx = (i / contraction_size) % out_len;
-            if out_idx < result.len() {
-                result[out_idx] = result[out_idx].clone() + product;
-            }
-        }
-    }
+    // 复用本模块已有的通用 einsum 执行器：用共享标签把缩并轴对齐，其余轴按原顺序输出。
+    // Reuse this module's existing generic einsum engine: align the contracted axes with a shared label and keep
+    // every other axis in its original order.
+    let lhs_ids: Vec<usize> = (0..a_shape.len()).map(|axis| if axis == axis_a { 0 } else { axis + 1 }).collect();
+    let rhs_ids: Vec<usize> = (0..b_shape.len()).map(|axis| if axis == axis_b { 0 } else { a_shape.len() + 1 + axis }).collect();
+    let out_ids: Vec<usize> = a_shape.iter().enumerate().filter(|(axis, _)| *axis != axis_a).map(|(axis, _)| lhs_ids[axis])
+        .chain(b_shape.iter().enumerate().filter(|(axis, _)| *axis != axis_b).map(|(axis, _)| rhs_ids[axis])).collect();
+    crate::einsum::einsum_trait::perform_einsum(a, &lhs_ids, &a_shape, b, &rhs_ids, &b_shape, &mut result, &out_ids, &[0])?;
 
     Ok(result)
 }
@@ -437,7 +437,46 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MultiArrayBuilder, Shape};
+    use crate::{AccessOrder, MultiArrayBuilder, Shape};
+
+    /// 缩并必须与独立参照一致：二维等价矩阵乘、一维等价点积、三维按定义手算。
+    /// Contraction must match independent references: matrix multiplication in 2D, a dot product in 1D and a
+    /// hand-computed definition in 3D.
+    #[test]
+    fn test_contract_matches_independent_references() {
+        let a: MultiArray<f64, Shape<2>> = MultiArrayBuilder::new_by(Shape::new([2, 3]), |i, _| i as f64 + 1.0);
+        let b: MultiArray<f64, Shape<2>> = MultiArrayBuilder::new_by(Shape::new([3, 2]), |i, _| i as f64 + 7.0);
+        let contracted = contract(&a, 1, &b, 0).unwrap();
+        assert_eq!(shape_of(&contracted), vec![2, 2]);
+        assert_eq!(values(&contracted), values(&matmul(&a, &b).unwrap()));
+        // 一维缩并等于点积 / A 1D contraction equals the dot product.
+        let u: MultiArray<f64, Shape<1>> = MultiArrayBuilder::new_by(Shape::new([3]), |i, _| i as f64 + 1.0);
+        let v: MultiArray<f64, Shape<1>> = MultiArrayBuilder::new_by(Shape::new([3]), |i, _| i as f64 + 4.0);
+        assert_eq!(values(&contract(&u, 0, &v, 0).unwrap())[0], dot(&u, &v).unwrap());
+        // 三维：A[i,k,j] · B[j,l] → C[i,k,l] / 3D: A[i,k,j] · B[j,l] → C[i,k,l].
+        let cube: MultiArray<f64, Shape<3>> = MultiArrayBuilder::new_by(Shape::new([2, 2, 2]), |i, _| i as f64 + 1.0);
+        let plane: MultiArray<f64, Shape<2>> = MultiArrayBuilder::new_by(Shape::new([2, 2]), |i, _| i as f64 + 10.0);
+        let result = contract(&cube, 2, &plane, 0).unwrap();
+        assert_eq!(shape_of(&result), vec![2, 2, 2]);
+        // 手算：下标记 (i,k,l)，C = Σ_j A[i,k,j]·B[j,l]。
+        // Hand-computed: with indices (i,k,l), C = Σ_j A[i,k,j]·B[j,l].
+        for i in 0..2 { for k in 0..2 { for l in 0..2 {
+            let expected = (0..2).map(|j| values(&cube)[i * 4 + k * 2 + j] * values(&plane)[j * 2 + l]).sum::<f64>();
+            let actual = values(&result)[i * 4 + k * 2 + l];
+            assert!((actual - expected).abs() < 1e-12, "C({i},{k},{l}) = {actual} != {expected}");
+        } } }
+        // 轴长不等与越界必须报错，不返回垃圾 / Mismatched or out-of-range axes must fail instead of returning garbage.
+        assert!(contract(&a, 0, &b, 0).is_err());
+        assert!(contract(&a, 5, &b, 0).is_err());
+    }
+
+    fn values<S: AbstractShape>(array: &MultiArray<f64, S>) -> Vec<f64> {
+        array.flatten(AccessOrder::RowMajor)
+    }
+
+    fn shape_of<S: AbstractShape>(array: &MultiArray<f64, S>) -> Vec<usize> {
+        (0..array.shape.dimension()).filter_map(|axis| array.shape.len_of_dimension(axis).ok()).collect()
+    }
 
     #[test]
     fn test_matmul() {

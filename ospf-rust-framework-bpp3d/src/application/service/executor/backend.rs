@@ -6,9 +6,11 @@
 // The backend abstraction now lives in `ospf-rust-framework` so that BPP2D/BPP3D/CSP1D/CSP2D share one
 // solving boundary. This file keeps compatibility re-exports so existing call sites keep working.
 
+#[cfg(not(feature = "async"))]
+pub use ospf_rust_framework::solver::meta_model_backend::ColumnGenerationSolverMetaModelBackend;
 pub use ospf_rust_framework::solver::meta_model_backend::{
-    ColumnGenerationSolverMetaModelBackend, MetaModelExecutionDiagnostics,
-    MetaModelExecutorSolveResult, MetaModelSolverBackend,
+    MetaModelExecutionDiagnostics,
+    MetaModelExecutorSolveResult, MetaModelSolverBackend, MetaModelStage, ReportMetaModelBackend,
 };
 
 pub use ospf_rust_framework::solver::meta_model_backend::NoopMetaModelSolverBackend;

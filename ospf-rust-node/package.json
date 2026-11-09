@@ -1,0 +1,12 @@
+{
+  "name": "ospf-node-bindings",
+  "version": "0.1.0",
+  "license": "MIT",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": ["index.js", "index.d.ts", "*.node", "LICENSE"],
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "engines": { "node": ">=22" },
+  "napi": { "name": "ospf", "triples": { "defaults": false, "additional": ["x86_64-pc-windows-msvc"] } }
+}

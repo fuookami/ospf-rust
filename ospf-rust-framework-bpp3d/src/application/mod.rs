@@ -37,13 +37,16 @@ pub use service::{
     ColumnGenerationStandardExecutors, ColumnGenerationState, ColumnGenerationStatus,
     DepthBoundaryLayerOrientationPolicy, DepthBoundaryValidationStage,
     MetaModelExecutionDiagnostics, MetaModelExecutorSolveResult, MetaModelFinalExecutor,
+    FinalPackingValidation, LayerAssignmentFinalExecution, LayerTracePair,
     MetaModelFinalExecutorConfig, MetaModelRmpExecutor, MetaModelRmpExecutorConfig,
     MetaModelSolverBackend, MockColumnGenerationFinalExecutor, MockColumnGenerationRmpExecutor,
     NoopMetaModelSolverBackend, ObjectiveSense, SolverBackedMetaModelFinalExecutor,
-    SolverBackedMetaModelRmpExecutor,
+    SolverBackedMetaModelRmpExecutor, TraceValidatedMetaModelFinalExecutor, replay_strict_grouped_packing,
 };
 #[cfg(feature = "serde")]
 pub use service::{
+    Bpp3dFinalStageEvidence, Bpp3dOneRoundEvidence, Bpp3dOneRoundOptions,
+    Bpp3dRmpStageEvidence,
     LayerGenerationFixtureQualityReport, LayerGenerationQualityComparison,
     LayerGenerationQualityDifference, LayerGenerationQualityDifferenceSeverity,
     LayerGenerationSourceQualityReport, LayerGenerationSuiteQualityReport, SolverDatasetFixture,

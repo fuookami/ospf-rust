@@ -91,6 +91,16 @@ impl SolverStatus {
         )
     }
 
+    #[cfg(any(
+        feature = "scip",
+        feature = "gurobi10",
+        feature = "gurobi11",
+        feature = "gurobi12"
+    ))]
+    pub(crate) fn can_extract_incumbent(&self) -> bool {
+        self.is_feasible() || matches!(self, SolverStatus::UserInterrupt)
+    }
+
     /// 检查是否不可行 / Check if infeasible
     pub fn is_infeasible(&self) -> bool {
         matches!(
@@ -461,6 +471,21 @@ mod tests {
     use super::*;
     use bigdecimal::BigDecimal;
     use std::str::FromStr;
+
+    #[cfg(any(
+        feature = "scip",
+        feature = "gurobi10",
+        feature = "gurobi11",
+        feature = "gurobi12"
+    ))]
+    #[test]
+    fn interrupted_status_can_have_an_incumbent_without_claiming_feasibility() {
+        assert!(SolverStatus::UserInterrupt.can_extract_incumbent());
+        assert!(!SolverStatus::UserInterrupt.is_feasible());
+        assert!(SolverStatus::TimeLimit.can_extract_incumbent());
+        assert!(!SolverStatus::Infeasible.can_extract_incumbent());
+        assert!(!SolverStatus::Unbounded.can_extract_incumbent());
+    }
 
     #[test]
     fn feasible_output_can_convert_to_typed() {

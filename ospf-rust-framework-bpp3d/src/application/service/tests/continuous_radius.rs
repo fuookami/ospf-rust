@@ -1,5 +1,43 @@
 #[cfg(feature = "serde")]
 #[test]
+fn csv_one_generation_round_passes_continuous_radius_to_both_rmp_calls() {
+    #[derive(Debug, Default)]
+    struct RadiusProbe(std::sync::Mutex<Vec<Option<Vec<String>>>>);
+
+    impl ColumnGenerationRmpExecutor for RadiusProbe {
+        fn execute(&self, state: &ColumnGenerationApplicationState) -> ColumnGenerationRmpExecution {
+            self.0.lock().unwrap().push(state.continuous_radius_component.as_ref().map(|component| {
+                component.prototypes.iter().map(|prototype| prototype.item_id.to_string()).collect()
+            }));
+            MockColumnGenerationRmpExecutor::default().execute(state)
+        }
+    }
+
+    let input = r#"
+# table:items
+item_id,name,shape_type,width,height,depth,weight,amount,radius_min,radius_max,radius_step,radius_weight_function_key,axis
+c1,Cylinder,cylinder,6,5,6,1,1,1,3,1,cylinder_weight,Y
+# table:bins
+bin_id,type_code,width,height,depth,capacity
+b1,BIN,10,10,10,1000
+# table:layers
+layer_id,bin_id,depth
+l1,b1,5
+"#;
+    for has_component in [false, true] {
+        let mut request = crate::application::csv::CsvDatasetLoader::load_str(input).unwrap().materialize().unwrap();
+        if !has_component { request.continuous_radius_component = None; }
+        let rmp = RadiusProbe::default();
+        ColumnGenerationApplicationService::default().run_csv_materialized_one_generation_round(
+            request, LayerGenerationContext::new(), &rmp, &MockColumnGenerationFinalExecutor,
+        ).unwrap();
+        let expected = has_component.then(|| vec!["c1".to_string()]);
+        assert_eq!(*rmp.0.lock().unwrap(), vec![expected.clone(), expected]);
+    }
+}
+
+#[cfg(feature = "serde")]
+#[test]
 fn csv_materialized_continuous_radius_renders_solver_selected_radius() {
     use crate::infrastructure::renderer::{RenderAlgorithmShapeType, RenderAxis3};
 
@@ -28,7 +66,7 @@ fn csv_materialized_continuous_radius_renders_solver_selected_radius() {
             );
             execution.info.insert(
                 "continuous_radius_selected_segment_r_c1_cylinder_weight".to_string(),
-                "1".to_string(),
+                "4".to_string(),
             );
             execution
         }
@@ -70,7 +108,7 @@ l1,b1,5
     assert_eq!(item.axis, Some(RenderAxis3::Y));
     assert_eq!(item.radius, Some(2.0));
     assert_eq!(result.selected_radius_solutions.len(), 1);
-    assert_eq!(result.selected_radius_solutions[0].segment_index, Some(1));
+    assert_eq!(result.selected_radius_solutions[0].segment_index, Some(4));
     assert_eq!(
         result.result.info["continuous_radius_selected_r_c1_cylinder_weight"],
         "2"
@@ -114,6 +152,7 @@ fn csv_materialized_continuous_radius_uses_solver_primal_model_values() {
                 objective: Some(1.0),
                 primal_solution: vec![1.0; diagnostics.variable_count],
                 dual_solution: vec![1.0; diagnostics.demand_count],
+                additional_shadow_prices: HashMap::new(),
                 info: HashMap::from([("backend_phase".to_string(), "rmp".to_string())]),
             })
         }
@@ -152,6 +191,7 @@ fn csv_materialized_continuous_radius_uses_solver_primal_model_values() {
                 objective: Some(1.0),
                 primal_solution,
                 dual_solution: Vec::new(),
+                additional_shadow_prices: HashMap::new(),
                 info: HashMap::from([("backend_phase".to_string(), "final".to_string())]),
             })
         }

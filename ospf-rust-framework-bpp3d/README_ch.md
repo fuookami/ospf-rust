@@ -60,6 +60,7 @@ Kotlin `bpp3d-domain-layer-selection-context` 在 Rust 中映射到 application 
 - **保守包络**：`rMax` 包络边界用于生产就绪的连续半径变量。
 - **生产就绪路径**：`RealVar` 求解器变量，具有约束边界和目标等式约束。
 - **渲染器输出**：求解器选择的半径应用于 `actualVolume` 和 `radius`/`diameter` DTO 字段。
+- 单轮 CSV 流程向两次 RMP 状态都传递连续半径组件供扩展使用，但不会自动将其注册到 RMP 模型。
 - **PWL 诊断**：渲染器项目信息中的 `pwl_volume`、`pwl_error`、`pwl_segments`、`pwl_within_envelope`。
 ## 核心概念
 
@@ -76,6 +77,8 @@ Kotlin `bpp3d-domain-layer-selection-context` 在 Rust 中映射到 application 
 | `application::ColumnGenerationApplicationService` | application-facing column-generation 编排。 | migration |
 | `application::MetaModelSolverBackend` | RMP/final executor 的可插拔 solver backend 边界。 | migration |
 | `application::ColumnGenerationStandardExecutors` | 标准 RMP/final executor 接线。 | migration |
+| `application::TraceValidatedMetaModelFinalExecutor` | 显式启用的报告驱动 final 与严格物理回放。 | 实验性，尚待验收 |
+| `application::Bpp3dOneRoundEvidence` | 显式单轮流程的实际阶段模型、报告、列池和最终分配。 | 实验性，仅 Rust |
 | `application::CsvDatasetLoader` | 启用 `serde` 时的 CSV dataset 加载。 | migration |
 | `application::Bpp3dRunReport` | 结构化运行与对比报告。 | migration |
 | `domain::layer_assignment::*` | layer-assignment context、aggregation、limit、objective 和动态列。 | migration |
@@ -182,6 +185,30 @@ BPP3D 现在支持「多箱型混合供给」与「按箱型计价的加权目�
 与 `MetaModelExecutionDiagnostics` 已上移到 `ospf-rust-framework`，使 BPP2D/BPP3D/CSP1D/CSP2D
 共享同一求解边界。本 crate 保留兼容 re-export，并通过 `Bpp3dExecutionDiagnosticsExt` 提供
 `layer_count` / `bin_count` 只读别名与 `write_bpp3d_info`，既有 info key 保持不变。
+
+### 真实报告后端基础
+
+本 crate 同样重导出 `ReportMetaModelBackend` 和 `MetaModelStage`。使用显式 `Arc<dyn LinearSolver>` 与 `LinearExecutionOptions` 创建一个后端，将 clone 分别传入 `SolverBackedMetaModelRmpExecutor` 和 `SolverBackedMetaModelFinalExecutor`。原 `run_csv_materialized_one_generation_round` 仍是 RMP → 原层生成器 → 刷新 RMP → final MILP 的一轮流程，不是完整自动列生成循环或完整定价证明。
+
+共享后端通过 `backend.reports()` 保留每个有效子阶段的实际编译模型、指纹／映射、原始 `SolveReport` 和独立目标常数。只有经认证的最优 LP 才提供原行定价对偶；final 保留整数域和实际 incumbent／终态语义。无 incumbent 的超时／取消及未经认证的 LP 会阻止旧结果提取，不使用配置中的 no-op 向量、目标或影子价格。类型化 `backend.execute` 入口仍保留有效无解报告，不伪造向量。clone 共用总合作预算、原始进度、独立子取消和有界历史；每次 application 调用创建新后端。
+
+契约测试覆盖 no-op 回填拒绝和预取消。feature-gated 真实 SCIP／Gurobi 10 测试运行原 CSV 单轮流程，保留两次 LP 证书及 final 整数报告，需要相应运行时／许可证。同时运行两者应显式启用 `serde,scip,scip-bundled,gurobi10`，只开启 bundled 依赖 feature 不会启用本 crate 的 `scip` 测试门禁。
+
+这是 **已绑定 BPP3D SDK／HTTP／N-API 入口背后的 Rust 执行基础**，不是通用 BPP3D 求解器。SDK 提供可移植源校验、显式源层方案回放及有界单轮执行报告 reader；原生执行只经 native 引擎及其显式 `bpp3d` 策略运行。旧 final 提取仍把跨箱分配折叠为已选层集合；缺少物理 trace 时，packing replay 仍可能根据覆盖量构造回填位置。可渲染、受限 final 最优或单轮测试都不构成源 BPP3D 全局可行／最优证书。
+
+### 实验性严格 final 回放
+
+`TraceValidatedMetaModelFinalExecutor` 是仍在验证中的 Rust 显式启用路径，不改变旧执行器。即使校验失败，`execute_with_selection` 仍保留原始箱／层分配及后端报告。分组需求可使用 `execute_with_selection_and_item_amounts`，按物品目录顺序传入数量；物理回放失败时同样保留已提取的分配。严格回放会拒绝缺失 trace、缺少明确坐标的多物品放置摘要和未完整指定的块网格，不推测位置；同时检查几何、物品 ID、逐层物品覆盖、每个物品的精确需求及箱载重上限。`FinalPackingValidation` 可增加几何门禁，但不能放宽基础检查。物理失败会通过应用层 `execute_result` 以 `FinalMilp` 传播。
+
+`replay_strict_grouped_packing` 对给定 application state、分配、分组数量和展开上限复用上述物理与精确需求门禁，不调用求解器。调用方仍须负责 state 与源及模型／求解器来源的绑定；通过物理回放不代表最优。
+
+显式入口 `run_materialized_with_traced_initial_layers` 和 `run_materialized_one_generation_round_with_traced_initial_layers` 接收既有 `LayerGenerationResult`，将初始层的物理 trace 保留到 final 提取。`run_csv_materialized_one_generation_round_with_traced_initial_layers` 按请求初始层顺序接收每层的 `LayerTracePair`，物品索引对应 `request.items`。它从实际 trace 推导空的物品覆盖，保留显式覆盖、包装属性和连续半径配置，并将每个唯一 CSV 物品 ID 的正分组数量传入两次 RMP、生成及 final 复验。总需求上限为 100,000 件；严格回放默认上限为 10,000 件，可配置到 100,000 件。真实求解使用带真实 backend 的 `SolverBackedMetaModelRmpExecutor` 及 `TraceValidatedMetaModelFinalExecutor`；`MetaModelRmpExecutor` 使用空操作 backend。旧执行器／自定义执行器默认拒绝分组数量，除非显式实现 `execute_result_with_item_amounts`。trace 由调用方单独提供，不从 CSV 文件读取；未选中的初始层可无 trace，但选中后严格回放会失败。
+
+`run_csv_materialized_one_generation_round_with_evidence` 使用显式注入的求解器与 `Bpp3dOneRoundOptions` 创建独立报告后端，执行同一单轮流程，RMP 和 final 使用默认模型配置。它保留每次 RMP 的实际输入状态和已接受的模型／报告、final 完整列池及原始块／放置 trace、实际箱层分配。后续阶段失败时仍保留前序证据；物理检查失败时也保留 final 报告与已提取分配。后端身份或可行性门禁拒绝的报告不会作为证据接收。该结果仅在 Rust 内存中使用，尚不是与源绑定的序列化报告，不支持模型扩展，也不证明全局最优；预算和取消采用合作式机制，不强制中断生成或物理回放。
+
+feature-gated 测试已用真实 SCIP 和 Gurobi 10 验证原严格 final 与包含两次认证 RMP 的单轮流程。两种后端均已验证分组 trace 的单层两件及同层跨两个箱复用；更全面的原生验收仍未完成。内建分组 application 路径尚未挂接 RMP/final 模型扩展；自定义数量执行器须自行处理扩展。旧 materialized 和 CSV 入口仍接收不带 trace 的初始层。**旧 CSV 应用流程目前未将 `item_amounts` 用于 RMP/final 需求**，不能作为分组数量已满足的证据。初始列和生成列按归一化后的层身份关联到第一个实际接纳的候选，不会借用无关初始层或后续重复候选的 trace。该门禁不证明任意包装规则或源问题全局最优。BPP3D 源和方案校验、经 HTTP／N-API 的有界单轮原生执行及其版本化执行报告 reader 均已通过 TypeScript SDK 开放；更广规则、可配置生成器链与圆柱支持仍未绑定。
+
+证据入口还分别用两个真实后端验证了必须选中 `BlockLayerGenerator` 实际生成的两件层的分组实例，并保留其网格 trace。测试同时检查受限 final 的不可行报告，以及物理失败、子求解之间取消和报告数量上限时已有阶段的保留；这不等于跨环境报告验收。
 
 ## 相关模块
 

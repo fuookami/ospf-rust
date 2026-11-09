@@ -89,9 +89,9 @@ where
         new_layers: Vec<BinLayer<V, U>>,
         upper_bounds: Vec<Option<f64>>,
     ) -> Vec<IterativeLayerColumn<V, U>> {
-        let added_layers = self.aggregation.add_columns(new_layers);
+        let added_layers = self.aggregation.add_columns_with_positions(new_layers);
         let mut added = Vec::new();
-        for (offset, layer) in added_layers.into_iter().enumerate() {
+        for (position, layer) in added_layers {
             let index = self.column_counter;
             self.column_counter += 1;
             let column = IterativeLayerColumn {
@@ -99,7 +99,7 @@ where
                 iteration,
                 layer,
                 x_model_index: None,
-                upper_bound: upper_bounds.get(offset).copied().flatten(),
+                upper_bound: upper_bounds.get(position).copied().flatten(),
             };
             self.columns.push(column.clone());
             added.push(column);

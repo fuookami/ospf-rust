@@ -47,6 +47,66 @@ application service 负责构造 problem、选择 generator 与 solve config、�
 
 ## Public API
 
+### 显式原生报告后端
+
+`Csp1dMilp::default()`、`Csp1dColumnGeneration::default()` 及低层
+`Csp1dMilpSolver` 保留旧启发式行为；开启 solver feature **不会**自动切换。
+真实 LP/MILP 需显式注入 `Csp1dNativeBackend`；列生成的 `lp_solver` 与
+`milp_solver` 必须同时设置为本次执行的同一后端，普通 MILP 只需设置 `milp_solver`。
+
+```rust,no_run
+use std::sync::Arc;
+use ospf_rust_core::solver::LinearSolver;
+use ospf_rust_framework_csp1d::{Csp1dColumnGeneration, Csp1dNativeBackend};
+
+fn service(solver: Arc<dyn LinearSolver>) -> ospf_rust_core::Result<Csp1dColumnGeneration<f64>> {
+    let backend = Arc::new(Csp1dNativeBackend::new(solver, Default::default())?);
+    Ok(Csp1dColumnGeneration {
+        lp_solver: Some(backend.clone()),
+        milp_solver: Some(backend),
+        ..Default::default()
+    })
+}
+```
+
+必须在**每次**领域执行前创建新后端，不要复用示例 service 进行第二次求解。
+保留后端的 `Arc` 副本即可调用 `reports()` 获取阶段、原始子报告和独立目标常数。
+SCIP 定价应使用 `SCIPConfig::with_lp_subproblem_defaults()` 保留可用 LP 证书。
+后端不自动换 solver、不伪造对偶；LP 证书独立复验，标准化的 `>=` 翻号和等式拆行
+按真实源行及乘数映回本轮已注册 context。trace 记录实际 LP 目标；Phase I 的真实列
+定价成本为零。
+
+普通/final MILP 与旧提取路径共用 context 注册、扩展及 policy。提取前校验报告身份、
+完整向量、原始变量域/整数性、全部源约束和目标；方案数舍入后再次复验，每方案上限
+为 `2^53 - 1`，合计溢出明确拒绝。原生报告非法或无 incumbent 时，不静默回退启发式
+业务结果，也不把空结果标为 `Partial`。后续证书/源可行性检查失败前保留的报告只是
+原始诊断，不代表已认证结果。warm start 必须引用当前方案且合计计数安全；接受提示
+不保证后端采用。
+
+`Csp1dExecutionOptions` 提供共享总合作预算、取消、原始子进度和报告上限。
+各子求解拥有独立完成/取消竞争；生成阶段不是可硬抢占中断。并发执行同一后端明确
+拒绝。旧业务状态不能完整表达取消/超时细节，应读取原始子报告。
+
+`reports()` 独立复制实际提交的编译模型、原始报告和独立目标常数，不能通过重编译
+业务等价问题替换模型局部行身份。framework 运行时无关 `remote-codec` 新增独立
+`CompiledLinearModelArtifact`，保留准确 token/solver 类型和行元数据，并校验
+canonical 摘要、core 指纹及稳定映射。Rust bridge 可复验子封装的完整向量及最优
+LP 证书，支持可移植 u64 报告计数。bridge 进一步将整数子模型绑定到完整源候选池，
+只有原 context 的行、列、类型、边界和目标一致，才从实际向量导出生产量。
+SDK 通过 `CuttingContext.readProductionReport` 开放此能力，不将池内证明提升为源问题全局断言。
+
+独立[桥接](../docs/typescript-bridge_ch.md#完整原生-csp1d-执行)已通过共用原生执行库、
+HTTP 和 N-API 提供默认规则 Roll/Sheet MILP 与列生成，显式选择 SCIP/Gurobi。
+WASM 仅做可移植计算和源绑定整数/完整流程报告读取，不运行这些原生求解器；
+SDK 子路径为 `ospf-wasm/csp1d`。Phase I 将短缺变量接入原需求行（不重复 yield 行），
+按每条需求自身单位构造惩罚 key，使受限不可行初始池可由真实定价恢复，包括混合
+Roll/Sheet。普通 yield/hard-demand 注册路径与旧启发式默认行为不变。
+默认初始生成器仅生成单产品单刀方案；默认定价搜索受限生成器，不穷举全部模式。
+`PricingConverged`、受限主问题证明或 final 当前池解均不代表源问题全局最优/不可行。
+可选 yield/waste/length 或任意自定义 policy 不意味着完整 LP 松弛或精确定价 oracle。
+此边界已在 Windows x64 实际运行 SCIP 与 Gurobi 10 验收，覆盖 LP 行映射、MILP、
+列生成、扩展约束和不可行；其他平台/版本在此尚未验收。
+
 | API | 职责 | 稳定性 |
 | --- | --- | --- |
 | `csp1d_problem` / `Csp1dProblemBuilder` | problem 构造 DSL。 | migration |
@@ -54,11 +114,14 @@ application service 负责构造 problem、选择 generator 与 solve config、�
 | `Csp1dColumnGeneration` | 带 trace 的 column-generation application 入口。 | migration |
 | `Csp1dSchedule` | Kotlin 兼容 schedule 入口，默认委托给 column generation。 | migration |
 | `Csp1dMilpSolver` | 面向 `ProduceInput<V>` 的低层 Kotlin `Csp1dMilpSolver` 对齐入口。 | migration |
+| `Csp1dNativeBackend` / `Csp1dMilpBackend` | 显式原生报告执行、共享预算/取消、子报告及严格 incumbent 校验。 | migration |
 | `Csp1dSolveConfig` / `Csp1dExtensionSet` | 建模扩展、policy family、Top-K、partial solution 和 recovery 控制。 | migration |
 | `Csp1dModelingExtension` / `Csp1dIncrementalPipeline` | 扩展 pipeline 与 accepted-column refresh hook。 | migration |
 | `SimpleInitialCuttingPlanGenerator`、`DFSGenerator`、`NSameGenerator`、`NSumGenerator`、`FullSumGenerator`、`CostarFiller` | 初始方案生成。 | migration |
 | `SimplePricingGenerator`、`ReducedCostPricingGenerator` | pricing 生成。 | migration |
 | `RenderSchemaDTO` 及相关 DTO | renderer 序列化边界。 | stable within migration |
+
+报告驱动的 `Csp1dNativeBackend` 现委托 framework 共用的 `LinearReportExecutor`，与 BPP2D 共享执行实现。保留原 CSP1D API 名称、选项、阶段记录及 wire 契约。报告进入有效历史前先复验原快照可行性及 LP 证书；报告／后端契约错误直接返回，不启发式回退。整数不可行报告同样要求可靠、完整且匹配的 core 证据。
 
 ## 建模扩展点
 
@@ -244,8 +307,8 @@ feature-gated 的 core/framework 后端承担。
 
 ### 尚未完成
 
-真实 Gurobi/SCIP 对偶提取仍受限于 core 侧尚未暴露的对偶 API；适配层已把「终态不可用」与「对偶缺失」
-两条失败路径固化，接入时只需在适配器内填充对偶来源。
+显式 `Csp1dNativeBackend` 现已通过统一报告 API 取得真实 Gurobi/SCIP 对偶并验证完整 LP 证书。
+旧默认入口仍为启发式；HTTP/N-API 执行、完整流程报告和全模式空间定价尚未通过此桥接导出。
 
 ## 相关模块
 

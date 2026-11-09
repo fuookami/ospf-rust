@@ -114,6 +114,29 @@ where
             items,
             bins,
             initial_layers,
+            Vec::new(),
+            None,
+            rmp_executor,
+            final_executor,
+        )
+    }
+
+    /// 使用生成结果中的层和原始 trace 作为初始列；评分等生成元数据不参与此入口。
+    /// Use layers and original traces from generation results as initial columns; scoring and other generation metadata are not used by this entry.
+    pub fn run_materialized_with_traced_initial_layers(
+        &self,
+        items: Vec<ActualItem<f64, Meter>>,
+        bins: Vec<BinType<f64, Meter>>,
+        initial_results: Vec<LayerGenerationResult<f64, Meter>>,
+        rmp_executor: &dyn ColumnGenerationRmpExecutor,
+        final_executor: &dyn ColumnGenerationFinalExecutor,
+    ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
+        let (initial_layers, traces) = split_traced_initial_layers(initial_results);
+        self.run_materialized_with_bins_and_continuous_radius(
+            items,
+            bins,
+            initial_layers,
+            traces,
             None,
             rmp_executor,
             final_executor,
@@ -125,20 +148,22 @@ where
         items: Vec<ActualItem<f64, Meter>>,
         bins: Vec<BinType<f64, Meter>>,
         initial_layers: Vec<BinLayer<f64, Meter>>,
+        initial_traces: Vec<LayerTracePair>,
         continuous_radius_component: Option<ContinuousRadiusModelComponent>,
         rmp_executor: &dyn ColumnGenerationRmpExecutor,
         final_executor: &dyn ColumnGenerationFinalExecutor,
     ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
         let mut algorithm = self.create_algorithm::<f64, Meter>();
         let initial_layers = ensure_layer_demand_coverage(initial_layers, &items);
-        algorithm.add_initial_layers(initial_layers.clone());
+        let (block_traces, placement_traces) =
+            add_initial_layers_with_traces(&mut algorithm, &initial_layers, initial_traces);
         let mut state = application_state_from_algorithm_with_continuous_radius(
             &algorithm,
             items,
             bins,
             initial_layers,
-            HashMap::new(),
-            HashMap::new(),
+            block_traces,
+            placement_traces,
             continuous_radius_component,
         );
         let rmp = rmp_executor
@@ -201,8 +226,36 @@ where
             items,
             bins,
             initial_layers,
+            Vec::new(),
             None,
             HashMap::new(),
+            None,
+            layer_generation,
+            rmp_executor,
+            final_executor,
+        )
+    }
+
+    /// 使用含原始 trace 的初始列执行一轮生成；后续新列保留各自的 trace。
+    /// Run one generation round with original traces on initial columns; subsequent columns retain their own traces.
+    pub fn run_materialized_one_generation_round_with_traced_initial_layers(
+        &self,
+        items: Vec<ActualItem<f64, Meter>>,
+        bins: Vec<BinType<f64, Meter>>,
+        initial_results: Vec<LayerGenerationResult<f64, Meter>>,
+        layer_generation: LayerGenerationContext<f64, Meter>,
+        rmp_executor: &dyn ColumnGenerationRmpExecutor,
+        final_executor: &dyn ColumnGenerationFinalExecutor,
+    ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
+        let (initial_layers, traces) = split_traced_initial_layers(initial_results);
+        self.run_materialized_one_generation_round_with_package_attributes(
+            items,
+            bins,
+            initial_layers,
+            traces,
+            None,
+            HashMap::new(),
+            None,
             layer_generation,
             rmp_executor,
             final_executor,
@@ -214,8 +267,10 @@ where
         items: Vec<ActualItem<f64, Meter>>,
         bins: Vec<BinType<f64, Meter>>,
         initial_layers: Vec<BinLayer<f64, Meter>>,
+        initial_traces: Vec<LayerTracePair>,
         continuous_radius_component: Option<ContinuousRadiusModelComponent>,
         package_attributes: HashMap<String, PackageAttribute>,
+        item_amounts: Option<&[u64]>,
         layer_generation: LayerGenerationContext<f64, Meter>,
         rmp_executor: &dyn ColumnGenerationRmpExecutor,
         final_executor: &dyn ColumnGenerationFinalExecutor,
@@ -225,17 +280,21 @@ where
             layer_generation,
         );
         let initial_layers = ensure_layer_demand_coverage(initial_layers, &items);
-        algorithm.add_initial_layers(initial_layers.clone());
-        let initial_state = application_state_from_algorithm(
+        let (mut layer_block_traces, mut layer_placement_traces) =
+            add_initial_layers_with_traces(&mut algorithm, &initial_layers, initial_traces);
+        let initial_state = application_state_from_algorithm_with_continuous_radius(
             &algorithm,
             items.clone(),
             bins.clone(),
             initial_layers.clone(),
-            HashMap::new(),
-            HashMap::new(),
+            layer_block_traces.clone(),
+            layer_placement_traces.clone(),
+            continuous_radius_component.clone(),
         );
-        let first_rmp = rmp_executor
-            .execute_result(&initial_state)
+        let first_rmp = match item_amounts {
+            Some(amounts) => rmp_executor.execute_result_with_item_amounts(&initial_state, amounts),
+            None => rmp_executor.execute_result(&initial_state),
+        }
             .map_err(|error| vec![format!("{:?}: {}", error.stage, error.message)])?;
         algorithm.state.additional_shadow_prices = first_rmp.additional_shadow_prices.clone();
         if let Some(objective) = first_rmp.objective {
@@ -246,7 +305,7 @@ where
             );
         }
 
-        let demand_entries = layer_generation_demand_entries(&items, &first_rmp.shadow_price_summary);
+        let demand_entries = layer_generation_demand_entries(&items, &first_rmp.shadow_price_summary, item_amounts);
         let shadow_prices = layer_generation_shadow_prices(&first_rmp.shadow_price_summary);
         let mut request = LayerGenerationRequest::new(algorithm.state.iteration as i64, items.clone())
             .with_demand_entries(demand_entries)
@@ -260,54 +319,27 @@ where
         request.bins = layer_generation_candidate_bins(&bins);
         request.existing_layers = algorithm.active_layers();
         let generated = algorithm.layer_generation.generate(&request);
-        let generated_block_trace_by_key = generated
-            .iter()
-            .filter(|result| !result.block_traces.is_empty())
-            .map(|result| {
-                (
-                    layer_trace_key(&result.layer),
-                    result.block_traces.clone(),
-                )
-            })
-            .collect::<HashMap<_, _>>();
-        let generated_trace_by_key = generated
-            .iter()
-            .filter(|result| !result.placement_traces.is_empty())
-            .map(|result| {
-                (
-                    layer_trace_key(&result.layer),
-                    result.placement_traces.clone(),
-                )
-            })
-            .collect::<HashMap<_, _>>();
-        let generated_layers = generated
-            .into_iter()
-            .map(|result| result.layer)
-            .collect::<Vec<_>>();
-        let generated_layers = ensure_layer_demand_coverage(generated_layers, &items);
-        algorithm.add_columns(algorithm.state.iteration, generated_layers);
-        let layer_block_traces = algorithm
-            .active_layers()
-            .iter()
-            .enumerate()
-            .filter_map(|(index, layer)| {
-                generated_block_trace_by_key
-                    .get(&layer_trace_key(layer))
-                    .cloned()
-                    .map(|traces| (index, traces))
-            })
-            .collect::<HashMap<_, _>>();
-        let layer_placement_traces = algorithm
-            .active_layers()
-            .iter()
-            .enumerate()
-            .filter_map(|(index, layer)| {
-                generated_trace_by_key
-                    .get(&layer_trace_key(layer))
-                    .cloned()
-                    .map(|traces| (index, traces))
-            })
-            .collect::<HashMap<_, _>>();
+        let generated_layers = ensure_layer_demand_coverage(
+            generated.iter().map(|result| result.layer.clone()).collect(),
+            &items,
+        );
+        let mut traces_by_key = HashMap::new();
+        for (layer, result) in generated_layers.iter().zip(generated) {
+            traces_by_key.entry(layer.identity_key())
+                .or_insert((result.block_traces, result.placement_traces));
+        }
+        let added = algorithm.add_columns(algorithm.state.iteration, generated_layers);
+        let added_keys = added.iter()
+            .map(BinLayer::identity_key)
+            .collect::<std::collections::HashSet<_>>();
+        for (index, layer) in algorithm.active_layers().iter().enumerate() {
+            let key = layer.identity_key();
+            if !added_keys.contains(&key) { continue; }
+            if let Some((blocks, placements)) = traces_by_key.remove(&key) {
+                if !blocks.is_empty() { layer_block_traces.insert(index, blocks); }
+                if !placements.is_empty() { layer_placement_traces.insert(index, placements); }
+            }
+        }
         algorithm.state.advance_iteration();
 
         let mut refreshed_state = application_state_from_algorithm_with_continuous_radius(
@@ -319,8 +351,10 @@ where
             layer_placement_traces,
             continuous_radius_component,
         );
-        let rmp = rmp_executor
-            .execute_result(&refreshed_state)
+        let rmp = match item_amounts {
+            Some(amounts) => rmp_executor.execute_result_with_item_amounts(&refreshed_state, amounts),
+            None => rmp_executor.execute_result(&refreshed_state),
+        }
             .map_err(|error| vec![format!("{:?}: {}", error.stage, error.message)])?;
         algorithm.state.additional_shadow_prices = rmp.additional_shadow_prices.clone();
         refreshed_state.additional_shadow_prices = algorithm.state.additional_shadow_prices.clone();
@@ -331,8 +365,10 @@ where
                 self.config.reduced_cost_tolerance,
             );
         }
-        let final_execution = final_executor
-            .execute_result(&refreshed_state)
+        let final_execution = match item_amounts {
+            Some(amounts) => final_executor.execute_result_with_item_amounts(&refreshed_state, amounts),
+            None => final_executor.execute_result(&refreshed_state),
+        }
             .map_err(|error| vec![format!("{:?}: {}", error.stage, error.message)])?;
         let packing_analysis = if final_execution.packed_bins.is_empty() {
             None
@@ -373,11 +409,13 @@ where
         rmp_executor: &dyn ColumnGenerationRmpExecutor,
         final_executor: &dyn ColumnGenerationFinalExecutor,
     ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
+        reject_grouped_csv_demand(&request, "run_csv_materialized")?;
         let continuous_radius_component = request.continuous_radius_component.clone();
         let mut flow = self.run_materialized_with_bins_and_continuous_radius(
             request.items,
             Vec::new(),
             request.initial_layers,
+            Vec::new(),
             continuous_radius_component.clone(),
             rmp_executor,
             final_executor,
@@ -395,11 +433,13 @@ where
         rmp_executor: &dyn ColumnGenerationRmpExecutor,
         final_executor: &dyn ColumnGenerationFinalExecutor,
     ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
+        reject_grouped_csv_demand(&request, "run_csv_materialized_with_bins")?;
         let continuous_radius_component = request.continuous_radius_component.clone();
         let mut flow = self.run_materialized_with_bins_and_continuous_radius(
             request.items,
             request.bins,
             request.initial_layers,
+            Vec::new(),
             continuous_radius_component.clone(),
             rmp_executor,
             final_executor,
@@ -418,6 +458,7 @@ where
         rmp_executor: &dyn ColumnGenerationRmpExecutor,
         final_executor: &dyn ColumnGenerationFinalExecutor,
     ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
+        let item_amounts = ordered_csv_item_amounts(&request)?;
         let continuous_radius_component = request.continuous_radius_component.clone();
         let package_attributes = request
             .package_attributes
@@ -427,8 +468,44 @@ where
             request.items,
             request.bins,
             request.initial_layers,
+            Vec::new(),
             continuous_radius_component.clone(),
             package_attributes,
+            Some(&item_amounts),
+            layer_generation,
+            rmp_executor,
+            final_executor,
+        )?;
+        apply_continuous_radius_solutions(self, &mut flow, continuous_radius_component.as_ref())?;
+        append_continuous_radius_info(&mut flow.result.info, continuous_radius_component.as_ref());
+        Ok(flow)
+    }
+
+    /// 一轮 CSV 流程携带按初始层顺序提供的物理 trace；空 coverage 从实际 trace 生成。
+    /// Run one CSV round with physical traces in initial-layer order; derive empty coverage from actual traces.
+    ///
+    /// 分组数量通过支持数量的执行器传递；调用方须选择严格 final 来验证物理与需求可行性。
+    /// Grouped quantities require quantity-aware executors; callers must select strict final to validate physical and demand feasibility.
+    #[cfg(feature = "serde")]
+    pub fn run_csv_materialized_one_generation_round_with_traced_initial_layers(
+        &self,
+        mut request: CsvMaterializedApplicationRequest,
+        initial_traces: Vec<LayerTracePair>,
+        layer_generation: LayerGenerationContext<f64, Meter>,
+        rmp_executor: &dyn ColumnGenerationRmpExecutor,
+        final_executor: &dyn ColumnGenerationFinalExecutor,
+    ) -> Result<ColumnGenerationApplicationFlowResult, Vec<String>> {
+        let item_amounts = prepare_csv_traced_initial_layers(&mut request, &initial_traces)?;
+        let continuous_radius_component = request.continuous_radius_component.clone();
+        let package_attributes = request.package_attributes.into_iter().collect();
+        let mut flow = self.run_materialized_one_generation_round_with_package_attributes(
+            request.items,
+            request.bins,
+            request.initial_layers,
+            initial_traces,
+            continuous_radius_component.clone(),
+            package_attributes,
+            Some(&item_amounts),
             layer_generation,
             rmp_executor,
             final_executor,

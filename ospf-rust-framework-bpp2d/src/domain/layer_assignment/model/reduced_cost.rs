@@ -4,6 +4,8 @@
 //! The pricing step of column generation: computes the reduced cost of a candidate column from the current RMP
 //! coverage duals (shadow prices) and keeps only columns that can improve the objective.
 //!
+//! 面积取整板面积（不是物品占用面积），与 RMP 目标一致。
+//! Area means whole-sheet area (not occupied item area), matching the RMP objective.
 //! 模型为 `min Σ_j area_j · y_j  s.t.  Σ_j a_ij · y_j ≥ d_i`（`a_ij` 为列 j 对需求 i 的覆盖量，
 //! `d_i ≥ 0`，对偶 `π_i ≥ 0`），因此列 j 的检验数为
 //! `rc_j = area_j · c_area − Σ_i π_i · a_ij`，`rc_j < 0` 表示该列可改进目标。
@@ -80,7 +82,7 @@ where
         }
         dual_value += price * layer_demand_coefficient(layer, entry);
     }
-    let area = layer.area().value.to_f64().unwrap_or(0.0);
+    let area = layer.sheet.as_ref().and_then(|sheet| sheet.area().value.to_f64()).unwrap_or(0.0);
     area * area_coefficient - dual_value
 }
 

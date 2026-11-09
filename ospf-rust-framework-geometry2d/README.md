@@ -47,12 +47,11 @@ Objectives and KPI use `area`; grid generation uses the bounding size.
 
 ## Overlap semantics
 
-Overlap is always **interior overlap**: tangency does **not** count as overlap. Edge-sharing rectangles,
-mutually tangent circles and a circle tangent to a rectangle boundary are all non-overlapping.
-
-This is the precondition for grid layouts: if tangency counted as overlap, no regular grid could ever be
-produced. The underlying quantity library treats tangency as overlap, so `Box2Geometry::overlapped`
-re-implements the dispatch with strict inequalities.
+`Box2Geometry::overlapped` tests **interior bounding-box overlap**: shared bounding-box edges do not count.
+Circles use their enclosing squares, not an exact disk intersection test. In particular, diagonally
+separated or tangent disks may still have overlapping squares. Point and box containment use the closed
+bounding rectangle, not circular containment. These are the existing implementation semantics, not a
+new collision algorithm introduced by the language bridge.
 
 ## Kerf
 
@@ -64,6 +63,25 @@ Kerf is expressed by **inflating the shape that takes part in the overlap test**
 3. Geometry checks must inflate **both** sides: only when either side is inflated and the shapes still
    intersect is the real gap smaller than the kerf. Inflating one side only misses a narrow gap on the other
    side.
+
+`inflated_by_placement` currently retains the original lower-left coordinate and metadata, growing right/up;
+it is not centred inflation. The earlier centred-inflation description was inaccurate; no implementation
+behavior changes in this clarification.
+
+## TypeScript / WASM Boundary
+
+`ospf-wasm/geometry2d` exposes a `Geometry2d` f64 facade and Rust-generated DTOs under the natural names
+`QuantityPoint2`, `QuantityVector2`, `PackingShape2`, `Box2Geometry`, `Placement2`, `Sheet2Shape` and
+`Shape2Candidate`. The bridge normalizes m/km/cm/mm into the original Meter specialization before calling
+the existing point/vector, shape, box, sheet and kerf APIs; output uses the explicit context unit, with areas
+in the corresponding squared-length unit. No geometry algorithm is copied into TypeScript.
+
+Returned DTOs and `Uint32Array` overlap-pair indices are independent copies; only the context needs disposal.
+Inputs must be finite, dimensions compatible, extents positive and spacing nonnegative. Overflow/underflow,
+collapsed bounds at coordinate precision, unknown DTO fields and batches above 512 boxes fail explicitly;
+text inputs are limited to 8 MiB. `overlapPairs` returns every pair without truncation using original box tests.
+No exact circle collision, solver, BPP2D/CSP2D workflow or arbitrary high-precision TS specialization is implied.
+See the [bridge capability matrix](../docs/typescript-bridge.md#shared-two-dimensional-geometry).
 
 ## Generic value boundary
 

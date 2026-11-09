@@ -85,6 +85,26 @@ impl LoadingOrderCalculator {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ospf_rust_framework_geometry2d::{PackingShape2, QuantityPoint2, rectangle_shape2};
+    use ospf_rust_quantities::unit::derived::Meter;
+    use crate::domain::item::model::{Layer, SheetLayer, SheetType, SheetTypeId};
+
+    #[test]
+    fn distinct_submicrometer_origins_preserve_loading_order_across_layers() {
+        let meters = |value| Quantity::<f64, Meter>::new_ct(value);
+        let sheet_type = SheetType::new(meters(2e-7), meters(1e-7), meters(0.0), SheetTypeId::new("s"));
+        let shape = rectangle_shape2(meters(1e-7), meters(1e-7)).unwrap();
+        let layers = [1.0, 0.0].into_iter().map(|x| Layer::new(0, "test", Some(sheet_type.clone()), Sheet2Shape::new(meters(2e-7), meters(1e-7)))
+            .with_units(vec![Placement2::new(PackingShape2::Rectangle(shape.clone()), QuantityPoint2 { x: meters(x * 1e-7), y: meters(0.0) })])).collect();
+        let sheet = Sheet::new(sheet_type.clone()).with_layers(vec![SheetLayer::new(sheet_type, Sheet2Shape::new(meters(2e-7), meters(1e-7)), layers)]);
+        let packed = Packer::new().invoke(&[sheet], &PackingAggregation::new("test"), None).unwrap();
+        assert_eq!(packed.sheets[0].items.iter().map(|item| item.loading_order).collect::<Vec<_>>(), vec![1, 0]);
+    }
+}
+
 // ============================================================================
 // Packer - 装箱器 / Packer
 // ============================================================================
@@ -167,30 +187,11 @@ impl Packer {
                 &rotation_rule,
             )?;
 
-            let order_index: BTreeMap<(u64, u64), u64> = placements
-                .iter()
-                .zip(orders.iter())
-                .map(|(placement, order)| {
-                    (
-                        (
-                            (placement.x().value.to_f64().unwrap_or(0.0) * 1e6) as u64,
-                            (placement.y().value.to_f64().unwrap_or(0.0) * 1e6) as u64,
-                        ),
-                        *order,
-                    )
-                })
-                .collect();
-            let loading_order_for = |placement: &Placement2<V, U>| -> u64 {
-                order_index
-                    .get(&(
-                        (placement.x().value.to_f64().unwrap_or(0.0) * 1e6) as u64,
-                        (placement.y().value.to_f64().unwrap_or(0.0) * 1e6) as u64,
-                    ))
-                    .copied()
-                    .unwrap_or(0)
-            };
-
-            let packed_layers = packed_layers_from_sheet_layers(&sheet.layers, loading_order_for);
+            // 保留遍历位置，不能把相邻微小坐标量化成同一身份。 / Preserve traversal positions instead of quantizing nearby coordinates into one identity.
+            let mut packed_layers = packed_layers_from_sheet_layers(&sheet.layers, |_| 0);
+            for (item, order) in packed_layers.iter_mut().flat_map(|layer| layer.items.iter_mut()).zip(orders) {
+                item.loading_order = order;
+            }
             let items = flatten_packed_items(&packed_layers);
             let occupied: f64 = items
                 .iter()

@@ -4,9 +4,9 @@
 use crate::error::{CoreError, Result};
 use crate::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
 use crate::model::object::ObjectiveCategory;
-use crate::solver::solver::{emit_progress_start, emit_progress_terminal};
+use crate::solver::solver::{emit_progress_start, emit_progress_terminal, emit_progress_update};
 use crate::solver::{
-    CapabilitySupport, LinearSolver, QuadraticSolver, SolveHandle, SolveReport, SolveWarning,
+    CapabilitySupport, LinearSolver, QuadraticSolver, SolveHandle, SolveProgressReporter, SolveReport, SolveWarning,
     SolverCapabilities, SolverCapability, SolverDescriptor, SolverInfo, SolverOutput,
     SolverProvenance, SolverStatus, SolvingStatus, attach_linear_solution_audit,
     attach_quadratic_model_mapping, cancelled_solve_report,
@@ -447,7 +447,23 @@ impl GurobiSolver {
         objective_category: ObjectiveCategory,
         grb_vars: Option<&[grb::Var]>,
         cancellation_handle: Option<&SolveHandle>,
+        progress_reporter: Option<(&SolveProgressReporter, Instant)>,
     ) -> Result<()> {
+        fn terminate(where_ctx: &grb::callback::Where<'_>) {
+            match where_ctx {
+                grb::callback::Where::Polling(context) => context.terminate(),
+                grb::callback::Where::PreSolve(context) => context.terminate(),
+                grb::callback::Where::Simplex(context) => context.terminate(),
+                grb::callback::Where::MIP(context) => context.terminate(),
+                grb::callback::Where::MIPSol(context) => context.terminate(),
+                grb::callback::Where::MIPNode(context) => context.terminate(),
+                grb::callback::Where::Message(context) => context.terminate(),
+                grb::callback::Where::Barrier(context) => context.terminate(),
+                grb::callback::Where::IIS(context) => context.terminate(),
+                _ => {}
+            }
+        }
+
         let no_improvement_time_limit = self
             .config
             .no_improvement_time_limit
@@ -472,6 +488,7 @@ impl GurobiSolver {
             && native_observers.is_empty()
             && native_callback.is_none()
             && cancellation_handle.is_none()
+            && progress_reporter.is_none()
         {
             return grb_model
                 .optimize()
@@ -483,9 +500,13 @@ impl GurobiSolver {
         let mut last_improvement_time = Instant::now();
         let optimize_start_time = Instant::now();
         let mut last_telemetry_emit_time: Option<Instant> = None;
+        let mut last_progress_emit_time: Option<Instant> = None;
         let mut pending_observer_terminate = false;
         let callback_vars = grb_vars.map(|vars| vars.to_vec());
         let cancellation_handle = cancellation_handle.cloned();
+        let progress_reporter = progress_reporter.map(|(reporter, started_at)| (reporter.clone(), started_at));
+        let progress_interval = telemetry_min_interval.filter(|seconds| seconds.is_finite()).unwrap_or(0.1);
+        let solver_name = self.name().to_owned();
         let callback_error = Arc::new(Mutex::new(None::<CoreError>));
         let callback_error_for_closure = Arc::clone(&callback_error);
         let improvement_tolerance = self
@@ -498,18 +519,7 @@ impl GurobiSolver {
                 .as_ref()
                 .is_some_and(SolveHandle::is_cancelled)
             {
-                match &where_ctx {
-                    grb::callback::Where::Polling(context) => context.terminate(),
-                    grb::callback::Where::PreSolve(context) => context.terminate(),
-                    grb::callback::Where::Simplex(context) => context.terminate(),
-                    grb::callback::Where::MIP(context) => context.terminate(),
-                    grb::callback::Where::MIPSol(context) => context.terminate(),
-                    grb::callback::Where::MIPNode(context) => context.terminate(),
-                    grb::callback::Where::Message(context) => context.terminate(),
-                    grb::callback::Where::Barrier(context) => context.terminate(),
-                    grb::callback::Where::IIS(context) => context.terminate(),
-                    _ => {}
-                }
+                terminate(&where_ctx);
             }
             if pending_observer_terminate {
                 if let grb::callback::Where::MIP(mip_ctx) = &where_ctx {
@@ -597,6 +607,32 @@ impl GurobiSolver {
                     node_count: None,
                 }
             };
+
+            if let Some((reporter, started_at)) = progress_reporter.as_ref()
+                && matches!(&where_ctx,
+                    grb::callback::Where::PreSolve(_) | grb::callback::Where::Simplex(_)
+                    | grb::callback::Where::MIP(_) | grb::callback::Where::MIPSol(_)
+                    | grb::callback::Where::MIPNode(_) | grb::callback::Where::Barrier(_))
+                && last_progress_emit_time.is_none_or(|last| last.elapsed().as_secs_f64() >= progress_interval)
+            {
+                // MIPSol 的候选可能尚未被接受；只发布已有 incumbent。 / A MIPSol candidate may not be accepted yet; publish the incumbent only.
+                let objective = match &where_ctx {
+                    grb::callback::Where::MIPSol(context) => context.obj_best().ok(),
+                    _ => snapshot.objective_value,
+                }.filter(|value| value.is_finite() && value.abs() < grb::INFINITY);
+                let bound = snapshot.best_bound.filter(|value| value.is_finite() && value.abs() < grb::INFINITY);
+                let gap = objective.zip(bound).map(|(objective, bound)| Self::compute_relative_gap(objective, bound));
+                if let Err(error) = emit_progress_update(reporter, &solver_name, started_at.elapsed(), objective, bound, gap) {
+                    let mut slot = callback_error_for_closure.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if slot.is_none() { *slot = Some(error); }
+                    terminate(&where_ctx);
+                    return Ok(());
+                }
+                last_progress_emit_time = Some(Instant::now());
+                if cancellation_handle.as_ref().is_some_and(SolveHandle::is_cancelled) {
+                    terminate(&where_ctx);
+                }
+            }
 
             if let Some(callback) = telemetry_callback.as_ref() {
                 if matches!(
