@@ -252,7 +252,7 @@ time, the packing result and the render DTO.
 ```toml
 [dependencies]
 # Workspace-root-relative path / 相对 workspace 根目录的路径
-ospf-rust-framework-bpp2d = { path = "crates/plugins/bpp2d" }
+ospf-rust-framework-bpp2d = { path = "crates/frameworks/bpp2d" }
 ```
 
 ## Related documents

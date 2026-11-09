@@ -122,7 +122,7 @@ cargo test -p ospf-rust-core --features gurobi10 --test native_release_matrix --
 
 第一条命令断言：ABS 结构恰好被原生写入一次、没有为它物化任何 fallback、真实解满足 `y = |x|` 与
 模型自身约束、且 EAGER 与原生两条路径的可行性一致。当前哪些符号提供结构见 core README 的
-[函数符号支持矩阵](../../../../README_ch.md#函数符号支持矩阵)。
+[函数符号支持矩阵](../../../README_ch.md#函数符号支持矩阵)。
 
 ## 最小验证命令
 
@@ -140,4 +140,4 @@ cargo test -p ospf-rust-core gurobi_stage_callback_integration --features gurobi
 
 共享 native contract 还会比较 report identity、best bound、gap、solution value 和 constraint residual。
 缺少许可证属于 `LICENSE` 错误（包括原生错误码 `10009`），不得当作环境跳过后成功。详见
-core README 中的 [Solver 原生验收矩阵](../../../../README_ch.md#solver-原生验收矩阵)。
+core README 中的 [Solver 原生验收矩阵](../../../README_ch.md#solver-原生验收矩阵)。

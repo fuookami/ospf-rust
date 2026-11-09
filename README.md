@@ -35,16 +35,16 @@ Explicit non-goals:
 | [`ospf-rust-framework`](crates/framework/README.md) | `ospf-kotlin-framework` | Pipeline modeling, shadow prices, column generation, Benders, combinatorial solvers, persistence contracts, remote solver client, and heartbeat utilities. |
 | [`ospf-rust-core-plugin-gurobi`](crates/core-plugin/gurobi/README.md) | `ospf-kotlin-core-plugin-gurobi` | Gurobi core adapter, Gurobi-backed IIS algorithms, and framework Gurobi extension solvers. |
 | [`ospf-rust-core-plugin-scip`](crates/core-plugin/scip/README.md) | `ospf-kotlin-core-plugin-scip` | SCIP core adapter, constraint-programming facade, and framework SCIP extension solvers. |
-| [`ospf-rust-framework-geometry2d`](crates/plugins/geometry2d/README.md) | `ospf-kotlin-framework-geometry2d` | Shared 2D quantity geometry kernel: quantity arithmetic, points and shapes, placements, bounding-box overlap, sheet geometry and kerf, used by both BPP2D and CSP2D. |
-| [`ospf-rust-framework-bpp`](crates/plugins/bpp/README.md) | `ospf-kotlin-framework-bpp` | Shared sparse discrete loading, finite-capacity occupancy, edge-preserving conflicts, explicit layouts, native-value validation and geometry adapters. |
-| [`ospf-rust-framework-bpp1d`](crates/plugins/bpp1d/README.md) | `ospf-kotlin-framework-bpp1d` | Quantity-safe exact-demand packing, bounded patterns, shared MILP/LP/final registration, finite-pool column activation, strict CSV, tail optimization and 1D discrete loading. |
-| [`ospf-rust-framework-bpp2d`](crates/plugins/bpp2d/README.md) | `ospf-kotlin-framework-bpp2d` | Reusable 2D packing framework with item/sheet/layer models, BLA and block loading, candidate generation, layer assignment, packing with remnants, and the column-generation flow. |
-| [`ospf-rust-framework-bpp3d`](crates/plugins/bpp3d/README.md) | `ospf-kotlin-framework-bpp3d` | Reusable 3D bin-packing framework with BPP3D contexts, layer generation/assignment, packing, CSV fixtures, and renderer DTOs. |
-| [`ospf-rust-framework-csp1d`](crates/plugins/csp1d/README.md) | `ospf-kotlin-framework-csp1d` | Reusable one-dimensional cutting-stock framework with material, generation, produce, yield, waste, length, and application flows. |
-| [`ospf-rust-framework-csp2d`](crates/plugins/csp2d/README.md) | `ospf-kotlin-framework-csp2d` | Reusable 2D cutting-stock framework with dual-mode materials, guillotine cut trees, pattern generation, the master problem, waste/yield analysis and both solve paths. |
-| [`ospf-rust-framework-gantt-scheduling`](crates/plugins/gantt-scheduling/README.md) | `ospf-kotlin-framework-gantt-scheduling` | Reusable Gantt scheduling framework with task, bunch, capacity, resource, produce, and branch-and-price flows. |
-| [`ospf-rust-framework-network-scheduling`](crates/plugins/network-scheduling/README.md) | `ospf-kotlin-framework-network-scheduling` | Multigraph/resource paths, flow, design/resilience, allocation, full-path compilation, rooted structures, generalized flow and VRPTW pricing. |
-| [`ospf-rust-framework-gantt-network`](crates/plugins/gantt-network/README.md) | Gantt / Network bridge | Optional shared-path, full-state and column-batch bridge, without owning a master or starting another global solve. |
+| [`ospf-rust-framework-geometry2d`](crates/frameworks/geometry2d/README.md) | `ospf-kotlin-framework-geometry2d` | Shared 2D quantity geometry kernel: quantity arithmetic, points and shapes, placements, bounding-box overlap, sheet geometry and kerf, used by both BPP2D and CSP2D. |
+| [`ospf-rust-framework-bpp`](crates/frameworks/bpp/README.md) | `ospf-kotlin-framework-bpp` | Shared sparse discrete loading, finite-capacity occupancy, edge-preserving conflicts, explicit layouts, native-value validation and geometry adapters. |
+| [`ospf-rust-framework-bpp1d`](crates/frameworks/bpp1d/README.md) | `ospf-kotlin-framework-bpp1d` | Quantity-safe exact-demand packing, bounded patterns, shared MILP/LP/final registration, finite-pool column activation, strict CSV, tail optimization and 1D discrete loading. |
+| [`ospf-rust-framework-bpp2d`](crates/frameworks/bpp2d/README.md) | `ospf-kotlin-framework-bpp2d` | Reusable 2D packing framework with item/sheet/layer models, BLA and block loading, candidate generation, layer assignment, packing with remnants, and the column-generation flow. |
+| [`ospf-rust-framework-bpp3d`](crates/frameworks/bpp3d/README.md) | `ospf-kotlin-framework-bpp3d` | Reusable 3D bin-packing framework with BPP3D contexts, layer generation/assignment, packing, CSV fixtures, and renderer DTOs. |
+| [`ospf-rust-framework-csp1d`](crates/frameworks/csp1d/README.md) | `ospf-kotlin-framework-csp1d` | Reusable one-dimensional cutting-stock framework with material, generation, produce, yield, waste, length, and application flows. |
+| [`ospf-rust-framework-csp2d`](crates/frameworks/csp2d/README.md) | `ospf-kotlin-framework-csp2d` | Reusable 2D cutting-stock framework with dual-mode materials, guillotine cut trees, pattern generation, the master problem, waste/yield analysis and both solve paths. |
+| [`ospf-rust-framework-gantt-scheduling`](crates/frameworks/gantt-scheduling/README.md) | `ospf-kotlin-framework-gantt-scheduling` | Reusable Gantt scheduling framework with task, bunch, capacity, resource, produce, and branch-and-price flows. |
+| [`ospf-rust-framework-network-scheduling`](crates/frameworks/network-scheduling/README.md) | `ospf-kotlin-framework-network-scheduling` | Multigraph/resource paths, flow, design/resilience, allocation, full-path compilation, rooted structures, generalized flow and VRPTW pricing. |
+| [`ospf-rust-framework-gantt-network`](crates/frameworks/gantt-network/README.md) | Gantt / Network bridge | Optional shared-path, full-state and column-batch bridge, without owning a master or starting another global solve. |
 | [`ospf-rust-example`](apps/example/README.md) | `ospf-kotlin-example` | Runnable examples and migration compatibility demos. |
 
 ## Architecture Overview
@@ -56,6 +56,21 @@ The workspace follows a layered shape:
 3. `framework` adds solver orchestration, pipeline abstractions, shadow prices, persistence contracts, and remote solving.
 4. domain framework crates assemble reusable business-domain modeling contexts around `MetaModel`.
 5. `example` demonstrates current public flows and migration compatibility paths.
+
+The workspace also keeps `ospf-kotlin`'s two plugin families apart from the domain frameworks:
+
+| Directory | Contents | Kotlin counterpart |
+| --- | --- | --- |
+| `crates/base` … `crates/framework` | Foundation, core, framework | `ospf-kotlin-utils` … `ospf-kotlin-framework` |
+| `crates/core-plugin/*` | Solver plugins (`scip`, `gurobi`) | `ospf-kotlin-core-plugin-*` |
+| `crates/framework-plugin/*` | Framework plugins (`persistence`) | `ospf-kotlin-framework-plugin-*` |
+| `crates/frameworks/*` | Domain frameworks (`bpp`, `bpp1d`, …, `network-scheduling`) | top-level `ospf-kotlin-framework-*` modules |
+
+Kotlin keeps the domain frameworks at module top level and reserves `*-plugin` for optional integration
+modules. Rust keeps the same distinction but groups the domain frameworks under `crates/frameworks` so that
+`*-plugin` directories never mix with frameworks. Persistence stays one crate with per-backend features
+instead of Kotlin's `persistence-<backend>` modules: Cargo features express the same optional boundary without
+splitting a translator family across nine crates.
 
 Framework domain crates should keep optimization semantics in context / aggregation / model component / pipeline layers. Application services coordinate solver selection, lifecycle, trace/KPI/render assembly, and recovery boundaries.
 
@@ -85,7 +100,7 @@ Crate-level README files use the full template. Internal `src/domain`, `src/appl
 
 ## Usage
 
-Add workspace crates as path dependencies while developing inside this repository. Paths below are relative to a plugin crate under `crates/plugins/<name>`:
+Add workspace crates as path dependencies while developing inside this repository. Paths below are relative to a plugin crate under `crates/frameworks/<name>`:
 
 ```toml
 [dependencies]
@@ -162,7 +177,7 @@ cargo test --workspace --features "ospf-rust-framework/async ospf-rust-framework
 This repository is actively migrating Kotlin framework capabilities into Rust. Some domain crates expose Kotlin-aligned public surfaces while still using Rust-side deterministic, fake, or feature-gated solver paths for parts of the lifecycle. Each domain crate README records its own current coverage and known gaps.
 
 The Network / Gantt migration targets Kotlin snapshots `907d28d` and `3dc1225`; current scope and
-breaking APIs are documented in the [migration guide](crates/plugins/network-scheduling/MIGRATION.md).
+breaking APIs are documented in the [migration guide](crates/frameworks/network-scheduling/MIGRATION.md).
 The old `99/99` delivery status cannot establish acceptance for this migration. Shared graphs/paths,
 seven standalone Network services and the optional Gantt bridge are connected.
 [Demo4](apps/example/src/framework/demo4/README.md) now connects recovery records, RMP/full duals,

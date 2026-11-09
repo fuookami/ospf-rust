@@ -138,7 +138,7 @@ cargo test -p ospf-rust-core --features gurobi10 --test native_release_matrix --
 The first command asserts that the ABS structure is written natively exactly once, that no fallback was
 materialized for it, that the real solution satisfies `y = |x|` and the model's own constraints, and
 that the eager and native paths agree on feasibility. See the
-[function symbol support matrix](../../../../README.md#function-symbol-support-matrix) in the core
+[function symbol support matrix](../../../README.md#function-symbol-support-matrix) in the core
 README for which symbols expose a structure today.
 
 ## Minimal Validation Commands
@@ -158,4 +158,4 @@ to Gurobi 11/12, replace `gurobi10` with `gurobi11`/`gurobi12`.
 The shared native contract also checks report identity, best bound, gap, solution
 values, and constraint residuals. A missing license is a `LICENSE` error (including
 native code `10009`); it must not be reported as a successful environment skip.
-See the [native validation matrix](../../../../README.md#native-validation-matrix) in the core README.
+See the [native validation matrix](../../../README.md#native-validation-matrix) in the core README.

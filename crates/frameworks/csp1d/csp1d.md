@@ -141,27 +141,27 @@
 - `Cargo.toml`
   - 将 `ospf-rust-framework-csp1d` 加入 workspace members。
 
-- `crates/plugins/csp1d/Cargo.toml`
+- `crates/frameworks/csp1d/Cargo.toml`
   - 新增 CSP1D crate manifest。
   - 配置对 core/framework/quantities/base 的依赖。
   - 暴露 serde、async、solver backend 相关 feature 转发。
   - 增加 `serde_json` dev 依赖，用于验证 render DTO 的 Kotlin camelCase 序列化契约。
 
-- `crates/plugins/csp1d/README.md`
+- `crates/frameworks/csp1d/README.md`
   - 新增英文顶层说明，记录 Kotlin 模块到 Rust crate 模块的映射、public API、扩展点、shadow price lifecycle、生成语义、render serde 和验证命令。
   - 明确当前 MILP/LP/final-MILP 仍为启发式后端，真实 solver adapter、LP dual 和完整并行生成统计仍待后续迁移。
 
-- `crates/plugins/csp1d/README_ch.md`
+- `crates/frameworks/csp1d/README_ch.md`
   - 新增中文顶层说明，并与英文 README 互链。
   - 与英文版同步说明当前能力边界、迁移状态和本地验证命令。
 
-- `crates/plugins/csp1d/src/lib.rs`
+- `crates/frameworks/csp1d/src/lib.rs`
   - 新增 crate 模块导出。
   - 新增 `Csp1dError` 与 `Csp1dResult<T>`。
   - 汇总导出 application/domain/infrastructure 主要类型。
   - 补充导出 builder、produce context、iterative context、constraint pipeline、CGPipeline shadow price helper、generation/pricing 函数型扩展点与 domain policy width helper。
 
-- `crates/plugins/csp1d/src/application/model.rs`
+- `crates/frameworks/csp1d/src/application/model.rs`
   - 新增 assignment helper、问题定义、配置、解、KPI key、KPI、solution analyzer。
   - 初步对齐 Kotlin `Csp1dProblem.kt`、`Csp1dSolution.kt`。
   - `Csp1dAssignment` 已对齐 Kotlin `Csp1dAssignment.kt` 的 `create`、`get` 和 `register` 调用面。
@@ -169,7 +169,7 @@
   - KPI details 与 render KPI 同步写入 Kotlin 稳定 key。
   - 默认 solution analyzer 已直接渲染 selected cutting plans，对齐 Kotlin analyzer 的 render schema 输出。
 
-- `crates/plugins/csp1d/src/application/service.rs`
+- `crates/frameworks/csp1d/src/application/service.rs`
   - 新增 column generation trace/result、termination reason、final MILP status。
   - 新增 warm start、recovery、adapter、异常类型。
   - 新增 `Csp1dColumnGeneration`/`Csp1dMilp`/`Csp1dRecovery` 骨架。
@@ -189,7 +189,7 @@
   - `solve_milp_input_heuristic` 已接入 Kotlin `resolveDefaultLengthBounds` 等价推导，只有 `dynamic_product_ids` 而未显式配置 assigned lower/upper bound 时仍会注册 assigned length 变量并提取 length result。
   - `Csp1dColumnGeneration` 与 `Csp1dMilp` 已在生成输入中接入 domain policy width override helper；trace 初始方案数改为实际方案池数量，初始方案 flow policy filter 使用 Kotlin-like context。
 
-- `crates/plugins/csp1d/src/domain/material/model.rs`
+- `crates/frameworks/csp1d/src/domain/material/model.rs`
   - 新增 Product/Material/Machine/Costar/ProductDemand/CuttingPlan 等核心领域模型。
   - 新增 quantity alias、demand mode、shadow price key、render mapper。
   - 新增 canonical key 结构化实现，对齐 Kotlin `CuttingPlanCanonicalKey` 的 slice/contribution 合并排序与 capacity consumption 字段。
@@ -201,7 +201,7 @@
   - `CuttingPlanProduction::length` 已支持 Costar length，`CuttingPlan::rest_width` 已按 Kotlin `upperBound - usedWidth` 保留负值。
   - render mapper 已按 Kotlin selected-plan 契约输出 production 横向坐标、方案 used/standard width、group 和 info。
 
-- `crates/plugins/csp1d/src/domain/produce/mod.rs`
+- `crates/frameworks/csp1d/src/domain/produce/mod.rs`
   - 新增 Produce、usage、ProduceInput、ProduceAggregation。
   - 新增 model context、iterative context、modeling extension、extension set。
   - 新增 domain/objective/generation/pricing/flow/extraction policy trait 和默认方法。
@@ -216,7 +216,7 @@
   - `remove_columns` 支持退役列变量、刷新内置约束与目标，并在结果提取中忽略退役方案。
   - 新增 `filter_initial_plans_by_policies_with_context`，下游 flow policy 可在初始方案过滤阶段读取服务层传入的完整 flow context。
 
-- `crates/plugins/csp1d/src/domain/cutting_plan_generation/*`
+- `crates/frameworks/csp1d/src/domain/cutting_plan_generation/*`
   - 新增 generation input/report/statistics/benchmark/pricing input/objective config。
   - 新增 initial/pricing generator trait 和简化生成器。
   - 扩展 generation/pricing 输入，支持 candidate filter、width check、canonical key override、dominance override、pricing modifiers、is-improving judge、pricing policy。
@@ -228,7 +228,7 @@
   - 新增 `CuttingPlanConstraint`、`CuttingPlanConstraintContext`、`MaxKnifeCountConstraint`、`MinKnifeCountConstraint`、`MaxOverProduceLengthConstraint`、`WidthUpperBoundConstraint`，并让 `GenerationConstraints::to_constraints()` 输出 Kotlin 同形约束列表。
   - 生成器贡献量构造改为复用 `CuttingPlanDemandContribution::from_demand`，quantity cache key 纳入 width，避免重量需求下不同切片宽度复用错误贡献。
 
-- `crates/plugins/csp1d/tests/csp1d_migration.rs`
+- `crates/frameworks/csp1d/tests/csp1d_migration.rs`
 - 新增 56 条默认迁移回归测试，覆盖 builder、assignment helper、solve config allExtensions 合并、Kotlin structural canonical key、material width feasibility、width override machine feasibility、weight demand contribution、QuantityRange/QuantityArithmetic/Production helper、Product/ProductDemand legacy helper、generation constraint predicate、domain policy contribution helper、produce context、shadow price、CGPipeline extractor、context shadow price extraction、服务层 pricing shadow price 接线、生成器扩展、NSame/NSum/DFS/FullSum/CostarFiller、dominance pruning/override、轻量缓存统计、flow policy helper/filter/equivalence/early-stop、初始方案 flow context、benchmark stable line、solution enrichment statistics、Top-K used width、extraction policy panic boundary、reduced-cost pricing、列生成、普通 MILP 独立入口、Schedule 入口、MILP/LP solver surface、MILP 默认 length bounds 推导、domain policy width override、warm start、recovery、yield/waste/length pipeline、add-column 刷新、remove-column 退役、增量扩展管线、solver slack 回填与结果闭环；`serde` feature 下另有 render schema camelCase 序列化口径测试。
 
 - `crates/core/src/model/basic_model.rs`
@@ -237,25 +237,25 @@
 - `crates/core/src/model/meta_model.rs`
   - 暴露 `retain_constraints` 与 `remove_constraints_by_group_id`，并增加按 group id 删除约束的回归测试。
 
-- `crates/plugins/csp1d/src/domain/yield/*`
+- `crates/frameworks/csp1d/src/domain/yield/*`
   - 新增 yield config/result/analysis/output/aggregation/context 骨架。
   - 结果提取已能产出 output、under production、over production。
   - 新增 `YieldSlackAggregation`，按 Kotlin key 口径管理 under/over slack 变量索引。
 
-- `crates/plugins/csp1d/src/domain/wasting_minimization/*`
+- `crates/frameworks/csp1d/src/domain/wasting_minimization/*`
   - 新增 waste config/result/analysis/aggregation/material cost 骨架。
   - 结果提取已能产出 total trim width、total rest material、over-production area、material cost 与 measure metadata。
 
-- `crates/plugins/csp1d/src/domain/length_assignment/*`
+- `crates/frameworks/csp1d/src/domain/length_assignment/*`
   - 新增 length assignment input/result/config/context 骨架。
   - `DefaultLengthDerivation` 与 `LengthAssignmentContext::assign` 已支持动态长度分配和 over length 记录。
   - `LengthAssignmentModelingConfig` 已补齐 Kotlin 的 dynamic product、assigned length bound、over length bound/penalty、total length penalty、batch min penalty 字段；新增 `LengthSlackAggregation` 管理 assigned/over length 变量索引。
 
-- `crates/plugins/csp1d/src/infrastructure/dto.rs`
+- `crates/frameworks/csp1d/src/infrastructure/dto.rs`
   - 新增 render DTO，并补齐 Kotlin `RenderCuttingPlanProductionDTO` / `RenderCuttingPlanDTO` 的 name、x、group、width、standardWidth、info 等关键字段。
   - 在 `serde` feature 下派生 `Serialize`/`Deserialize`，并使用 `camelCase` 字段名对齐 Kotlin `@Serializable` DTO。
 
-- `crates/plugins/csp1d/daily.md`
+- `crates/frameworks/csp1d/daily.md`
   - 新增本交接文档。
 
 ## 当前验收结果（2026-06-15 更新）

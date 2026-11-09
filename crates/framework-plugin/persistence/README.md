@@ -22,6 +22,11 @@ framework-side `PersistenceBackendFeatures` snapshot remains in framework and is
 framework's own feature names, so a host that needs backend capability reporting keeps depending
 only on framework.
 
+Kotlin splits this family into one Maven module per backend (`ospf-kotlin-framework-plugin-persistence-*`).
+Rust keeps a single crate and maps each of those modules to one Cargo feature, because the boundary they
+protect is optional compilation, not artefact separation; splitting would add nine crates without changing
+the dependency graph.
+
 ```bash
 cargo test -p ospf-rust-framework-plugin-persistence --features persistence-sqlx
 cargo test -p ospf-rust-framework-plugin-persistence --features persistence-sea-orm

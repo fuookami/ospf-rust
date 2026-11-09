@@ -20,6 +20,10 @@ Kotlin 的 `ospf-kotlin-framework-plugin-persistence`。
 转换为后端形态。framework 侧的 `PersistenceBackendFeatures` 快照仍留在 framework，并按
 framework 自身的 feature 名推导，因此只需后端能力上报的宿主仍只依赖 framework。
 
+Kotlin 把这一族拆成每后端一个 Maven 模块（`ospf-kotlin-framework-plugin-persistence-*`）。Rust 保留
+单 crate，并把每个模块映射为一个 Cargo feature：它们保护的是可选编译边界，而不是独立产物；拆开只会
+多出九个 crate，依赖图不会因此改变。
+
 ```bash
 cargo test -p ospf-rust-framework-plugin-persistence --features persistence-sqlx
 cargo test -p ospf-rust-framework-plugin-persistence --features persistence-sea-orm

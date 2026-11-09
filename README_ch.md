@@ -33,16 +33,16 @@
 | [`ospf-rust-framework`](crates/framework/README_ch.md) | `ospf-kotlin-framework` | pipeline 建模、shadow price、列生成、Benders、组合求解器、持久化契约、远程求解客户端和心跳工具。 |
 | [`ospf-rust-core-plugin-gurobi`](crates/core-plugin/gurobi/README_ch.md) | `ospf-kotlin-core-plugin-gurobi` | Gurobi 核心适配器、基于 Gurobi 的 IIS 算法与 framework Gurobi 扩展求解器。 |
 | [`ospf-rust-core-plugin-scip`](crates/core-plugin/scip/README_ch.md) | `ospf-kotlin-core-plugin-scip` | SCIP 核心适配器、约束规划 facade 与 framework SCIP 扩展求解器。 |
-| [`ospf-rust-framework-geometry2d`](crates/plugins/geometry2d/README_ch.md) | `ospf-kotlin-framework-geometry2d` | 共享二维量纲几何内核：量值算术、点与形状、放置、包围盒重叠、板材几何与刀缝，供 BPP2D 与 CSP2D 共用。 |
-| [`ospf-rust-framework-bpp`](crates/plugins/bpp/README_ch.md) | `ospf-kotlin-framework-bpp` | 共享稀疏离散装载、有限容量整体占位、保全边的冲突、显式布局、原数值域复核及几何适配。 |
-| [`ospf-rust-framework-bpp1d`](crates/plugins/bpp1d/README_ch.md) | `ospf-kotlin-framework-bpp1d` | 物理量精确需求装箱、有界组合列、统一 MILP/LP/final 注册、有限池列激活、严格 CSV、尾箱优化及一维离散装载。 |
-| [`ospf-rust-framework-bpp2d`](crates/plugins/bpp2d/README_ch.md) | `ospf-kotlin-framework-bpp2d` | 可复用二维装箱框架，包括物品/板材/层模型、BLA 与块装载、候选层生成、层分配、装箱余料与列生成应用流程。 |
-| [`ospf-rust-framework-bpp3d`](crates/plugins/bpp3d/README_ch.md) | `ospf-kotlin-framework-bpp3d` | 可复用三维装箱框架，包括 BPP3D context、层生成/分配、packing、CSV fixture 和 renderer DTO。 |
-| [`ospf-rust-framework-csp1d`](crates/plugins/csp1d/README_ch.md) | `ospf-kotlin-framework-csp1d` | 可复用一维分切框架，包括 material、generation、produce、yield、waste、length 和 application flow。 |
-| [`ospf-rust-framework-csp2d`](crates/plugins/csp2d/README_ch.md) | `ospf-kotlin-framework-csp2d` | 可复用二维套裁框架，包括双模式物料、断头台切分树、图案生成、主问题、余料良率与双路径求解。 |
-| [`ospf-rust-framework-gantt-scheduling`](crates/plugins/gantt-scheduling/README_ch.md) | `ospf-kotlin-framework-gantt-scheduling` | 可复用 Gantt 排程框架，包括 task、bunch、capacity、resource、produce 和 branch-and-price flow。 |
-| [`ospf-rust-framework-network-scheduling`](crates/plugins/network-scheduling/README_ch.md) | `ospf-kotlin-framework-network-scheduling` | 多重图/资源路径、Flow、建设/韧性、分配、完整路径编译、根树结构、广义流及 VRPTW 定价。 |
-| [`ospf-rust-framework-gantt-network`](crates/plugins/gantt-network/README_ch.md) | Gantt / Network 桥接 | 可选的共享路径、完整业务状态和列批次桥接，不拥有主模型或启动第二次全局求解。 |
+| [`ospf-rust-framework-geometry2d`](crates/frameworks/geometry2d/README_ch.md) | `ospf-kotlin-framework-geometry2d` | 共享二维量纲几何内核：量值算术、点与形状、放置、包围盒重叠、板材几何与刀缝，供 BPP2D 与 CSP2D 共用。 |
+| [`ospf-rust-framework-bpp`](crates/frameworks/bpp/README_ch.md) | `ospf-kotlin-framework-bpp` | 共享稀疏离散装载、有限容量整体占位、保全边的冲突、显式布局、原数值域复核及几何适配。 |
+| [`ospf-rust-framework-bpp1d`](crates/frameworks/bpp1d/README_ch.md) | `ospf-kotlin-framework-bpp1d` | 物理量精确需求装箱、有界组合列、统一 MILP/LP/final 注册、有限池列激活、严格 CSV、尾箱优化及一维离散装载。 |
+| [`ospf-rust-framework-bpp2d`](crates/frameworks/bpp2d/README_ch.md) | `ospf-kotlin-framework-bpp2d` | 可复用二维装箱框架，包括物品/板材/层模型、BLA 与块装载、候选层生成、层分配、装箱余料与列生成应用流程。 |
+| [`ospf-rust-framework-bpp3d`](crates/frameworks/bpp3d/README_ch.md) | `ospf-kotlin-framework-bpp3d` | 可复用三维装箱框架，包括 BPP3D context、层生成/分配、packing、CSV fixture 和 renderer DTO。 |
+| [`ospf-rust-framework-csp1d`](crates/frameworks/csp1d/README_ch.md) | `ospf-kotlin-framework-csp1d` | 可复用一维分切框架，包括 material、generation、produce、yield、waste、length 和 application flow。 |
+| [`ospf-rust-framework-csp2d`](crates/frameworks/csp2d/README_ch.md) | `ospf-kotlin-framework-csp2d` | 可复用二维套裁框架，包括双模式物料、断头台切分树、图案生成、主问题、余料良率与双路径求解。 |
+| [`ospf-rust-framework-gantt-scheduling`](crates/frameworks/gantt-scheduling/README_ch.md) | `ospf-kotlin-framework-gantt-scheduling` | 可复用 Gantt 排程框架，包括 task、bunch、capacity、resource、produce 和 branch-and-price flow。 |
+| [`ospf-rust-framework-network-scheduling`](crates/frameworks/network-scheduling/README_ch.md) | `ospf-kotlin-framework-network-scheduling` | 多重图/资源路径、Flow、建设/韧性、分配、完整路径编译、根树结构、广义流及 VRPTW 定价。 |
+| [`ospf-rust-framework-gantt-network`](crates/frameworks/gantt-network/README_ch.md) | Gantt / Network 桥接 | 可选的共享路径、完整业务状态和列批次桥接，不拥有主模型或启动第二次全局求解。 |
 | [`ospf-rust-example`](apps/example/README_ch.md) | `ospf-kotlin-example` | 可运行示例和迁移兼容 demo。 |
 
 ## 架构概览
@@ -56,6 +56,20 @@ workspace 采用分层结构：
 3. `framework` 增加求解编排、pipeline 抽象、shadow price、持久化契约和远程求解。
 4. 领域 framework crate 围绕 `MetaModel` 装配可复用业务领域建模 context。
 5. `example` 展示当前 public flow 与迁移兼容路径。
+
+workspace 同时把 `ospf-kotlin` 的两类插件与领域框架分开：
+
+| 目录 | 内容 | Kotlin 对应 |
+| --- | --- | --- |
+| `crates/base` … `crates/framework` | 基础层、core、framework | `ospf-kotlin-utils` … `ospf-kotlin-framework` |
+| `crates/core-plugin/*` | solver 插件（`scip`、`gurobi`） | `ospf-kotlin-core-plugin-*` |
+| `crates/framework-plugin/*` | framework 插件（`persistence`） | `ospf-kotlin-framework-plugin-*` |
+| `crates/frameworks/*` | 领域框架（`bpp`、`bpp1d`、…、`network-scheduling`） | 顶层的 `ospf-kotlin-framework-*` 模块 |
+
+Kotlin 把领域框架放在模块顶层，`*-plugin` 只留给可选集成模块。Rust 保留同一区分，但把领域框架收进
+`crates/frameworks`，避免 `*-plugin` 目录与框架混放。持久化仍是一个 crate + 每后端 feature，而不是
+Kotlin 的 `persistence-<backend>` 多模块：Cargo feature 已经能表达同一可选边界，无需把一族 translator
+拆成九个 crate。
 
 framework 领域 crate 应把优化语义放在 context / aggregation / model component / pipeline 层。application service 负责 solver 选择、生命周期、trace/KPI/render 组装和 recovery 边界。
 
@@ -83,7 +97,7 @@ crate 级 README 使用完整模板。内部 `src/domain`、`src/application`、
 
 ## 使用方式
 
-在本仓库开发时使用 path dependency；以下路径以 `crates/plugins/<name>` 下的插件 crate 为基准：
+在本仓库开发时使用 path dependency；以下路径以 `crates/frameworks/<name>` 下的插件 crate 为基准：
 
 ```toml
 [dependencies]
@@ -158,7 +172,7 @@ cargo test --workspace --features "ospf-rust-framework/async ospf-rust-framework
 本仓库正在把 Kotlin framework 能力迁移到 Rust。部分领域 crate 已暴露 Kotlin 对齐 public surface，但生命周期中的一些阶段仍使用 Rust 侧确定性、fake 或 feature-gated solver 路径。每个领域 crate README 会记录自身覆盖范围与已知差距。
 
 Network / Gantt 迁移以 Kotlin `907d28d`、`3dc1225` 为快照边界，当前范围及破坏性 API 调整见
-[迁移说明](crates/plugins/network-scheduling/MIGRATION_ch.md)。旧 `99/99` 交付状态不能用于
+[迁移说明](crates/frameworks/network-scheduling/MIGRATION_ch.md)。旧 `99/99` 交付状态不能用于
 宣布本轮完整迁移验收完成。共享图/路径、七类 Network 独立入口和可选 Gantt 桥接已接通；
 [Demo4](apps/example/src/framework/demo4/README_ch.md) 已通过既有 Gantt 生命周期连接恢复记录、
 RMP/完整对偶、路径增列和最终 MILP，不再只是 scaffold。Demo4 与 Demo5 的原生门禁仍依赖实际

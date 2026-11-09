@@ -9,14 +9,14 @@ description = "Shared native execution engine for OSPF HTTP and Node bindings"
 ospf-rust-bridge = { path = "../bridge" }
 ospf-rust-core = { path = "../../core", features = ["serde"] }
 ospf-rust-framework = { path = "../../framework", default-features = false }
-ospf-rust-framework-bpp = { path = "../../plugins/bpp" }
-ospf-rust-framework-bpp1d = { path = "../../plugins/bpp1d" }
-ospf-rust-framework-bpp2d = { path = "../../plugins/bpp2d" }
-ospf-rust-framework-gantt-scheduling = { path = "../../plugins/gantt-scheduling" }
-ospf-rust-framework-network-scheduling = { path = "../../plugins/network-scheduling" }
-ospf-rust-framework-bpp3d = { path = "../../plugins/bpp3d", features = ["serde"] }
-ospf-rust-framework-csp1d = { path = "../../plugins/csp1d" }
-ospf-rust-framework-csp2d = { path = "../../plugins/csp2d" }
+ospf-rust-framework-bpp = { path = "../../frameworks/bpp" }
+ospf-rust-framework-bpp1d = { path = "../../frameworks/bpp1d" }
+ospf-rust-framework-bpp2d = { path = "../../frameworks/bpp2d" }
+ospf-rust-framework-gantt-scheduling = { path = "../../frameworks/gantt-scheduling" }
+ospf-rust-framework-network-scheduling = { path = "../../frameworks/network-scheduling" }
+ospf-rust-framework-bpp3d = { path = "../../frameworks/bpp3d", features = ["serde"] }
+ospf-rust-framework-csp1d = { path = "../../frameworks/csp1d" }
+ospf-rust-framework-csp2d = { path = "../../frameworks/csp2d" }
 ospf-rust-core-plugin-gurobi = { path = "../../core-plugin/gurobi", version = "1.1.0", optional = true }
 ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", version = "1.1.0", optional = true }
 serde_json = "1"

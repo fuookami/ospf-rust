@@ -24,6 +24,6 @@ num-rational = "0.4"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
-ospf-rust-framework-bpp2d = { path = "../../plugins/bpp2d" }
-ospf-rust-framework-csp1d = { path = "../../plugins/csp1d" }
-ospf-rust-framework-csp2d = { path = "../../plugins/csp2d" }
+ospf-rust-framework-bpp2d = { path = "../../frameworks/bpp2d" }
+ospf-rust-framework-csp1d = { path = "../../frameworks/csp1d" }
+ospf-rust-framework-csp2d = { path = "../../frameworks/csp2d" }
