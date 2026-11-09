@@ -236,7 +236,7 @@ fn flow_configuration_rejects_unknown_duplicate_nonpositive_nonfinite_and_inexac
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_flow_controls_price_actual_internal_events_and_extract_nonbinary_overage() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let base = transfer_problem(1);
     let late = FlowControl { time_range: (at(12, 0), at(15, 0)), capacity: FlowControlCapacity { interval: Duration::hours(3), ..control(FlowControlScene::Departure, None).capacity },
         ..control(FlowControlScene::Departure, None) };

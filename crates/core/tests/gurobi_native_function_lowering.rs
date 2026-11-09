@@ -33,8 +33,8 @@ use ospf_rust_core::intermediate::{
 use ospf_rust_core::model::{
     ConstraintRelation, FunctionExpansionPolicy, LinearConstraint, LinearInequality, MetaModel,
 };
-use ospf_rust_core::solver::solvers::GurobiSolver;
-use ospf_rust_core::solver::solvers::gurobi::GurobiNativeContainer;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiNativeContainer;
 use ospf_rust_core::symbol::function::{
     AbsFunction, AbsStructure, AndFunction, BalanceTernaryzationFunction, BinaryzationFunction,
     BinaryzationMethod, ConditionBounds, ConditionRelation, ConditionalThenFunction, IfFunction,

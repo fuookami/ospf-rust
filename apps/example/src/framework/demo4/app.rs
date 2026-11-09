@@ -303,7 +303,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     {
         use std::collections::BTreeMap;
         use std::sync::Arc;
-        use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+        use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
         use super::application::{RecoveryApplicationConfiguration, RecoveryApplicationService};
         use super::domain::bunch_compilation::context::RecoveryMasterConfiguration;
         use super::domain::bunch_generation::problem::{RecoveryAircraftDomain, RecoveryProblem};

@@ -701,7 +701,7 @@ mod native {
     #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
     #[test]
     fn gurobi_native_milp_optimal_lp_duals_and_inventory_seed_recovery() {
-        use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+        use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
         verify_backend(&GurobiSolver::with_config(GurobiConfig::new().with_output(false)));
     }
 }

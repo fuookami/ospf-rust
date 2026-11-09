@@ -51,11 +51,6 @@ num-traits = "0.2.19"
 num-rational = "0.4.2"
 rand = { version = "0.10.2", optional = true }
 
-# 求解器绑定（可选）/ Solver bindings (optional)
-# 注意：使用 Gurobi 需要安装 Gurobi 软件和有效许可证
-# Note: Using Gurobi requires installing Gurobi software and valid license
-grb = { version = "3.0.1", optional = true }
-
 [features]
 default = []
 # 兼容保留：serde 相关派生已常开，该特性不再控制依赖开关。
@@ -70,24 +65,26 @@ big-decimal = []
 # 求解器支持 / Solver support
 # 启用 Gurobi 求解器（需要安装 Gurobi 软件和许可证）
 # Enable Gurobi solver (requires Gurobi software and license)
-# 使用 Gurobi 10.x / Use Gurobi 10.x
+# Gurobi 后端已迁移到 `ospf-rust-core-plugin-gurobi`；核心 crate 仅保留 feature 名，
+# 供测试与下游兼容，通过 dev-dependency 传递到插件 crate。
+# The Gurobi backend moved to `ospf-rust-core-plugin-gurobi`; this crate keeps the feature names
+# for tests and downstream compatibility, forwarding them through a dev-dependency.
 gurobi = ["gurobi10"]
-gurobi10 = ["dep:grb", "grb/gurobi10"]
-# 使用 Gurobi 11.x / Use Gurobi 11.x
-gurobi11 = ["dep:grb", "grb/gurobi11"]
-# 使用 Gurobi 12.x / Use Gurobi 12.x
-gurobi12 = ["dep:grb", "grb/gurobi12"]
+gurobi10 = ["ospf-rust-core-plugin-gurobi/gurobi10"]
+gurobi11 = ["ospf-rust-core-plugin-gurobi/gurobi11"]
+gurobi12 = ["ospf-rust-core-plugin-gurobi/gurobi12"]
 
 # SCIP 后端已迁移到 `ospf-rust-core-plugin-scip`；核心 crate 仅保留 feature 名，
 # 供测试与下游兼容，通过 dev-dependency 传递到插件 crate。
 # The SCIP backend moved to `ospf-rust-core-plugin-scip`; this crate keeps the feature names
 # for tests and downstream compatibility, forwarding them through a dev-dependency.
-scip = []
+scip = ["ospf-rust-core-plugin-scip/scip"]
 scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
 scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
 scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]
 
 [dev-dependencies]
+ospf-rust-core-plugin-gurobi = { path = "../core-plugin/gurobi" }
 ospf-rust-core-plugin-scip = { path = "../core-plugin/scip" }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
 serde_json = "1.0.151"

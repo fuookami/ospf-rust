@@ -9,12 +9,13 @@ description = "Runtime-independent OSPF language bridge and lossless model codec
 # IIS 的两种过滤算法都依赖后端 LP 求解，因此这里按后端暴露，而不是假装运行时无关。
 # Both IIS filters rely on a backend LP solve, so they are exposed per backend instead of pretending to be
 # runtime-independent.
-gurobi10 = ["ospf-rust-core/gurobi10"]
-gurobi11 = ["ospf-rust-core/gurobi11"]
-gurobi12 = ["ospf-rust-core/gurobi12"]
+gurobi10 = ["dep:ospf-rust-core-plugin-gurobi", "ospf-rust-core-plugin-gurobi/gurobi10"]
+gurobi11 = ["dep:ospf-rust-core-plugin-gurobi", "ospf-rust-core-plugin-gurobi/gurobi11"]
+gurobi12 = ["dep:ospf-rust-core-plugin-gurobi", "ospf-rust-core-plugin-gurobi/gurobi12"]
 
 [dependencies]
 ospf-rust-core = { path = "../../core", features = ["serde"] }
+ospf-rust-core-plugin-gurobi = { path = "../../core-plugin/gurobi", version = "1.1.0", optional = true }
 ospf-rust-math = { path = "../../math" }
 ospf-rust-framework = { path = "../../framework", features = ["remote-codec"] }
 ospf-rust-framework-bpp = { path = "../../plugins/bpp" }

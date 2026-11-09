@@ -11,7 +11,7 @@ use ospf_rust_core::model::{
     BasicMechanismModel, ConstraintRelation, Linear, LinearConstraint, LinearInequality,
     LinearMonomial, MechanismModel, ObjectiveCategory, QuadraticConstraint, QuadraticInequality,
 };
-use ospf_rust_core::solver::solvers::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{ContinuousVariableItem, VariableId, VariableType};
 

@@ -7,7 +7,8 @@ use ospf_rust_core::intermediate::LinearTriadModel;
 use ospf_rust_core::model::{
     ConstraintRelation, LinearConstraint, LinearInequality, MetaModel, ObjectiveCategory,
 };
-use ospf_rust_core::solver::{SolverOutput, SolverStatus, solvers::GurobiSolver};
+use ospf_rust_core::solver::{SolverOutput, SolverStatus};
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core::symbol::function::{
     AbsFunction, AndFunction, BalanceTernaryzationFunction, BinaryzationFunction,
     BivariateLinearPiecewiseFunction, ConditionBounds, ConditionRelation, IfElseFunction, IfThenFunction, InequalityFunction,

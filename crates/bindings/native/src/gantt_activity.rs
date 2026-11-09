@@ -79,8 +79,8 @@ fn execute(source: &ModelArtifact, configuration: GanttActivityOptions, options:
         }
         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
         ospf_rust_bridge::NativeBackend::Gurobi => {
-            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
-            use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
+            use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
             execute_with!(GurobiColumnGenerationSolver::with_solver(GurobiSolver::with_config(GurobiConfig::new().with_output(false))), source, configuration, options)
         }
         backend => Err(BridgeError::new("BackendNotCompiled", &format!("{} is not compiled into the native host", backend.id()))),

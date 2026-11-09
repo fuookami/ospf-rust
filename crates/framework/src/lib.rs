@@ -52,12 +52,6 @@ pub use solver::{
     SolveObservation, observe_report,
 };
 
-#[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-pub use solver::{
-    GurobiBendersDecompositionSolver, GurobiColumnGenerationSolver,
-    GurobiLinearBendersDecompositionSolver,
-};
-
 // 日志初始化 / Log initialization
 #[cfg(feature = "async")]
 pub fn init_logging() {

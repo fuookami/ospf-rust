@@ -1,7 +1,8 @@
 #![cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 
 use ospf_rust_core::model::intermediate::{BasicLinearTriadModel, SparseVector};
-use ospf_rust_core::solver::iis::{ConstraintSource, IISConfig, compute_iis};
+use ospf_rust_core::solver::iis::{ConstraintSource, IISConfig};
+use ospf_rust_core_plugin_gurobi::iis::compute_iis;
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{ContinuousVariableItem, VariableId, VariableType};
 

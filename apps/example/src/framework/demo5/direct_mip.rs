@@ -451,7 +451,7 @@ fn extract_sequences(
 mod tests {
     use super::{DirectMipPolicy, solve};
     use crate::framework::demo5::infrastructure::{first25_instance, native_solver_available};
-    use ospf_rust_core::solver::solvers::GurobiSolver;
+    use ospf_rust_core_plugin_gurobi::GurobiSolver;
     use ospf_rust_framework_network_scheduling::domain::vrp::{
         DistanceArcCostCalculator, DistanceAsTravelTimeCalculator, EuclideanDistanceCalculator,
     };

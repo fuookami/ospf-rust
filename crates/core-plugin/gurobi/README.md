@@ -1,17 +1,20 @@
-# Gurobi Solver Notes
+# Gurobi Solver Plugin Notes
 
 :us: English | :cn: [简体中文](README_ch.md)
 
 ## Prerequisites
 
-`ospf-rust-core` Gurobi integration requires:
+`ospf-rust-core-plugin-gurobi` requires:
 
 1. Gurobi installed on the machine.
 2. A valid Gurobi license.
-3. One of these cargo features enabled:
+3. Exactly one of these cargo features enabled:
 - `gurobi10`
 - `gurobi11`
 - `gurobi12`
+
+The crate also hosts the Gurobi-backed IIS algorithms and the framework Gurobi extensions; generic
+IIS algorithms and data structures stay in `ospf-rust-core`.
 
 ## Key Capabilities
 
@@ -127,6 +130,7 @@ Implementation notes:
 Acceptance for this path is a real solve (so the licence above is required):
 
 ```bash
+cargo test -p ospf-rust-core-plugin-gurobi --features gurobi10
 cargo test -p ospf-rust-core --features gurobi10 --test gurobi_native_function_lowering
 cargo test -p ospf-rust-core --features gurobi10 --test native_release_matrix -- --include-ignored
 ```
@@ -142,6 +146,7 @@ README for which symbols expose a structure today.
 From workspace root:
 
 ```bash
+cargo test -p ospf-rust-core-plugin-gurobi --features gurobi10 -- --nocapture
 cargo test -p ospf-rust-core gurobi_native_observer_integration --features gurobi10 -- --nocapture
 cargo test -p ospf-rust-core gurobi_telemetry_callback_integration --features gurobi10 -- --nocapture
 cargo test -p ospf-rust-core gurobi_stage_callback_integration --features gurobi10 -- --nocapture

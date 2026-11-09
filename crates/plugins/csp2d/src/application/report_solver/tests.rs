@@ -198,6 +198,6 @@ fn real_scip_masters_preserve_stock_duals_and_original_reports() {
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 #[test]
 fn real_gurobi_masters_preserve_stock_duals_and_original_reports() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     real_backend(Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))));
 }

@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use ospf_rust_core::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
 use ospf_rust_core::model::ObjectiveCategory;
-use ospf_rust_core::solver::solvers::GurobiSolver;
-use ospf_rust_core::solvers::gurobi::{
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::{
     GurobiConfig, GurobiNativeControl, GurobiNativeObserver, GurobiNativeWhere,
 };
 use ospf_rust_core::token::Token;

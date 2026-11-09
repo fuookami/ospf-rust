@@ -263,7 +263,7 @@ fn automatic_initial_columns_use_the_existing_gantt_initial_milp_and_preserve_se
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_automatic_seed_original_fleet_and_locks_share_the_real_gantt_loop() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let source = fresh();
     let original = complete(&source);
     let problem = Arc::new(source.with_original_fleet_balance(std::slice::from_ref(&original), Some(500.0)).unwrap()
@@ -287,7 +287,7 @@ fn demo4_gurobi_automatic_seed_original_fleet_and_locks_share_the_real_gantt_loo
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_executed_history_sets_actual_origin_without_reselecting_or_recharging_flight_allowances() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     use crate::framework::demo4::domain::rule::model::{FlowControl, FlowControlCapacity, FlowControlScene};
     let source = fresh();
     let original = complete(&source);

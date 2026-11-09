@@ -1,17 +1,20 @@
-# Gurobi 求解器说明
+# Gurobi 求解器插件说明
 
 :us: [English](README.md) | :cn: 简体中文
 
 ## 前置依赖
 
-`ospf-rust-core` 的 Gurobi 集成需要：
+`ospf-rust-core-plugin-gurobi` 需要：
 
 1. 本机已安装 Gurobi。
 2. 已配置有效 Gurobi License。
-3. Cargo feature 启用以下之一：
+3. 启用且仅启用以下 Cargo feature 之一：
 - `gurobi10`
 - `gurobi11`
 - `gurobi12`
+
+本 crate 同时承载基于 Gurobi 的 IIS 算法与 framework Gurobi 扩展；通用 IIS 算法与数据结构
+仍位于 `ospf-rust-core`。
 
 ## 主要能力
 
@@ -112,6 +115,7 @@ SDK 模型读取输入列的**实际界**（`Model::get_obj_attr(attr::LB/UB, &v
 该路径的验收必须是**真实求解**（因此需要上面的许可证）：
 
 ```bash
+cargo test -p ospf-rust-core-plugin-gurobi --features gurobi10
 cargo test -p ospf-rust-core --features gurobi10 --test gurobi_native_function_lowering
 cargo test -p ospf-rust-core --features gurobi10 --test native_release_matrix -- --include-ignored
 ```
@@ -125,6 +129,7 @@ cargo test -p ospf-rust-core --features gurobi10 --test native_release_matrix --
 在 workspace 根目录执行：
 
 ```bash
+cargo test -p ospf-rust-core-plugin-gurobi --features gurobi10 -- --nocapture
 cargo test -p ospf-rust-core gurobi_native_observer_integration --features gurobi10 -- --nocapture
 cargo test -p ospf-rust-core gurobi_telemetry_callback_integration --features gurobi10 -- --nocapture
 cargo test -p ospf-rust-core gurobi_stage_callback_integration --features gurobi10 -- --nocapture

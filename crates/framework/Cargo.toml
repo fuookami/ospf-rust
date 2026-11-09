@@ -45,9 +45,6 @@ num-rational = "0.4.2"
 # 日志 / Logging
 log = "0.4.34"
 
-# SeaORM 持久化后端 / SeaORM persistence backend
-sea-orm = { version = "2.0.2", default-features = false, optional = true }
-
 # HTTP 客户端 / HTTP client
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"], optional = true }
 
@@ -55,54 +52,62 @@ reqwest = { version = "0.13.4", default-features = false, features = ["json", "r
 default = []
 serde = ["dep:serde", "dep:serde_json", "ospf-rust-core/serde"]
 experiment = ["serde", "dep:serde_json"]
-async = ["dep:tokio", "ospf-rust-core-plugin-scip/async"]
+async = ["dep:tokio", "ospf-rust-core-plugin-scip/async", "ospf-rust-core-plugin-gurobi/async"]
 nightly = ["ospf-rust-core/nightly"]
 big-rational = ["ospf-rust-core/big-rational"]
 big-decimal = ["ospf-rust-core/big-decimal"]
 
 # 求解器支持 / Solver support
-# 启用 Gurobi 求解器（需要安装 Gurobi 软件和许可证）
-# Enable Gurobi solver (requires Gurobi software and license)
+# Gurobi 扩展与核心适配器已迁移到 `ospf-rust-core-plugin-gurobi`；framework 仅保留
+# feature 名供测试与下游兼容，通过 dev-dependency 使用插件 crate。
+# Gurobi extensions and the core adapter moved to `ospf-rust-core-plugin-gurobi`; framework
+# keeps the feature names for tests/downstream compatibility and uses the plugin as a dev-dependency.
 gurobi = ["gurobi10"]
-gurobi10 = ["ospf-rust-core/gurobi10"]
-gurobi11 = ["ospf-rust-core/gurobi11"]
-gurobi12 = ["ospf-rust-core/gurobi12"]
+gurobi10 = ["ospf-rust-core-plugin-gurobi/gurobi10"]
+gurobi11 = ["ospf-rust-core-plugin-gurobi/gurobi11"]
+gurobi12 = ["ospf-rust-core-plugin-gurobi/gurobi12"]
 
 # SCIP 扩展与核心适配器已迁移到 `ospf-rust-core-plugin-scip`；framework 仅保留
 # feature 名供测试与下游兼容，通过 dev-dependency 使用插件 crate。
 # SCIP extensions and the core adapter moved to `ospf-rust-core-plugin-scip`; framework keeps
 # the feature names for tests/downstream compatibility and uses the plugin as a dev-dependency.
-scip = []
+scip = ["ospf-rust-core-plugin-scip/scip"]
 scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
 scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
 scip-quadratic = ["scip", "ospf-rust-core-plugin-scip/scip-quadratic"]
 
 # 持久化支持 / Persistence support
+# 持久化支持 / Persistence support
+# 各后端 translator 已迁移到 `ospf-rust-framework-plugin-persistence`；framework 保留 feature 名，
+# 既用于 `PersistenceBackendFeatures` 快照，也转发到插件 dev-dependency。
+# The backend translators moved to `ospf-rust-framework-plugin-persistence`; framework keeps the
+# feature names both for the `PersistenceBackendFeatures` snapshot and for forwarding to the plugin
+# dev-dependency.
 persistence = []
 
 # SQLx 持久化后端 / SQLx persistence backend
-persistence-sqlx = ["persistence"]
-persistence-sqlx-postgres = ["persistence-sqlx"]
-persistence-sqlx-mysql = ["persistence-sqlx"]
-persistence-sqlx-sqlite = ["persistence-sqlx"]
+persistence-sqlx = ["persistence", "ospf-rust-framework-plugin-persistence/persistence-sqlx"]
+persistence-sqlx-postgres = ["persistence-sqlx", "ospf-rust-framework-plugin-persistence/persistence-sqlx-postgres"]
+persistence-sqlx-mysql = ["persistence-sqlx", "ospf-rust-framework-plugin-persistence/persistence-sqlx-mysql"]
+persistence-sqlx-sqlite = ["persistence-sqlx", "ospf-rust-framework-plugin-persistence/persistence-sqlx-sqlite"]
 
 # Diesel 持久化后端 / Diesel persistence backend
-persistence-diesel = ["persistence"]
-persistence-diesel-postgres = ["persistence-diesel"]
-persistence-diesel-mysql = ["persistence-diesel"]
-persistence-diesel-sqlite = ["persistence-diesel"]
+persistence-diesel = ["persistence", "ospf-rust-framework-plugin-persistence/persistence-diesel"]
+persistence-diesel-postgres = ["persistence-diesel", "ospf-rust-framework-plugin-persistence/persistence-diesel-postgres"]
+persistence-diesel-mysql = ["persistence-diesel", "ospf-rust-framework-plugin-persistence/persistence-diesel-mysql"]
+persistence-diesel-sqlite = ["persistence-diesel", "ospf-rust-framework-plugin-persistence/persistence-diesel-sqlite"]
 
 # SeaORM 持久化后端 / SeaORM persistence backend
-persistence-sea-orm = ["persistence", "dep:sea-orm"]
+persistence-sea-orm = ["persistence", "ospf-rust-framework-plugin-persistence/persistence-sea-orm"]
 
 # 其他 Rust ORM/SQL 框架后端 / Other Rust ORM/SQL framework backends
-persistence-toasty = ["persistence"]
-persistence-rbatis = ["persistence-sqlx"]
-persistence-cornucopia = ["persistence"]
+persistence-toasty = ["persistence", "ospf-rust-framework-plugin-persistence/persistence-toasty"]
+persistence-rbatis = ["persistence-sqlx", "ospf-rust-framework-plugin-persistence/persistence-rbatis"]
+persistence-cornucopia = ["persistence", "ospf-rust-framework-plugin-persistence/persistence-cornucopia"]
 
 # 非关系型持久化后端 / Non-relational persistence backends
-persistence-mongodb = ["persistence", "serde", "dep:serde_json"]
-persistence-redis = ["persistence", "serde", "dep:serde_json"]
+persistence-mongodb = ["persistence", "serde", "dep:serde_json", "ospf-rust-framework-plugin-persistence/persistence-mongodb"]
+persistence-redis = ["persistence", "serde", "dep:serde_json", "ospf-rust-framework-plugin-persistence/persistence-redis"]
 
 # 远程求解客户端 / Remote solver client
 #
@@ -120,6 +125,7 @@ remote-solver = ["dep:tokio", "remote-codec"]
 remote-solver-http-reqwest = ["remote-solver", "dep:reqwest"]
 
 [dev-dependencies]
+ospf-rust-core-plugin-gurobi = { path = "../core-plugin/gurobi" }
 ospf-rust-core-plugin-scip = { path = "../core-plugin/scip" }
+ospf-rust-framework-plugin-persistence = { path = "../framework-plugin/persistence" }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
-sea-orm = { version = "2.0.2", default-features = false, features = ["macros", "mock"] }

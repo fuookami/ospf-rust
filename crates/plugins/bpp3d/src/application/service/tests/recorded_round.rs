@@ -258,6 +258,6 @@ fn recorded_scip_round_keeps_actual_generated_block_and_failure_evidence() {
 #[cfg(all(feature = "gurobi10", not(feature = "async")))]
 #[test]
 fn recorded_gurobi_round_keeps_actual_generated_block_and_failure_evidence() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     recorded_actual_round(std::sync::Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))));
 }

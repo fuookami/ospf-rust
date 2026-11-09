@@ -22,13 +22,6 @@
 //!   - [`model::callback`] - 回调模型层（Callback Model Layer）
 //! - [`solver`] - 求解器接口（Solver Interface）
 
-#[cfg(any(
-    all(feature = "gurobi10", feature = "gurobi11"),
-    all(feature = "gurobi10", feature = "gurobi12"),
-    all(feature = "gurobi11", feature = "gurobi12"),
-))]
-compile_error!("Only one Gurobi version feature can be enabled: gurobi10, gurobi11, or gurobi12.");
-
 pub mod analysis;
 pub mod error;
 pub mod model;

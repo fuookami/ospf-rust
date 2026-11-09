@@ -10,7 +10,7 @@ use std::time::Duration;
 #[cfg(feature = "demo5-gurobi-bp")]
 use ospf_rust_core::solver::TerminationReason;
 #[cfg(feature = "demo5-gurobi-bp")]
-use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
 #[cfg(feature = "demo5-gurobi-bp")]
 use ospf_rust_example::framework::demo5::application::solve_instance;
 #[cfg(feature = "demo5-gurobi-bp")]

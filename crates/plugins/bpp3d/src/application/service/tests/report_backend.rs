@@ -104,6 +104,6 @@
     #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
     #[test]
     fn actual_gurobi_report_backend_preserves_bpp3d_lp_certificates_generation_refresh_and_final_reports() {
-        use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+        use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
         run_actual_report_backend(std::sync::Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))));
     }

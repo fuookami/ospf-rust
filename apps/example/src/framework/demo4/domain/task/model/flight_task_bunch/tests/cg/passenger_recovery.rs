@@ -241,7 +241,7 @@ fn passenger_recovery_application_uses_the_real_gantt_loop_without_a_private_pas
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_passenger_recovery_prices_dynamic_cabin_capacity_and_extracts_actual_changes() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let problem = Arc::new(source(0, 1, false).with_passenger_recovery(configuration(Some(50.0), Some(3.0))).unwrap());
     let report = RecoveryApplicationService::new(GurobiColumnGenerationSolver::new()).solve(problem, RecoveryApplicationConfiguration {
         column_generation: ColumnGenerationPolicy { max_iterations: 5, ..Default::default() }, ..Default::default()

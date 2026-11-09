@@ -172,7 +172,7 @@ fn fleet_row_collision_rolls_back_the_whole_column_transaction() {
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_fleet_shortage_uses_actual_terminal_cost_and_full_rmp_rows() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let problem = Arc::new(fresh().with_fleet_balance(vec![checkpoint("A", Some(500.0))]).unwrap());
     let report = RecoveryApplicationService::new(GurobiColumnGenerationSolver::new()).solve(problem, RecoveryApplicationConfiguration {
         column_generation: ColumnGenerationPolicy { max_iterations: 5, ..Default::default() }, ..Default::default()

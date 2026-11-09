@@ -202,7 +202,7 @@ The same pattern is available for linear/quadratic MetaModel solver extensions a
 - `nightly`: forward nightly callable support from `ospf-rust-core`.
 - `big-rational`: enable `BigRational` `MetaModel` value type support.
 - `big-decimal`: enable `BigDecimal` `MetaModel` value type support.
-- `gurobi`, `gurobi10`, `gurobi11`, `gurobi12`: enable Gurobi backend forwarding through core.
+- `gurobi`, `gurobi10`, `gurobi11`, `gurobi12`: Gurobi test compatibility features. They forward to the `ospf-rust-core-plugin-gurobi` dev-dependency; normal consumers should depend on the plugin crate directly.
 - `scip`, `scip-bundled`, `scip-from-source`, `scip-quadratic`: SCIP test compatibility features. They forward to the `ospf-rust-core-plugin-scip` dev-dependency; normal consumers should depend on the plugin crate directly.
 - `persistence*`: enable persistence contracts and backend-specific translators.
 - `remote-solver`: enable async remote solver domain models, ports, client orchestration, local object storage, and model serializers.
@@ -284,16 +284,18 @@ Theta box lower bounds, anchored RHS values and source objectives use exact bina
 arithmetic too. Lower bounds round down and incumbent objectives round up. An anchored RHS that
 cannot be represented exactly as finite f64 stops Unsupported before solving a different system.
 
-The Gurobi framework adapter is compiled only when its feature is enabled on `ospf-rust-framework`, and the feature is forwarded to `ospf-rust-core`. The SCIP adapter and framework extension moved to `ospf-rust-core-plugin-scip`.
+The Gurobi and SCIP framework adapters moved to the plugin crates `ospf-rust-core-plugin-gurobi` and
+`ospf-rust-core-plugin-scip`. Framework keeps the `gurobi*` / `scip*` feature names for tests and
+downstream compatibility, forwarding them through dev-dependencies.
 
 Framework extensions are in:
 
-1. `src/solver/gurobi_extension.rs`
+1. `ospf-rust-core-plugin-gurobi`: `src/extension.rs` (Gurobi column generation and Benders)
 2. `ospf-rust-core-plugin-scip`: `src/extension.rs` (SCIP column generation and Benders)
 
 Backend setup details:
 
-1. Gurobi: [`../core/src/solver/solvers/gurobi/README.md`](../core/src/solver/solvers/gurobi/README.md)
+1. Gurobi: [`../core-plugin/gurobi/README.md`](../core-plugin/gurobi/README.md)
 2. SCIP: [`../core-plugin/scip/README.md`](../core-plugin/scip/README.md)
 
 For LP and linearized subproblems, framework first uses backend-provided row duals/Farkas certificates when they are present and consistent. For true quadratic subproblems, backend support for complete dual/Farkas certificates is limited, so a result may be returned without a complete quadratic Benders cut.

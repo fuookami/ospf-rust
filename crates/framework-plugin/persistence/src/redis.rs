@@ -143,6 +143,7 @@ impl RedisKeyValueHelper {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ospf_rust_framework::persistence::*;
     use serde_json::json;
 
     #[test]

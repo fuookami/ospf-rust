@@ -476,7 +476,7 @@ fn recovery_application_preserves_normal_limits_and_rejects_technical_or_illegal
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_nonempty_internal_events_and_effective_link_match_offline_oracle() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let base = problem(CostCalculator);
     let linked = Arc::new(RecoveryProblem::new(base.configuration().clone(), base.domains().to_vec(),
         vec![Link { split_cost: None, from_task: "F1".into(), to_task: "F2".into(), link_type: LinkType::Connecting { min_connection_time: Duration::minutes(45) } }], CostCalculator).unwrap());
@@ -502,7 +502,7 @@ fn demo4_gurobi_nonempty_internal_events_and_effective_link_match_offline_oracle
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_cross_aircraft_passengers_drive_real_rmp_duals_and_new_columns() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let problem = transfer_problem(60);
     let seed = vec![single(&problem, 0, 0), single(&problem, 1, 2)];
     let report = RecoveryApplicationService::new(GurobiColumnGenerationSolver::new()).solve(problem.clone(), RecoveryApplicationConfiguration {

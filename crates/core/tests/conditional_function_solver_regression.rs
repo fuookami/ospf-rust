@@ -17,7 +17,7 @@ use ospf_rust_core::model::intermediate::LinearTriadModel;
 use ospf_rust_core::solver::LinearSolver;
 use ospf_rust_core::solver::SolverOutput;
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-use ospf_rust_core::solver::solvers::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 #[cfg(feature = "scip")]
 use ospf_rust_core_plugin_scip::SCIPSolver;
 use ospf_rust_core::symbol::flatten::{Linear, LinearMonomial};

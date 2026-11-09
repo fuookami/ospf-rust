@@ -8,7 +8,7 @@ use ospf_rust_core::model::{
     ConstraintRelation, LinearConstraint, LinearInequality, MetaModel, ObjectiveCategory,
     QuadraticConstraint, QuadraticInequality, SubObjective,
 };
-use ospf_rust_core::solver::solvers::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core::symbol::function::{
     BinaryzationMethod, ConditionBounds, ConditionRelation, InequalityKind, Point2, Point3,
     Triangle3, QuadraticBinaryzationFunction, QuadraticBivariateLinearPiecewiseFunction,

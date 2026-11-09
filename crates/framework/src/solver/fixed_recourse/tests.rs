@@ -300,7 +300,7 @@ mod native {
     #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
     #[test]
     fn gurobi_fixed_recourse_optimal_dual_and_farkas_are_independent_gates() {
-        use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+        use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
         verify(&GurobiSolver::with_config(GurobiConfig::new().with_output(false)));
     }
 }

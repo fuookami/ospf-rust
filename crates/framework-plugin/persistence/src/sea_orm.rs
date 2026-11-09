@@ -15,7 +15,7 @@ use sea_orm::{
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 
-use crate::persistence::{
+use ospf_rust_framework::persistence::{
     NullsOrder, OrderSpec, PersistenceFieldResolver, QueryExecutionErrorCategory, QuerySource,
     RelationalQueryFailure, RelationalQueryPlan, RepositoryQuery, SetFromExpression, SetNull,
     SetValue, SortBy, SortDirection, SortItem, UnsupportedPredicatePolicy, UpdateAssignment,
@@ -425,15 +425,15 @@ fn sort_by_from_query_orders(orders: &[OrderSpec]) -> SortBy {
                 SortItem::new(
                     order.column.path.clone(),
                     match order.direction {
-                        crate::persistence::query::SortDirection::Ascending => SortDirection::Asc,
-                        crate::persistence::query::SortDirection::Descending => SortDirection::Desc,
+                        ospf_rust_framework::persistence::query::SortDirection::Ascending => SortDirection::Asc,
+                        ospf_rust_framework::persistence::query::SortDirection::Descending => SortDirection::Desc,
                     },
                     match order.nulls {
-                        crate::persistence::query::NullsOrder::First => {
+                        ospf_rust_framework::persistence::query::NullsOrder::First => {
                             Some(NullsOrder::NullsFirst)
                         }
-                        crate::persistence::query::NullsOrder::Last => Some(NullsOrder::NullsLast),
-                        crate::persistence::query::NullsOrder::Unspecified => None,
+                        ospf_rust_framework::persistence::query::NullsOrder::Last => Some(NullsOrder::NullsLast),
+                        ospf_rust_framework::persistence::query::NullsOrder::Unspecified => None,
                     },
                 )
             })
@@ -928,7 +928,8 @@ fn expression_value_to_value(value: &ExpressionValue) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{
         PredicateSchema, SortBy, UpdateAssignments, lower, path, runtime_field,
     };
     use ospf_rust_math::symbol::ScalarExpressionDsl;

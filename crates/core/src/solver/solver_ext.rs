@@ -21,7 +21,7 @@ use crate::model::mechanism::{
 use crate::model::{MetaModel, ModelBuildingStatusCallback};
 use crate::model::{Objective, SubObjective};
 use crate::solver::iis::LinearIISModel;
-use crate::solver::iis::{IISConfig, compute_iis};
+use crate::solver::iis::{IISConfig, compute_iis_with_solver};
 use crate::symbol::flatten::{Linear, LinearMonomial, Quadratic, QuadraticMonomial};
 use crate::token::{AnyVariable, Token, TokenVariableData};
 use std::collections::BTreeSet;
@@ -1182,6 +1182,7 @@ pub trait SolverExt: Solver {
         iis_config: &IISConfig,
     ) -> Result<SolveReportWithIIS<V>>
     where
+        Self: Sized,
         V: SolveValue + Add<Output = V>,
     {
         self.solve_report_with_options_and_iis(model, &SolveOptions::default(), iis_config)
@@ -1195,6 +1196,7 @@ pub trait SolverExt: Solver {
         iis_config: &IISConfig,
     ) -> Result<SolveReportWithIIS<V>>
     where
+        Self: Sized,
         V: SolveValue + Add<Output = V>,
     {
         let mechanism_model = model
@@ -1221,11 +1223,11 @@ pub trait SolverExt: Solver {
             let result = if mechanism_model.num_quadratic_constraints() > 0 {
                 let quadratic_model =
                     mechanism_model.try_into_quadratic_tetrad_model_with_status_callback(None)?;
-                compute_iis(&quadratic_model.basic.linear, iis_config)
+                compute_iis_with_solver(&quadratic_model.basic.linear, iis_config, self)
             } else {
                 let linear_model =
                     mechanism_model.try_into_linear_triad_model_with_status_callback(None)?;
-                compute_iis(&linear_model, iis_config)
+                compute_iis_with_solver(&linear_model, iis_config, self)
             };
             match result {
                 Ok(iis) => {
@@ -1254,6 +1256,7 @@ pub trait SolverExt: Solver {
         iis_config: &IISConfig,
     ) -> Result<SolverOutputWithIIS>
     where
+        Self: Sized,
         V: SolveValue + Add<Output = V>,
     {
         self.solve_with_options_and_iis(model, &SolveOptions::default(), iis_config)
@@ -1267,6 +1270,7 @@ pub trait SolverExt: Solver {
         iis_config: &IISConfig,
     ) -> Result<SolverOutputWithIIS>
     where
+        Self: Sized,
         V: SolveValue + Add<Output = V>,
     {
         let mechanism_model = model
@@ -1283,7 +1287,7 @@ pub trait SolverExt: Solver {
                 &quadratic_model,
             )?;
             let iis = if report.problem_status == super::ProblemStatus::Infeasible {
-                match compute_iis(&quadratic_model.basic.linear, iis_config) {
+                match compute_iis_with_solver(&quadratic_model.basic.linear, iis_config, self) {
                     Ok(iis) => {
                         attach_iis_diagnostics(&mut report, &iis);
                         Some(iis)
@@ -1313,7 +1317,7 @@ pub trait SolverExt: Solver {
             &linear_model,
         )?;
         let iis = if report.problem_status == super::ProblemStatus::Infeasible {
-            match compute_iis(linear_model.as_basic(), iis_config) {
+            match compute_iis_with_solver(linear_model.as_basic(), iis_config, self) {
                 Ok(iis) => {
                     attach_iis_diagnostics(&mut report, &iis);
                     Some(iis)
@@ -1340,12 +1344,15 @@ pub trait SolverExt: Solver {
         &self,
         model: &LinearTriadModel,
         iis_config: &IISConfig,
-    ) -> Result<SolverOutputWithIIS> {
+    ) -> Result<SolverOutputWithIIS>
+    where
+        Self: Sized,
+    {
         let output = self.solve_linear(model)?;
         let mut report =
             attach_linear_model_mapping(solver_output_to_report(output.clone())?, model)?;
         let iis = if report.problem_status == super::ProblemStatus::Infeasible {
-            match compute_iis(model.as_basic(), iis_config) {
+            match compute_iis_with_solver(model.as_basic(), iis_config, self) {
                 Ok(iis) => {
                     attach_iis_diagnostics(&mut report, &iis);
                     Some(iis)
@@ -1371,12 +1378,15 @@ pub trait SolverExt: Solver {
         &self,
         model: &QuadraticTetradModel,
         iis_config: &IISConfig,
-    ) -> Result<SolverOutputWithIIS> {
+    ) -> Result<SolverOutputWithIIS>
+    where
+        Self: Sized,
+    {
         let output = self.solve_quadratic(model)?;
         let mut report =
             attach_quadratic_model_mapping(solver_output_to_report(output.clone())?, model)?;
         let iis = if report.problem_status == super::ProblemStatus::Infeasible {
-            match compute_iis(&model.basic.linear, iis_config) {
+            match compute_iis_with_solver(&model.basic.linear, iis_config, self) {
                 Ok(iis) => {
                     attach_iis_diagnostics(&mut report, &iis);
                     Some(iis)

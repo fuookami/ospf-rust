@@ -10,25 +10,25 @@
 //! - This directly forwards core `GurobiConfig` semantics.
 //! - 如需多个 handler，请在单个 native callback 内部分发。
 use ospf_rust_core::model::mechanism::MechanismModel;
-use ospf_rust_core::solver::solvers::GurobiSolver as CoreGurobiSolver;
-use ospf_rust_core::solver::solvers::gurobi::{
-    GurobiConfig, GurobiEnvCallback, GurobiNativeCallback, GurobiNativeControl,
-    GurobiNativeObserver, GurobiNumericDiagnosticsCallback, GurobiStage, GurobiStageCallback,
+use crate::GurobiSolver as CoreGurobiSolver;
+use crate::{
+    GurobiConfig, GurobiEnvCallback, GurobiNativeCallback, GurobiNativeObserver,
+    GurobiNumericDiagnosticsCallback, GurobiStage, GurobiStageCallback,
     GurobiTelemetryCallback,
 };
 use ospf_rust_core::variable::VariableId;
 use std::sync::Arc;
 
-use super::FrameworkSolveOptions;
-use super::column_generation_solver::{ColumnGenerationSolver, FeasibleSolution, LPResult};
-use super::core_extensions::{
+use ospf_rust_framework::solver::FrameworkSolveOptions;
+use ospf_rust_framework::solver::column_generation_solver::{ColumnGenerationSolver, FeasibleSolution, LPResult};
+use ospf_rust_framework::solver::core_extensions::{
     BendersCutContext, CoreColumnGenerationAdapter, CoreLinearBendersAdapter,
     CoreQuadraticBendersAdapter,
 };
-use super::linear_benders_decomposition_solver::{
+use ospf_rust_framework::solver::linear_benders_decomposition_solver::{
     LinearBendersDecompositionSolver, LinearCut, LinearSubResult,
 };
-use super::quadratic_benders_decomposition_solver::{
+use ospf_rust_framework::solver::quadratic_benders_decomposition_solver::{
     QuadraticBendersDecompositionSolver, QuadraticCut, QuadraticSubResult,
 };
 use ospf_rust_core::solver::SolveReport;
@@ -1325,6 +1325,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+    use crate::GurobiNativeControl;
 
     #[test]
     fn gurobi_column_generation_solver_forwards_telemetry_config() {
@@ -1704,8 +1705,8 @@ mod tests {
             .stage_callback
             .as_ref()
             .expect("stage callback should be registered");
-        let status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterModeling,
+        let status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterModeling,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1736,8 +1737,8 @@ mod tests {
             .as_ref()
             .expect("stage callback should be registered");
 
-        let status_not_match = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterModeling,
+        let status_not_match = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterModeling,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1749,8 +1750,8 @@ mod tests {
         callback(&status_not_match).expect("stage callback should succeed for non-match stage");
         assert_eq!(counter.load(Ordering::SeqCst), 0);
 
-        let status_match = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterFailure,
+        let status_match = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterFailure,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1790,8 +1791,8 @@ mod tests {
             .as_ref()
             .expect("quadratic stage callback should be registered");
 
-        let status_not_match = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterModeling,
+        let status_not_match = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterModeling,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1805,8 +1806,8 @@ mod tests {
             .expect("quadratic callback should ignore non-match stage");
         assert_eq!(counter.load(Ordering::SeqCst), 0);
 
-        let status_match = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterFailure,
+        let status_match = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterFailure,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1859,8 +1860,8 @@ mod tests {
             .as_ref()
             .expect("stage callback should be registered");
 
-        let configuration_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::Configuration,
+        let configuration_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::Configuration,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1875,8 +1876,8 @@ mod tests {
         assert_eq!(analyzing_counter.load(Ordering::SeqCst), 0);
         assert_eq!(failure_counter.load(Ordering::SeqCst), 0);
 
-        let modeling_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterModeling,
+        let modeling_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterModeling,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1891,8 +1892,8 @@ mod tests {
         assert_eq!(analyzing_counter.load(Ordering::SeqCst), 0);
         assert_eq!(failure_counter.load(Ordering::SeqCst), 0);
 
-        let analyzing_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AnalyzingSolution,
+        let analyzing_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AnalyzingSolution,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1907,8 +1908,8 @@ mod tests {
         assert_eq!(analyzing_counter.load(Ordering::SeqCst), 1);
         assert_eq!(failure_counter.load(Ordering::SeqCst), 0);
 
-        let failure_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterFailure,
+        let failure_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterFailure,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1949,8 +1950,8 @@ mod tests {
             .as_ref()
             .expect("stage callback should be registered");
 
-        let configuration_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::Configuration,
+        let configuration_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::Configuration,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1963,8 +1964,8 @@ mod tests {
         assert_eq!(modeling_counter.load(Ordering::SeqCst), 0);
         assert_eq!(failure_counter.load(Ordering::SeqCst), 0);
 
-        let modeling_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterModeling,
+        let modeling_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterModeling,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -1977,8 +1978,8 @@ mod tests {
         assert_eq!(modeling_counter.load(Ordering::SeqCst), 1);
         assert_eq!(failure_counter.load(Ordering::SeqCst), 0);
 
-        let failure_status = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterFailure,
+        let failure_status = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterFailure,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -2018,8 +2019,8 @@ mod tests {
             .as_ref()
             .expect("quadratic stage callback should be registered");
 
-        let status_not_match = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterModeling,
+        let status_not_match = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterModeling,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,
@@ -2033,8 +2034,8 @@ mod tests {
             .expect("quadratic callback should ignore non-match stage");
         assert_eq!(counter.load(Ordering::SeqCst), 0);
 
-        let status_match = ospf_rust_core::solver::solvers::gurobi::GurobiStageStatus {
-            stage: ospf_rust_core::solver::solvers::gurobi::GurobiStage::AfterFailure,
+        let status_match = crate::GurobiStageStatus {
+            stage: crate::GurobiStage::AfterFailure,
             solver_status: None,
             solve_time: std::time::Duration::from_secs(0),
             objective_value: None,

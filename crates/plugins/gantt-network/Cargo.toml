@@ -12,9 +12,9 @@ serde = ["ospf-rust-framework/serde", "ospf-rust-framework-gantt-scheduling/serd
 async = ["ospf-rust-framework/async", "ospf-rust-framework-gantt-scheduling/async", "ospf-rust-framework-network-scheduling/async"]
 big-decimal = ["ospf-rust-framework-gantt-scheduling/big-decimal", "ospf-rust-framework-network-scheduling/big-decimal"]
 big-rational = ["ospf-rust-framework-gantt-scheduling/big-rational", "ospf-rust-framework-network-scheduling/big-rational"]
-gurobi10 = ["ospf-rust-framework-gantt-scheduling/gurobi10", "ospf-rust-framework-network-scheduling/gurobi10"]
-gurobi11 = ["ospf-rust-framework-gantt-scheduling/gurobi11", "ospf-rust-framework-network-scheduling/gurobi11"]
-gurobi12 = ["ospf-rust-framework-gantt-scheduling/gurobi12", "ospf-rust-framework-network-scheduling/gurobi12"]
+gurobi10 = ["ospf-rust-core-plugin-gurobi/gurobi10"]
+gurobi11 = ["ospf-rust-core-plugin-gurobi/gurobi11"]
+gurobi12 = ["ospf-rust-core-plugin-gurobi/gurobi12"]
 scip = ["ospf-rust-core-plugin-scip/scip"]
 scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
 scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]
@@ -26,4 +26,5 @@ ospf-rust-framework-gantt-scheduling = { path = "../gantt-scheduling", version =
 ospf-rust-framework-network-scheduling = { path = "../network-scheduling", version = "1.1.0" }
 
 [dev-dependencies]
+ospf-rust-core-plugin-gurobi = { path = "../../core-plugin/gurobi", version = "1.1.0" }
 ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", version = "1.1.0" }

@@ -310,7 +310,7 @@ fn restriction_configuration_rejects_unknown_references_duplicates_invalid_windo
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_restrictions_use_actual_seed_times_rmp_duals_and_nonbinary_final_counts() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let base = transfer_problem(1);
     let late = general(GeneralRestrictionCondition::Departure { airports: set(&["B"]), time: Some((at(12, 0), at(14, 0))) });
     let source = Arc::new(RecoveryProblem::new(base.configuration().clone(), base.domains().to_vec(), vec![], CostCalculator).unwrap()

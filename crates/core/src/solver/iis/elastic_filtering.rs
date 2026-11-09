@@ -5,11 +5,13 @@ use super::deletion_filtering::{
     ActiveSources, compute_iis_deletion_with_active, is_active_model_feasible_with_tolerance,
     is_basic_model_feasible_with_tolerance, solve_linear_model,
 };
-use super::{ConstraintSource, IISAnalysis, IISConfig, LinearIISModel, LinearTriadModelIISSource};
+use super::{
+    ConstraintSource, IISAnalysis, IISConfig, LinearIISModel, LinearTriadModelIISSource,
+};
 use crate::error::Result;
 use crate::model::ObjectiveCategory;
 use crate::model::intermediate::{BasicLinearTriadModel, LinearTriadModel, SparseVector};
-use crate::solver::ProofCompleteness;
+use crate::solver::{LinearSolver, ProofCompleteness};
 use crate::token::Token;
 use crate::variable::{UContinuousVariableItem, VariableId};
 
@@ -150,7 +152,11 @@ where
 ///
 /// # 返回 / Returns
 /// IIS 模型 / IIS model
-pub fn compute_iis_elastic<M>(model: &M, config: &IISConfig) -> Result<LinearIISModel>
+pub fn compute_iis_elastic<M>(
+    model: &M,
+    config: &IISConfig,
+    solver: &dyn LinearSolver,
+) -> Result<LinearIISModel>
 where
     M: LinearTriadModelIISSource + ?Sized,
 {
@@ -166,7 +172,7 @@ where
         );
     }
 
-    if is_basic_model_feasible_with_tolerance(model, config.tolerance)? {
+    if is_basic_model_feasible_with_tolerance(model, config.tolerance, solver)? {
         let mut iis = LinearIISModel::new(model.num_constraints(), model.num_variables());
         iis.set_analysis(IISAnalysis::elastic_filtering(true));
         iis.set_computation_time(start.elapsed());
@@ -174,7 +180,7 @@ where
     }
 
     let (relaxed_model, slack_sources, slack_start_index) = build_elastic_relaxation(model, config);
-    let relaxed_output = solve_linear_model(&relaxed_model)?;
+    let relaxed_output = solve_linear_model(solver, &relaxed_model)?;
 
     let mut active = ActiveSources::default();
     if relaxed_output.status.is_feasible()
@@ -190,12 +196,12 @@ where
     }
 
     if active.is_empty()
-        || is_active_model_feasible_with_tolerance(model, &active, config.tolerance)?
+        || is_active_model_feasible_with_tolerance(model, &active, config.tolerance, solver)?
     {
         active = ActiveSources::from_model(model, config.include_bounds);
     }
 
-    let mut iis = compute_iis_deletion_with_active(model, config, active)?;
+    let mut iis = compute_iis_deletion_with_active(model, config, active, solver)?;
     let completed = iis.analysis().completeness == ProofCompleteness::Complete;
     iis.set_analysis(IISAnalysis::elastic_filtering(completed));
     iis.set_computation_time(start.elapsed());

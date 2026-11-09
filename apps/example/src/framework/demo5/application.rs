@@ -38,7 +38,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 ))]
 pub fn run() -> Result<(), Box<dyn Error>> {
     run_with_solver(
-        ospf_rust_core::solver::solvers::GurobiSolver::new(),
+        ospf_rust_core_plugin_gurobi::GurobiSolver::new(),
         demo5_input(),
     )
 }
@@ -136,8 +136,8 @@ mod tests {
     use crate::framework::demo5::infrastructure::{
         all100_instance, first25_instance, native_solver_available, proof100_instance,
     };
-    use ospf_rust_core::solver::solvers::GurobiSolver;
-    use ospf_rust_core::solver::solvers::gurobi::GurobiConfig;
+    use ospf_rust_core_plugin_gurobi::GurobiSolver;
+    use ospf_rust_core_plugin_gurobi::GurobiConfig;
     use ospf_rust_core::solver::{ProblemStatus, SolveReport, SolverStatus, TerminationReason};
     use std::time::Duration;
 

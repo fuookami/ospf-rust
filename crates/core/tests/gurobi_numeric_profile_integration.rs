@@ -2,8 +2,8 @@
 
 use ospf_rust_core::intermediate::{BasicLinearTriadModel, LinearTriadModel};
 use ospf_rust_core::model::ObjectiveCategory;
-use ospf_rust_core::solver::solvers::GurobiSolver;
-use ospf_rust_core::solvers::gurobi::GurobiConfig;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiConfig;
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{ContinuousVariableItem, VariableId, VariableType};
 

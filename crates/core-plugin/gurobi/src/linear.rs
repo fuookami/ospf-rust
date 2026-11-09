@@ -3,12 +3,12 @@
 
 use super::config::GurobiStage;
 use super::solver::GurobiSolver;
-use crate::MechanismModel;
-use crate::error::{CoreError, Result, SolverError, SolverModelingError};
-use crate::intermediate::{FallbackReason, NativeLoweringReport, NativeWriteOutcome};
-use crate::model::intermediate::LinearTriadModel;
-use crate::solver::{SolveHandle, SolveOptions, SolverOutput};
-use crate::variable::{VariableId, VariableType};
+use ospf_rust_core::MechanismModel;
+use ospf_rust_core::error::{CoreError, Result, SolverError, SolverModelingError};
+use ospf_rust_core::intermediate::{FallbackReason, NativeLoweringReport, NativeWriteOutcome};
+use ospf_rust_core::model::intermediate::LinearTriadModel;
+use ospf_rust_core::solver::{SolveHandle, SolveOptions, SolverOutput};
+use ospf_rust_core::variable::{VariableId, VariableType};
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 use grb::expr::LinExpr;
 use std::time::Instant;
@@ -29,7 +29,7 @@ fn set_model_real_param(model: &mut grb::Model, name: &str, value: f64) -> Resul
         .map_err(GurobiSolver::environment_error)
 }
 
-pub(super) fn solve_linear(
+pub(crate) fn solve_linear(
     solver: &GurobiSolver,
     model: &LinearTriadModel,
 ) -> Result<SolverOutput> {
@@ -37,7 +37,7 @@ pub(super) fn solve_linear(
     Ok(output)
 }
 
-pub(super) fn solve_linear_with_options(
+pub(crate) fn solve_linear_with_options(
     solver: &GurobiSolver,
     model: &LinearTriadModel,
     options: &SolveOptions<'_>,
@@ -54,7 +54,7 @@ pub(super) fn solve_linear_with_options(
     Ok(output)
 }
 
-pub(super) fn solve_linear_with_solution_pool(
+pub(crate) fn solve_linear_with_solution_pool(
     solver: &GurobiSolver,
     model: &LinearTriadModel,
     solution_amount: usize,
@@ -62,7 +62,7 @@ pub(super) fn solve_linear_with_solution_pool(
     solve_linear_internal(solver, model, solution_amount.max(1), true, None, None, None)
 }
 
-pub(super) fn solve_linear_with_solution_pool_with_options(
+pub(crate) fn solve_linear_with_solution_pool_with_options(
     solver: &GurobiSolver,
     model: &LinearTriadModel,
     solution_amount: usize,
@@ -134,7 +134,7 @@ fn solve_linear_internal(
     per_solve_options: Option<&SolveOptions<'_>>,
     prepared: Option<(grb::Model, Vec<grb::Var>)>,
 ) -> Result<(SolverOutput, Vec<Vec<f64>>)> {
-    crate::solver::audit::validate_linear_model_for_backend(model)?;
+    ospf_rust_core::solver::audit::validate_linear_model_for_backend(model)?;
     let start_time = Instant::now();
     let mut numeric_coefficients = Vec::with_capacity(model.c.len() + model.A.rows.len() * 4);
     numeric_coefficients.extend(model.c.iter().copied());
@@ -267,8 +267,8 @@ fn solve_linear_internal(
 
     // 设置目标方向
     let sense = match model.objective_category {
-        crate::model::object::ObjectiveCategory::Minimum => Minimize,
-        crate::model::object::ObjectiveCategory::Maximum => Maximize,
+        ospf_rust_core::model::object::ObjectiveCategory::Minimum => Minimize,
+        ospf_rust_core::model::object::ObjectiveCategory::Maximum => Maximize,
     };
 
     // 构建目标表达式
@@ -539,12 +539,12 @@ fn build_sdk_columns(
 }
 
 /// 用默认 writer 集合求解（P3 接线入口）/ Solve with the default writer set (the P3 wiring entry).
-pub(super) fn solve_linear_with_native_lowering(
+pub(crate) fn solve_linear_with_native_lowering(
     solver: &GurobiSolver,
     mechanism: MechanismModel<f64>,
     per_solve_options: Option<&SolveOptions<'_>>,
 ) -> Result<(SolverOutput, NativeLoweringReport)> {
-    use crate::model::intermediate::NativeFunctionWriterRegistry;
+    use ospf_rust_core::model::intermediate::NativeFunctionWriterRegistry;
 
     use super::native::{
         GurobiAbsWriter, GurobiBinaryzationWriter, GurobiConditionalValueWriter,
@@ -631,7 +631,7 @@ pub fn solve_linear_with_native_writers(
     solver: &GurobiSolver,
     mut mechanism: MechanismModel<f64>,
     per_solve_options: Option<&SolveOptions<'_>>,
-    registry: crate::model::intermediate::NativeFunctionWriterRegistry<
+    registry: ospf_rust_core::model::intermediate::NativeFunctionWriterRegistry<
         super::native::GurobiNativeContainer,
         f64,
     >,
@@ -715,7 +715,7 @@ pub fn solve_linear_with_native_writers(
 /// materializes every deferred structure generically, so the semantics are those of eager expansion.
 fn solve_linear_without_native_lowering(
     solver: &GurobiSolver,
-    mut mechanism: MechanismModel<f64>,
+    mechanism: MechanismModel<f64>,
     per_solve_options: Option<&SolveOptions<'_>>,
     report: NativeLoweringReport,
 ) -> Result<(SolverOutput, NativeLoweringReport)> {

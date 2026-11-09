@@ -9,6 +9,10 @@ members = [
     # 建模核心与框架 / Core and framework
     "crates/core",
     "crates/framework",
+    # 核心与框架插件 / Core and framework plugins
+    "crates/core-plugin/gurobi",
+    "crates/core-plugin/scip",
+    "crates/framework-plugin/persistence",
     # 领域插件 / Domain plugins
     "crates/plugins/geometry2d",
     "crates/plugins/bpp",

@@ -117,7 +117,7 @@ fn custom_transition_reads_actual_history_and_cannot_bypass_link_minima() {
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_custom_turnaround_uses_the_late_actual_variant_through_the_real_gantt_loop() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let (problem, original) = configured();
     let report = RecoveryApplicationService::new(GurobiColumnGenerationSolver::new()).solve(problem, RecoveryApplicationConfiguration {
         initial_generation: Some(RecoveryInitialConfiguration { originals: vec![original] }),

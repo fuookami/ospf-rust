@@ -6,7 +6,7 @@ use ospf_rust_math::symbol::{
     property_path_from_owned_symbol,
 };
 
-use crate::persistence::{PersistenceFieldResolver, SortBy, UpdateAssignments};
+use ospf_rust_framework::persistence::{PersistenceFieldResolver, SortBy, UpdateAssignments};
 
 /// Diesel 后端标记类型。
 /// Diesel backend marker type.
@@ -224,7 +224,8 @@ impl<R> DieselExpressionPlanner<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{SortBy, runtime_field};
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{SortBy, runtime_field};
 
     #[test]
     fn diesel_planner_collects_resolved_and_unresolved_fields() {

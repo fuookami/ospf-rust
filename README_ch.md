@@ -31,6 +31,7 @@
 | [`ospf-rust-quantities`](crates/quantities/README_ch.md) | `ospf-kotlin-quantities` | 物理维度、单位、编译时/运行时物理量和物理量算术。 |
 | [`ospf-rust-core`](crates/core/README_ch.md) | `ospf-kotlin-core` | 变量、token、symbol、`MetaModel`、flatten、solver trait、solver output、IIS 和 backend adapter。 |
 | [`ospf-rust-framework`](crates/framework/README_ch.md) | `ospf-kotlin-framework` | pipeline 建模、shadow price、列生成、Benders、组合求解器、持久化契约、远程求解客户端和心跳工具。 |
+| [`ospf-rust-core-plugin-gurobi`](crates/core-plugin/gurobi/README_ch.md) | `ospf-kotlin-core-plugin-gurobi` | Gurobi 核心适配器、基于 Gurobi 的 IIS 算法与 framework Gurobi 扩展求解器。 |
 | [`ospf-rust-core-plugin-scip`](crates/core-plugin/scip/README_ch.md) | `ospf-kotlin-core-plugin-scip` | SCIP 核心适配器、约束规划 facade 与 framework SCIP 扩展求解器。 |
 | [`ospf-rust-framework-geometry2d`](crates/plugins/geometry2d/README_ch.md) | `ospf-kotlin-framework-geometry2d` | 共享二维量纲几何内核：量值算术、点与形状、放置、包围盒重叠、板材几何与刀缝，供 BPP2D 与 CSP2D 共用。 |
 | [`ospf-rust-framework-bpp`](crates/plugins/bpp/README_ch.md) | `ospf-kotlin-framework-bpp` | 共享稀疏离散装载、有限容量整体占位、保全边的冲突、显式布局、原数值域复核及几何适配。 |
@@ -116,7 +117,7 @@ cargo check -p ospf-rust-core
 cargo test -p ospf-rust-framework-csp1d
 ```
 
-solver-backed 测试需要对应 Cargo feature 和本地 solver 安装或 bundled 支持。solver 说明见 [Gurobi](crates/core/src/solver/solvers/gurobi/README_ch.md) 与 [SCIP](crates/core-plugin/scip/README_ch.md)。
+solver-backed 测试需要对应 Cargo feature 和本地 solver 安装或 bundled 支持。solver 说明见 [Gurobi](crates/core-plugin/gurobi/README_ch.md) 与 [SCIP](crates/core-plugin/scip/README_ch.md)。
 
 ### feature 门控与测试口径
 

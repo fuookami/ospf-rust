@@ -1,7 +1,7 @@
 //! Toasty 持久化后端
 //! Toasty persistence backend
 
-use crate::persistence::{RepositoryQuery, UpdateAssignments};
+use ospf_rust_framework::persistence::{RepositoryQuery, UpdateAssignments};
 use ospf_rust_math::symbol::{BooleanExpression, ExpressionValue};
 
 /// Toasty 后端标记类型。
@@ -89,7 +89,8 @@ impl ToastyRepositoryPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{UpdateAssignments, runtime_field};
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{UpdateAssignments, runtime_field};
 
     #[test]
     fn toasty_plan_keeps_typed_orm_boundary_explicit() {

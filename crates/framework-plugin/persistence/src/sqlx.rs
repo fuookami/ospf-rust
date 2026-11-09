@@ -9,7 +9,7 @@ use ospf_rust_math::symbol::{
 };
 use std::fmt::{Display, Formatter};
 
-use crate::persistence::{
+use ospf_rust_framework::persistence::{
     NullsOrder, NullsOrderSupport, PersistenceFieldResolver, SetFromExpression, SetNull, SetValue,
     SortBy, SortDirection, SortItem, UnsupportedPredicatePolicy, UpdateAssignment,
     UpdateAssignments,
@@ -573,7 +573,7 @@ where
     pub fn select_statement(
         &self,
         where_expr: &BooleanExpression<ExpressionValue>,
-        options: &crate::persistence::RepositoryQuery,
+        options: &ospf_rust_framework::persistence::RepositoryQuery,
     ) -> Result<SqlxSql, SqlxTranslationError> {
         let mut ctx = SqlxTranslationContext::new(&self.translator);
         let where_sql = ctx.translate_boolean_sql(where_expr)?;
@@ -671,7 +671,7 @@ where
         &self,
         ctx: &mut SqlxTranslationContext<'_, R>,
         sql: &mut String,
-        options: &crate::persistence::RepositoryQuery,
+        options: &ospf_rust_framework::persistence::RepositoryQuery,
     ) {
         if let Some(limit) = options.limit {
             let placeholder = ctx.push_param(ExpressionValue::from(limit));
@@ -1337,7 +1337,8 @@ fn comparison_sql(operator: ComparisonOperator) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{
         PredicateSchema, SortBy, UpdateAssignments, lower, path, runtime_field,
     };
     use ospf_rust_math::symbol::ScalarExpressionDsl;
@@ -1504,7 +1505,7 @@ mod tests {
     #[test]
     fn builds_select_statement_with_sort_and_pagination() {
         let where_expr = runtime_field("status").eq("active");
-        let options = crate::persistence::RepositoryQuery::new()
+        let options = ospf_rust_framework::persistence::RepositoryQuery::new()
             .with_sort_by(SortBy::desc("age"))
             .with_limit(10)
             .with_offset(20);

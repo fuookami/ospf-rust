@@ -1,8 +1,8 @@
     #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
     #[test]
     fn csv_materialized_runs_real_gurobi10_backend_smoke() {
-        use ospf_rust_core::solver::solvers::gurobi::GurobiConfig;
-        use ospf_rust_framework::solver::GurobiColumnGenerationSolver;
+        use ospf_rust_core_plugin_gurobi::GurobiConfig;
+        use ospf_rust_core_plugin_gurobi::GurobiColumnGenerationSolver;
 
         let request = real_solver_smoke_request();
         let service = ColumnGenerationApplicationService::new(ColumnGenerationConfig::default());
@@ -52,8 +52,8 @@
     #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
     #[test]
     fn fixture_suite_runs_real_gurobi10_backend_smoke() {
-        use ospf_rust_core::solver::solvers::gurobi::GurobiConfig;
-        use ospf_rust_framework::solver::GurobiColumnGenerationSolver;
+        use ospf_rust_core_plugin_gurobi::GurobiConfig;
+        use ospf_rust_core_plugin_gurobi::GurobiColumnGenerationSolver;
 
         let config = GurobiConfig::new()
             .with_output(false)
@@ -81,8 +81,8 @@
     #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
     #[test]
     fn fixture_suite_runs_real_gurobi10_full_manifest() {
-        use ospf_rust_core::solver::solvers::gurobi::GurobiConfig;
-        use ospf_rust_framework::solver::GurobiColumnGenerationSolver;
+        use ospf_rust_core_plugin_gurobi::GurobiConfig;
+        use ospf_rust_core_plugin_gurobi::GurobiColumnGenerationSolver;
 
         let config = GurobiConfig::new()
             .with_output(false)

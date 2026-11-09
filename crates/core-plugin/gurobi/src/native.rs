@@ -6,7 +6,7 @@
 //! - **准入判定（不依赖 SDK）**：`plan_abs_native` 是纯函数，决定某个 `AbsStructure` 是否可以
 //!   原生写入以及需要哪些列。它可以在没有许可证的机器上被测试，也保证"不接受就回退"的规则不
 //!   会被 SDK 调用掩盖。
-//! - **SDK 写入**：`GurobiAbsWriter` 通过 [`crate::model::intermediate::NativeFunctionWriter`]
+//! - **SDK 写入**：`GurobiAbsWriter` 通过 [`ospf_rust_core::model::intermediate::NativeFunctionWriter`]
 //!   接入统一的 native writer registry，只在准入通过后调用 `add_genconstr_abs`。
 //!
 //! This module lowers solver-neutral deferred structures onto Gurobi general constraints. It only
@@ -17,17 +17,17 @@
 //!   without a licence and keeps the "reject, then fall back" rules from being hidden behind SDK
 //!   calls.
 //! - **SDK write**: `GurobiAbsWriter` plugs into the unified native writer registry through
-//!   [`crate::model::intermediate::NativeFunctionWriter`] and only calls `add_genconstr_abs` after
+//!   [`ospf_rust_core::model::intermediate::NativeFunctionWriter`] and only calls `add_genconstr_abs` after
 //!   admission succeeded.
 
-use crate::error::{ModelError, Result};
-use crate::model::ConstraintRelation;
-use crate::model::flatten::Linear;
-use crate::model::intermediate::{
+use ospf_rust_core::error::{ModelError, Result};
+use ospf_rust_core::model::ConstraintRelation;
+use ospf_rust_core::model::flatten::Linear;
+use ospf_rust_core::model::intermediate::{
     DeferredFunctionStructure, FallbackReason, NativeFunctionWriter, NativeWriteOutcome,
     NativeWriteRecord, NativeWriteRequest,
 };
-use crate::symbol::function::{
+use ospf_rust_core::symbol::function::{
     AbsStructure, AndStructure, BalanceTernaryzationStructure, NotStructure, BinaryzationStructure, ConditionalThenStructure, CosStructure,
     INDICATOR_TOLERANCE, IfStructure, InValuesStructure, ImplyStructure, InequalityKind,
     InequalityStructure, LogisticStructure, MaskingStructure, MaskingWithPolyMaskStructure,
@@ -35,7 +35,7 @@ use crate::symbol::function::{
     conditional_value_relation_core, imply_coupling_indicators, in_values_value_core_relations,
     indicator_core_relations,
 };
-use crate::variable::VariableId;
+use ospf_rust_core::variable::VariableId;
 use grb::constr::IneqExpr;
 use grb::expr::LinExpr;
 use grb::prelude::*;
@@ -6089,9 +6089,9 @@ impl NativeFunctionWriter<GurobiNativeContainer, f64> for GurobiIfWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LinearConstraint, LinearInequality};
-    use crate::model::flatten::{Linear, LinearMonomial};
-    use crate::symbol::function::{
+    use ospf_rust_core::{LinearConstraint, LinearInequality};
+    use ospf_rust_core::model::flatten::{Linear, LinearMonomial};
+    use ospf_rust_core::symbol::function::{
         AbsFunction, CosFunction, Point2, LogisticFunction, SinFunction,
     };
     use std::sync::Arc;
@@ -6106,7 +6106,7 @@ mod tests {
             input.clone(),
             result,
             side,
-            crate::symbol::function::AbsBranchBigM::fallback(),
+            ospf_rust_core::symbol::function::AbsBranchBigM::fallback(),
             Arc::new(AbsFunction::<f64>::new(120, "abs_native_plan", input)),
         )
     }
@@ -6122,7 +6122,7 @@ mod tests {
         if minimum {
             std::sync::Arc::new(MinStructure::new(
                 name,
-                Arc::new(crate::symbol::function::MinFunction::<f64>::new(
+                Arc::new(ospf_rust_core::symbol::function::MinFunction::<f64>::new(
                     id,
                     name,
                     polynomials,
@@ -6133,7 +6133,7 @@ mod tests {
         } else {
             std::sync::Arc::new(MaxStructure::new(
                 name,
-                Arc::new(crate::symbol::function::MaxFunction::<f64>::new(
+                Arc::new(ospf_rust_core::symbol::function::MaxFunction::<f64>::new(
                     id,
                     name,
                     polynomials,
@@ -6554,11 +6554,11 @@ mod tests {
     /// 构造一个关系指示结构：`s = 2x + 1 - right`，左侧单项式指向列 0。
     /// Build a relation-indicator structure: `s = 2x + 1 - right` with the left monomial on column 0.
     fn indicator_structure(
-        kind: crate::symbol::function::InequalityKind,
+        kind: ospf_rust_core::symbol::function::InequalityKind,
         big_m: f64,
         right: f64,
     ) -> InequalityStructure<f64> {
-        let symbol = Arc::new(crate::symbol::function::InequalityFunction::<f64>::new(
+        let symbol = Arc::new(ospf_rust_core::symbol::function::InequalityFunction::<f64>::new(
             7_000,
             "ineq_native_plan",
             Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0),
@@ -6577,7 +6577,7 @@ mod tests {
     /// A row monomial's `var_index()` uses the **column index** convention (the one materialization's
     /// `symbol_to_index` uses), which is a different numbering from `VariableId::unique_id()`.
     fn eager_indicator_projection(
-        constraint: &crate::model::LinearConstraint<f64>,
+        constraint: &ospf_rust_core::model::LinearConstraint<f64>,
         indicator_column: usize,
         indicator_value: f64,
     ) -> (ConstraintRelation, f64) {
@@ -6597,7 +6597,7 @@ mod tests {
 
     #[test]
     fn indicator_plan_admits_relation_kinds_and_reuses_the_eager_tolerance() {
-        use crate::symbol::function::InequalityKind;
+        use ospf_rust_core::symbol::function::InequalityKind;
 
         for kind in [
             InequalityKind::LessEqual,
@@ -6631,7 +6631,7 @@ mod tests {
 
     #[test]
     fn indicator_plan_core_relations_match_the_eager_rows() {
-        use crate::symbol::function::InequalityKind;
+        use ospf_rust_core::symbol::function::InequalityKind;
 
         // 指示列在列号 1（物化用的 `symbol_to_index` 就是令牌位置）。
         // The indicator column sits at column 1 (materialization's `symbol_to_index` is the token
@@ -6655,7 +6655,7 @@ mod tests {
             // Both structures must wrap the **same symbol**: the indicator column's `VariableId` is
             // decided when the symbol is created, and a different symbol means a different set of
             // column IDs that `symbol_to_index` would not match.
-            let symbol = Arc::new(crate::symbol::function::InequalityFunction::<f64>::new(
+            let symbol = Arc::new(ospf_rust_core::symbol::function::InequalityFunction::<f64>::new(
                 7_000,
                 "ineq_native_plan",
                 Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0),
@@ -6719,7 +6719,7 @@ mod tests {
 
     #[test]
     fn indicator_plan_rejects_kinds_and_conditions_it_cannot_write() {
-        use crate::symbol::function::{InequalityFunction, InequalityKind};
+        use ospf_rust_core::symbol::function::{InequalityFunction, InequalityKind};
 
         // `=` / `!=` 的取假侧是析取，需要 side 辅助列做情形分裂，两条 indicator 表达不了。
         // The false side of `=` / `!=` is a disjunction split by the side helper column, which two
@@ -6765,7 +6765,7 @@ mod tests {
 
     #[test]
     fn indicator_big_m_proof_accepts_an_implying_big_m_and_rejects_a_short_one() {
-        use crate::symbol::function::InequalityKind;
+        use ospf_rust_core::symbol::function::InequalityKind;
 
         // `<=` / `>` 需要证明的下侧松弛是 `s >= ε - M`，上侧松弛是 `s <= M`。
         // The lower relaxation `<=` / `>` must prove is `s >= ε - M`, the upper one is `s <= M`.
@@ -6795,7 +6795,7 @@ mod tests {
 
     #[test]
     fn indicator_writer_claims_only_relation_indicators() {
-        use crate::symbol::function::InequalityKind;
+        use ospf_rust_core::symbol::function::InequalityKind;
 
         let writer = GurobiIndicatorWriter::new();
         assert_eq!(writer.name(), "gurobi_indicator");
@@ -6816,7 +6816,7 @@ mod tests {
     /// 构造一个 InValues 结构：`input = 2x + 1`（x 在列 0）。
     /// Build an InValues structure: `input = 2x + 1` with x on column 0.
     fn if_in_structure(values: Vec<f64>, big_m: f64) -> InValuesStructure<f64> {
-        let symbol = Arc::new(crate::symbol::function::InValuesFunction::<f64>::new(
+        let symbol = Arc::new(ospf_rust_core::symbol::function::InValuesFunction::<f64>::new(
             8_000,
             "ifin_native_plan",
             Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0),
@@ -6828,7 +6828,7 @@ mod tests {
 
     #[test]
     fn if_in_plan_admits_a_value_set_and_reuses_the_eager_tolerances() {
-        use crate::symbol::function::{STRICT_BOUNDARY, STEP_EPSILON};
+        use ospf_rust_core::symbol::function::{STRICT_BOUNDARY, STEP_EPSILON};
 
         let structure = if_in_structure(vec![3.0, 5.0], 8.0);
         let plan = plan_in_values_native(&structure).expect("a two-value set should be admitted");
@@ -6866,7 +6866,7 @@ mod tests {
         // 两个结构包着同一个符号，只是固定的 Big-M 不同；这样两次物化给出同一组即时行、不同的 M。
         // Both structures wrap the same symbol and differ only in the fixed Big-M, so the two
         // materializations give the same eager rows with different M values.
-        let symbol = Arc::new(crate::symbol::function::InValuesFunction::<f64>::new(
+        let symbol = Arc::new(ospf_rust_core::symbol::function::InValuesFunction::<f64>::new(
             8_010,
             "ifin_native_plan",
             Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0),
@@ -6952,7 +6952,7 @@ mod tests {
     /// Project a row onto the shift while several "column index = value" assignments are fixed:
     /// `(relation, right-hand side)`
     fn eager_indicator_projection_multi(
-        constraint: &crate::model::LinearConstraint<f64>,
+        constraint: &ospf_rust_core::model::LinearConstraint<f64>,
         assignments: &[(usize, f64)],
     ) -> (ConstraintRelation, f64) {
         let mut rhs = constraint.inequality.rhs;
@@ -6972,7 +6972,7 @@ mod tests {
 
     #[test]
     fn if_in_plan_rejects_value_sets_and_inputs_it_cannot_write() {
-        use crate::symbol::function::InValuesFunction;
+        use ospf_rust_core::symbol::function::InValuesFunction;
 
         // 空值集合：即时展开退化成 `result = 0`，`or` 一般约束没有零个操作数的含义。
         // An empty value set: eager expansion collapses to `result = 0` and an `or` general constraint
@@ -7002,7 +7002,7 @@ mod tests {
 
     #[test]
     fn if_in_big_m_proof_accepts_an_implying_big_m_and_rejects_a_short_one() {
-        use crate::symbol::function::STRICT_BOUNDARY;
+        use ospf_rust_core::symbol::function::STRICT_BOUNDARY;
 
         let plan = plan_in_values_native(&if_in_structure(vec![3.0], 8.0))
             .expect("the structure should be admitted");
@@ -7052,7 +7052,7 @@ mod tests {
         assert!(writer.supports(&if_in));
 
         let inequality = indicator_structure(
-            crate::symbol::function::InequalityKind::LessEqual,
+            ospf_rust_core::symbol::function::InequalityKind::LessEqual,
             8.0,
             0.5,
         );
@@ -7064,7 +7064,7 @@ mod tests {
     fn and_structure(polynomials: Vec<Linear<f64>>) -> AndStructure<f64> {
         AndStructure::new(
             "and_native_plan",
-            Arc::new(crate::symbol::function::AndFunction::<f64>::new(
+            Arc::new(ospf_rust_core::symbol::function::AndFunction::<f64>::new(
                 9_000,
                 "and_native_plan",
                 polynomials,
@@ -7078,7 +7078,7 @@ mod tests {
     fn or_structure(polynomials: Vec<Linear<f64>>) -> OrStructure<f64> {
         OrStructure::new(
             "or_native_plan",
-            Arc::new(crate::symbol::function::OrFunction::<f64>::new(
+            Arc::new(ospf_rust_core::symbol::function::OrFunction::<f64>::new(
                 9_001,
                 "or_native_plan",
                 polynomials,
@@ -7172,12 +7172,12 @@ mod tests {
     /// Build a binaryzation structure: `input = 2x + 1` with x on column 0; the threshold and big-M come
     /// from the caller.
     fn binaryzation_structure(
-        method: crate::symbol::function::BinaryzationMethod,
+        method: ospf_rust_core::symbol::function::BinaryzationMethod,
         threshold: f64,
         big_m: f64,
         input: Linear<f64>,
     ) -> BinaryzationStructure<f64> {
-        let symbol = Arc::new(crate::symbol::function::BinaryzationFunction::<f64>::new(
+        let symbol = Arc::new(ospf_rust_core::symbol::function::BinaryzationFunction::<f64>::new(
             9_100,
             "bin_native_plan",
             input,
@@ -7190,7 +7190,7 @@ mod tests {
 
     #[test]
     fn binaryzation_plan_admits_both_variants_and_reuses_the_eager_epsilon() {
-        use crate::symbol::function::{BINARYZATION_STRICT_EPSILON, BinaryzationMethod};
+        use ospf_rust_core::symbol::function::{BINARYZATION_STRICT_EPSILON, BinaryzationMethod};
 
         let input = Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0);
         for method in [
@@ -7254,7 +7254,7 @@ mod tests {
 
     #[test]
     fn binaryzation_plan_core_relations_match_the_eager_rows() {
-        use crate::symbol::function::BinaryzationMethod;
+        use ospf_rust_core::symbol::function::BinaryzationMethod;
 
         const INDICATOR_COLUMN: usize = 1;
         let projection_tolerance = 1e-13;
@@ -7268,7 +7268,7 @@ mod tests {
             // 两个结构包着同一个符号，只有固定的 Big-M 不同；这样两次物化给出同一组即时行、不同的 M。
             // Both structures wrap the same symbol and differ only in the fixed Big-M, so the two
             // materializations give the same eager rows with different M values.
-            let symbol = Arc::new(crate::symbol::function::BinaryzationFunction::<f64>::new(
+            let symbol = Arc::new(ospf_rust_core::symbol::function::BinaryzationFunction::<f64>::new(
                 9_110,
                 "bin_native_plan",
                 Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0),
@@ -7331,7 +7331,7 @@ mod tests {
 
     #[test]
     fn binaryzation_plan_rejects_inputs_it_cannot_write() {
-        use crate::symbol::function::BinaryzationMethod;
+        use ospf_rust_core::symbol::function::BinaryzationMethod;
 
         // 输入没有任何变量项：指示约束的线性表达式会变空。
         // An input without variable terms: the indicator constraint's linear expression would be empty.
@@ -7376,7 +7376,7 @@ mod tests {
 
     #[test]
     fn binaryzation_big_m_proof_accepts_an_implying_big_m_and_rejects_a_short_one() {
-        use crate::symbol::function::{BINARYZATION_STRICT_EPSILON, BinaryzationMethod};
+        use ospf_rust_core::symbol::function::{BINARYZATION_STRICT_EPSILON, BinaryzationMethod};
 
         let input = Linear::new(vec![LinearMonomial::new(2.0, 0)], 1.0);
 
@@ -7434,7 +7434,7 @@ mod tests {
         premise_big_m: f64,
         consequence_big_m: f64,
     ) -> ImplyStructure<f64> {
-        let symbol = Arc::new(crate::symbol::function::ImplyFunction::<f64>::new(
+        let symbol = Arc::new(ospf_rust_core::symbol::function::ImplyFunction::<f64>::new(
             9_500,
             "imply_native_plan",
             LinearInequality::new(
@@ -7464,7 +7464,7 @@ mod tests {
 
     #[test]
     fn conditional_value_plan_admits_the_linearisation_and_rejects_the_folded_case() {
-        use crate::symbol::function::{ConditionBounds, ConditionRelation, ConditionalThenFunction};
+        use ospf_rust_core::symbol::function::{ConditionBounds, ConditionRelation, ConditionalThenFunction};
 
         let build = |condition_bounds: (f64, f64)| {
             let function = ConditionalThenFunction::from_parts_with_bounds(
@@ -7531,7 +7531,7 @@ mod tests {
 
     #[test]
     fn imply_plan_maps_both_sub_indicators_and_reuses_the_batch_one_relations() {
-        use crate::symbol::function::indicator_core_relations;
+        use ospf_rust_core::symbol::function::indicator_core_relations;
 
         // 前提 `x >= 1`、结论 `x >= 2`，两个子指示器分别冻结 M = 8 / 12。
         // Premise `x >= 1` and consequence `x >= 2` with the sub-indicators' Big-M frozen at 8 / 12.
@@ -7648,7 +7648,7 @@ mod tests {
         // The four coupling rows contain only ±1 coefficients, so they must stay bit-identical under a
         // different pair of Big-M values — the mechanical basis for the coupling needing no redundancy
         // proof at all (in contrast to the sub-indicators' relaxed rows).
-        let symbol = Arc::new(crate::symbol::function::ImplyFunction::<f64>::new(
+        let symbol = Arc::new(ospf_rust_core::symbol::function::ImplyFunction::<f64>::new(
             9_520,
             "imply_native_plan",
             LinearInequality::new(
@@ -7742,7 +7742,7 @@ mod tests {
 
     #[test]
     fn binaryzation_writer_claims_only_binaryzation_structures() {
-        use crate::symbol::function::BinaryzationMethod;
+        use ospf_rust_core::symbol::function::BinaryzationMethod;
 
         let writer = GurobiBinaryzationWriter::new();
         assert_eq!(writer.name(), "gurobi_binaryzation");

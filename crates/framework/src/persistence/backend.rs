@@ -1,22 +1,11 @@
-//! 持久化后端入口
-//! Persistence backend entry points
-
-#[cfg(feature = "persistence-cornucopia")]
-pub mod cornucopia;
-#[cfg(feature = "persistence-diesel")]
-pub mod diesel;
-#[cfg(feature = "persistence-mongodb")]
-pub mod mongodb;
-#[cfg(feature = "persistence-rbatis")]
-pub mod rbatis;
-#[cfg(feature = "persistence-redis")]
-pub mod redis;
-#[cfg(feature = "persistence-sea-orm")]
-pub mod sea_orm;
-#[cfg(feature = "persistence-sqlx")]
-pub mod sqlx;
-#[cfg(feature = "persistence-toasty")]
-pub mod toasty;
+//! 持久化后端能力快照
+//! Persistence backend capability snapshot
+//!
+//! 具体 translator 实现位于 `ospf-rust-framework-plugin-persistence`；本模块只保留编译期
+//! feature 快照，供 bridge 等下游按后端能力分支。
+//! The concrete translator implementations live in `ospf-rust-framework-plugin-persistence`;
+//! this module keeps only the compile-time feature snapshot used by downstream callers such as
+//! the bridge to branch on backend capability.
 
 /// 后端 feature 能力快照。
 /// Backend feature capability snapshot.

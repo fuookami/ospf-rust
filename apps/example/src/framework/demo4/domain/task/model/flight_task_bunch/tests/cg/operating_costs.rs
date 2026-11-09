@@ -227,7 +227,7 @@ fn operating_cost_configuration_rejects_unknown_negative_nonfinite_and_executed_
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_soft_link_and_idle_costs_use_real_rmp_duals_and_final_milp() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     for (cost, objective, selected, loss) in [(400.0, 600.0, 2, 1.0), (4000.0, 2030.0, 0, 0.0)] {
         let source = split_source(cost);
         let report = RecoveryApplicationService::new(GurobiColumnGenerationSolver::new()).solve(source.clone(), RecoveryApplicationConfiguration {

@@ -2493,7 +2493,7 @@ impl NativeEngine {
                     }
                     #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                     if backend.as_str() == "gurobi" {
-                        use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                        use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                         return run(GurobiSolver::with_config(GurobiConfig::new().with_output(false)), instance.clone(),
                             options.time_limit, search.clone(), gap);
                     }
@@ -2527,7 +2527,7 @@ impl NativeEngine {
                         }
                         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                         "gurobi" => {
-                            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                             NetworkApplicationService::new(GurobiSolver::with_config(GurobiConfig::new().with_output(false)))
                                 .solve(|| NetworkResilienceContext::new(domain, "network-resilience"), &planning)
                         }
@@ -2568,7 +2568,7 @@ impl NativeEngine {
                         }
                         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                         "gurobi" => {
-                            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                             NetworkApplicationService::new(GurobiSolver::with_config(GurobiConfig::new().with_output(false)))
                                 .solve(|| AllocationContext::new(domain, "network-allocation"), &planning)
                         }
@@ -2612,7 +2612,7 @@ impl NativeEngine {
                         }
                         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                         "gurobi" => {
-                            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                             NetworkApplicationService::new(GurobiSolver::with_config(GurobiConfig::new().with_output(false)))
                                 .solve(|| NetworkStructureContext::new(domain, "network-structure"), &planning)
                         }
@@ -2653,7 +2653,7 @@ impl NativeEngine {
                         }
                         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                         "gurobi" => {
-                            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                             NetworkApplicationService::new(GurobiSolver::with_config(GurobiConfig::new().with_output(false)))
                                 .solve(|| NetworkDesignContext::new(domain, "network-design"), &planning)
                         }
@@ -2697,7 +2697,7 @@ impl NativeEngine {
                         }
                         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                         "gurobi" => {
-                            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                             NetworkApplicationService::new(GurobiSolver::with_config(GurobiConfig::new().with_output(false)))
                                 .solve(|| GeneralizedFlowContext::new(domain, "generalized-flow"), &planning)
                         }
@@ -2750,7 +2750,7 @@ impl NativeEngine {
                         }
                         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
                         "gurobi" => {
-                            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+                            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
                             NetworkApplicationService::new(GurobiSolver::with_config(GurobiConfig::new().with_output(false)))
                                 .solve(|| Ok(FlowContext::new(domain)), &planning)
                         }
@@ -3048,7 +3048,7 @@ fn create_cp_solver(id: &str) -> Result<Arc<dyn ConstraintProgrammingSolver>> {
         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
         "gurobi" => {
             use ospf_rust_core::solver::constraint_programming::MipBackedConstraintProgrammingSolver;
-            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
             Ok(Arc::new(MipBackedConstraintProgrammingSolver::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false)))))
         }
         _ => { create_solver(id, None)?; Err(BridgeError::new("UnsupportedCapability", "CP exact lowering is unavailable")) }
@@ -3070,7 +3070,7 @@ fn create_solver(id: &str, tuning: Option<&SolverTuningOptions>) -> Result<Arc<d
         }
         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
         "gurobi" => {
-            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
             let mut config = GurobiConfig::default().with_output(false);
             if let Some(tuning) = tuning {
                 if let Some(threads) = tuning.threads { config = config.with_threads(threads as i32); }

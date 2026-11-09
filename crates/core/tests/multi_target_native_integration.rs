@@ -76,7 +76,7 @@ fn assert_batch<S: ConstraintProgrammingSolver + ?Sized>(solver: &S) {
 #[test]
 fn gurobi_native_cp_adapter_runs_multi_target_analysis_and_recommendations() {
     use ospf_rust_core::solver::constraint_programming::MipBackedConstraintProgrammingSolver;
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
 
     let solver = MipBackedConstraintProgrammingSolver::new(GurobiSolver::with_config(
         GurobiConfig::new().with_output(false),

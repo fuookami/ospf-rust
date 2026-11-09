@@ -1,0 +1,24 @@
+[package]
+name = "ospf-rust-core-plugin-gurobi"
+version = "1.1.0"
+edition = "2024"
+description = "Gurobi solver plugin for ospf-rust: core adapter, IIS algorithms and framework extensions"
+authors = ["fuookami <wfuookami@gmail.com>"]
+license.workspace = true
+homepage = "https://github.com/fuookami/ospf-rust"
+repository = "https://github.com/fuookami/ospf-rust"
+readme = "README.md"
+
+[dependencies]
+ospf-rust-core = { path = "../../core", version = "1.1.0", default-features = false }
+ospf-rust-framework = { path = "../../framework", version = "1.1.0", default-features = false }
+grb = { version = "3.0.1", optional = true }
+async-trait = "0.1"
+
+[features]
+default = []
+gurobi = ["gurobi10"]
+gurobi10 = ["dep:grb", "grb/gurobi10"]
+gurobi11 = ["dep:grb", "grb/gurobi11"]
+gurobi12 = ["dep:grb", "grb/gurobi12"]
+async = ["ospf-rust-framework/async"]

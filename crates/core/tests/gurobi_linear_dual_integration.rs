@@ -5,7 +5,7 @@ use ospf_rust_core::model::intermediate::{
     BasicLinearTriadModel, BasicQuadraticTetradModel, LinearTriadModel, QuadraticTetradModel,
     SparseVector,
 };
-use ospf_rust_core::solver::solvers::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core::solver::{
     linear_model_fingerprint, require_optimal_lp_certificate_for_linear_model,
     require_optimal_lp_certificate_for_model,

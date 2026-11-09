@@ -9,7 +9,7 @@ use ospf_rust_math::symbol::{
 use serde_json::{Map, Number, Value, json};
 use std::fmt::{Display, Formatter};
 
-use crate::persistence::{
+use ospf_rust_framework::persistence::{
     PersistenceFieldResolver, UnsupportedPredicatePolicy, UpdateAssignment, UpdateAssignments,
 };
 
@@ -433,7 +433,8 @@ fn escape_regex(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{UpdateAssignments, runtime_field};
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{UpdateAssignments, runtime_field};
 
     #[test]
     fn mongodb_translator_builds_filter_and_update_documents() {

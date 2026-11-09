@@ -152,7 +152,7 @@ fn real_scip_source_bound_execution_report_and_production() {
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 #[test]
 fn real_gurobi_source_bound_execution_report_and_production() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     contract(Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))), NativeBackend::Gurobi);
     engine_contract(NativeBackend::Gurobi);
 }

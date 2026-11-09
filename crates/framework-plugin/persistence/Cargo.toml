@@ -1,0 +1,40 @@
+[package]
+name = "ospf-rust-framework-plugin-persistence"
+version = "1.1.0"
+edition = "2024"
+description = "Persistence backend plugins for ospf-rust framework: sqlx, diesel, sea-orm, toasty, rbatis, cornucopia, mongodb and redis translators"
+authors = ["fuookami <wfuookami@gmail.com>"]
+license.workspace = true
+homepage = "https://github.com/fuookami/ospf-rust"
+repository = "https://github.com/fuookami/ospf-rust"
+readme = "README.md"
+
+[dependencies]
+ospf-rust-framework = { path = "../../framework", version = "1.1.0", default-features = false }
+ospf-rust-math = { path = "../../math", version = "1.1.0" }
+serde_json = { version = "1.0.151", optional = true }
+sea-orm = { version = "2.0.2", default-features = false, optional = true }
+
+[features]
+default = []
+# 与 `ospf-rust-framework` 的 persistence feature 同名，便于下游一次性转发。
+# Feature names mirror `ospf-rust-framework` so downstream crates can forward them in one go.
+persistence = []
+persistence-sqlx = ["persistence"]
+persistence-sqlx-postgres = ["persistence-sqlx"]
+persistence-sqlx-mysql = ["persistence-sqlx"]
+persistence-sqlx-sqlite = ["persistence-sqlx"]
+persistence-diesel = ["persistence"]
+persistence-diesel-postgres = ["persistence-diesel"]
+persistence-diesel-mysql = ["persistence-diesel"]
+persistence-diesel-sqlite = ["persistence-diesel"]
+persistence-sea-orm = ["persistence", "dep:sea-orm"]
+persistence-toasty = ["persistence"]
+persistence-rbatis = ["persistence-sqlx"]
+persistence-cornucopia = ["persistence"]
+persistence-mongodb = ["persistence", "dep:serde_json"]
+persistence-redis = ["persistence", "dep:serde_json"]
+
+[dev-dependencies]
+sea-orm = { version = "2.0.2", default-features = false, features = ["macros", "mock"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }

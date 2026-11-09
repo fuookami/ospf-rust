@@ -130,7 +130,7 @@ fn real_scip_production_matches_the_actual_integer_child_for_milp_and_column_gen
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 #[test]
 fn real_gurobi_production_matches_the_actual_integer_child_for_milp_and_column_generation() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     contract(Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))), "gurobi");
     execution_contract(ospf_rust_bridge::NativeBackend::Gurobi);
 }

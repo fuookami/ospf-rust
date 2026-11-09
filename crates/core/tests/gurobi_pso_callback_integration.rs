@@ -21,7 +21,7 @@ use ospf_rust_core::solver::heuristic::facade::particle_swarm;
 use ospf_rust_core::solver::heuristic::{
     HeuristicSolutionStatus, HeuristicSolver, Iteration, SeededEntropy,
 };
-use ospf_rust_core::solver::solvers::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core::solver::LinearSolver;
 use ospf_rust_core::token::Token;
 use ospf_rust_core::variable::{ContinuousVariableItem, VariableId, VariableType};

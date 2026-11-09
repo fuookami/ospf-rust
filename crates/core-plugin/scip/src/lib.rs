@@ -1,3 +1,5 @@
+#![cfg(feature = "scip")]
+
 //! SCIP 求解器插件
 //! SCIP solver plugin
 //!

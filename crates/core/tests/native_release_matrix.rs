@@ -280,9 +280,10 @@ fn assert_unbounded_report(report: &SolveReport<f64>) {
 mod gurobi {
     use super::*;
     use ospf_rust_core::error::CoreError;
-    use ospf_rust_core::solver::solvers::GurobiSolver;
+    use ospf_rust_core_plugin_gurobi::grb;
+    use ospf_rust_core_plugin_gurobi::GurobiSolver;
     use ospf_rust_core::solver::{ProgressValue, SolveProgressReporter, SolveProgressSnapshot, SolveStage};
-    use ospf_rust_core::solvers::gurobi::{
+    use ospf_rust_core_plugin_gurobi::{
         GurobiConfig, GurobiEnvCallback, GurobiNativeCallback, GurobiNativeControl, GurobiNativeObserver,
         GurobiNativeWhere, GurobiTelemetryCallback,
     };

@@ -5,9 +5,9 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::error::Result;
-use crate::model::ObjectiveCategory;
-use crate::solver::{SolverConfig, SolverStatus};
+use ospf_rust_core::error::Result;
+use ospf_rust_core::model::ObjectiveCategory;
+use ospf_rust_core::solver::{SolverConfig, SolverStatus};
 
 /// Gurobi 分阶段回调节点 / Gurobi staged callback points
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

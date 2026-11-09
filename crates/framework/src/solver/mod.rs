@@ -63,9 +63,6 @@ pub mod serial_linear;
 #[doc(hidden)]
 pub mod serial_quadratic;
 
-#[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-pub mod gurobi_extension;
-
 pub use benders_decomposition::CutSense;
 pub use column_generation_solver::*;
 pub use column_projection::*;
@@ -96,6 +93,3 @@ pub use remote::*;
 pub use serial_combinatorial_column_generation_solver::*;
 pub use serial_combinatorial_linear_solver::*;
 pub use serial_combinatorial_quadratic_solver::*;
-
-#[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-pub use gurobi_extension::*;

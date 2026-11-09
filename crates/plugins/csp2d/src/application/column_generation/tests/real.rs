@@ -121,6 +121,6 @@ fn real_scip_runs_phase_one_recovery_inventory_pricing_integer_reports_and_origi
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 #[test]
 fn real_gurobi_runs_phase_one_recovery_inventory_pricing_integer_reports_and_original_shelf() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     real_workflows(Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))));
 }

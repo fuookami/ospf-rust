@@ -1,8 +1,13 @@
-//! Gurobi 求解器接口
-//! Gurobi Solver Interface
+#![cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
+
+//! Gurobi 求解器插件
+//! Gurobi solver plugin
 //!
-//! 此模块仅在启用 `gurobi*` feature 时可用。
-//! This module is only available when a `gurobi*` feature is enabled.
+//! 本 crate 承载 Gurobi 核心适配器、依赖 Gurobi 的 IIS 算法与 framework 列生成 / Benders 扩展，
+//! 对应 Kotlin 的 `ospf-kotlin-core-plugin-gurobi`。必须且只能启用一个 Gurobi 版本 feature。
+//! This crate hosts the Gurobi core adapter, Gurobi-backed IIS algorithms, and framework
+//! column-generation / Benders extensions, mirroring Kotlin's `ospf-kotlin-core-plugin-gurobi`.
+//! Exactly one Gurobi version feature must be enabled.
 //!
 //! 原生回调语义说明 / Native callback semantics:
 //! - `with_native_callback`：覆盖已有原生回调。
@@ -12,7 +17,16 @@
 //! - 如果需要多 handler，请在一个原生回调中自行分发。
 //!   If multiple handlers are needed, dispatch them inside one native callback.
 
+#[cfg(any(
+    all(feature = "gurobi10", feature = "gurobi11"),
+    all(feature = "gurobi10", feature = "gurobi12"),
+    all(feature = "gurobi11", feature = "gurobi12")
+))]
+compile_error!("Only one Gurobi version feature can be enabled: gurobi10, gurobi11, or gurobi12.");
+
 mod config;
+pub mod extension;
+pub mod iis;
 mod linear;
 mod native;
 mod quadratic;
@@ -41,12 +55,16 @@ pub use native::{
     plan_imply_native, plan_in_values_native, plan_if_native, plan_indicator_from_parts, plan_indicator_native,
     plan_masking_native, plan_max_native, plan_min_native, plan_not_native, plan_or_native, plan_poly_mask_native,
 };
+pub use extension::*;
+pub use iis::*;
 pub use solver::GurobiSolver;
+#[doc(hidden)]
+pub use grb;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::{SolverCapability, SolverInfo, SolverOutput, SolverStatus};
+    use ospf_rust_core::solver::{SolverCapability, SolverInfo, SolverOutput, SolverStatus};
     use std::sync::Arc;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -305,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_common_config_preserves_deterministic_parameters() {
-        let common = crate::solver::SolverConfig::new("gurobi")
+        let common = ospf_rust_core::solver::SolverConfig::new("gurobi")
             .with_seed(42)
             .with_optimality_tolerance(1e-8)
             .with_feasibility_tolerance(1e-7)

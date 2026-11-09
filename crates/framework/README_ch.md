@@ -266,16 +266,18 @@ theta box 下界、固定 anchor 后的 RHS 和源目标也使用精确二进制
 舍入、候选解目标向上舍入。RHS 无法精确表示为有限 f64 时，在求解不同系统前以
 Unsupported 停止。
 
-Gurobi framework adapter 只有在 `ospf-rust-framework` 上启用对应 feature 时才会编译，并且该 feature 会透传到 `ospf-rust-core`。SCIP adapter 与 framework 扩展已迁移到 `ospf-rust-core-plugin-scip`。
+Gurobi 与 SCIP 的 framework adapter 已迁移到插件 crate `ospf-rust-core-plugin-gurobi` 和
+`ospf-rust-core-plugin-scip`。framework 保留 `gurobi*` / `scip*` feature 名供测试与下游兼容，
+通过 dev-dependency 转发到插件 crate。
 
 framework 扩展入口：
 
-1. `src/solver/gurobi_extension.rs`
+1. `ospf-rust-core-plugin-gurobi`: `src/extension.rs`（Gurobi 列生成与 Benders）
 2. `ospf-rust-core-plugin-scip`: `src/extension.rs`（SCIP 列生成与 Benders）
 
 backend 准备说明：
 
-1. Gurobi: [`../core/src/solver/solvers/gurobi/README_ch.md`](../core/src/solver/solvers/gurobi/README_ch.md)
+1. Gurobi: [`../core-plugin/gurobi/README_ch.md`](../core-plugin/gurobi/README_ch.md)
 2. SCIP: [`../core-plugin/scip/README_ch.md`](../core-plugin/scip/README_ch.md)
 
 对于 LP 和可线性化子问题，framework 优先使用后端返回且一致的 row dual/Farkas certificate。对于真实二次子问题，后端对完整 dual/Farkas certificate 的支持有限，因此可能返回结果但无法生成完整 quadratic Benders cut。

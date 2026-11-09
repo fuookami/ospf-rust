@@ -63,7 +63,7 @@ fn direct_mip_adjacency_preserves_full_model_snapshot() {
 #[test]
 #[ignore = "requires a native Gurobi installation; run explicitly with --ignored"]
 fn direct_mip_small_native_matches_reference_optimum() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
 
     let instance = small_instance().unwrap();
     let solver = GurobiSolver::with_config(GurobiConfig::new()

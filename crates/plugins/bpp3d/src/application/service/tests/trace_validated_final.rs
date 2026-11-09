@@ -878,7 +878,7 @@ fn actual_scip_grouped_traced_csv_reuses_a_layer_across_distinct_bins() {
 #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
 #[test]
 fn actual_gurobi_grouped_traced_csv_preserves_demand_in_both_rmp_reports_and_final() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     run_actual_grouped_traced_csv_application(std::sync::Arc::new(GurobiSolver::with_config(
         GurobiConfig::default().with_output(false),
     )));
@@ -887,7 +887,7 @@ fn actual_gurobi_grouped_traced_csv_preserves_demand_in_both_rmp_reports_and_fin
 #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
 #[test]
 fn actual_gurobi_grouped_traced_csv_reuses_a_layer_across_distinct_bins() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     run_actual_grouped_traced_csv_multiple_bins(std::sync::Arc::new(GurobiSolver::with_config(
         GurobiConfig::default().with_output(false),
     )));
@@ -905,7 +905,7 @@ fn actual_scip_traced_csv_application_uses_original_reports_and_physical_evidenc
 #[cfg(all(feature = "serde", feature = "gurobi10", not(feature = "async")))]
 #[test]
 fn actual_gurobi_traced_csv_application_uses_original_reports_and_physical_evidence() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     run_actual_traced_csv_application(std::sync::Arc::new(GurobiSolver::with_config(
         GurobiConfig::default().with_output(false),
     )));
@@ -925,7 +925,7 @@ fn actual_scip_traced_final_retains_actual_report_and_requires_physical_evidence
 #[cfg(all(feature = "gurobi10", not(feature = "async")))]
 #[test]
 fn actual_gurobi_traced_final_retains_actual_report_and_requires_physical_evidence() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     let solver = std::sync::Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false)));
     run_actual_traced_final(solver.clone());
     run_actual_trace_backed_application(solver);

@@ -1,3 +1,5 @@
+#![cfg(feature = "scip")]
+
 //! SCIP CP binding probes. / SCIP CP 绑定探针。
 //!
 //! These tests deliberately use the `russcip 0.9.1` surface directly.  They are

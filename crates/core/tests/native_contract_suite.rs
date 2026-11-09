@@ -270,8 +270,8 @@ fn assert_close_vectors(left: &[f64], right: &[f64], tolerance: f64, field: &str
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 #[test]
 fn gurobi_uses_the_shared_native_contract_suite() {
-    use ospf_rust_core::solver::solvers::GurobiSolver;
-    use ospf_rust_core::solvers::gurobi::GurobiConfig;
+    use ospf_rust_core_plugin_gurobi::GurobiSolver;
+    use ospf_rust_core_plugin_gurobi::GurobiConfig;
 
     let solver = GurobiSolver::with_config(GurobiConfig::new().with_output(false));
     assert_native_linear_contract(&solver);

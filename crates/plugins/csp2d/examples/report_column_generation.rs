@@ -20,7 +20,7 @@ fn backend(name: &str) -> Result<Arc<dyn LinearSolver>, Box<dyn std::error::Erro
         },
         #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
         "gurobi" => {
-            use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+            use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
             Ok(Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false))))
         },
         _ => Err(format!("Backend '{name}' is unknown or not compiled; explicitly enable its solver feature and runtime").into()),

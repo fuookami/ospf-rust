@@ -158,7 +158,8 @@ f64 快照的 `compile_flt64()` 在生成标准行时记录实际源行身份和
 | `model::mechanism` | mechanism model 与 constraint/objective lowering。 | migration |
 | `LinearTriadModel`、`QuadraticTetradModel` | standard-form solver input model。 | migration |
 | `Solver`、`SolverExt`、`SolveOptions` | 统一 solver trait 和 solve options。 | migration |
-| `solver::backend::{GurobiSolver, ScipSolver}` | feature-gated backend adapter。 | migration |
+| `ospf-rust-core-plugin-gurobi::GurobiSolver` | 独立 Gurobi 插件 crate 的 adapter。 | migration |
+| `ospf-rust-core-plugin-scip::SCIPSolver` | 独立 SCIP 插件 crate 的 adapter。 | migration |
 
 ## 泛型数值边界
 
@@ -488,11 +489,12 @@ model.set_linear_objective_input(objective);
 
 ## Solver Backend
 
-Rust 将 solver backend 拆为独立插件 crate：Gurobi 保留在 core feature 后，SCIP 位于 `ospf-rust-core-plugin-scip`。依赖哪个 crate，就在该 crate 上通过 Cargo feature 启用对应后端。
+Rust 将 solver backend 拆为独立插件 crate：Gurobi 与 SCIP 分别位于 `ospf-rust-core-plugin-gurobi`
+和 `ospf-rust-core-plugin-scip`。依赖哪个 crate，就在该 crate 上通过 Cargo feature 启用对应后端。
 
 后端专用说明：
 
-1. Gurobi: [solver/solvers/gurobi/README_ch.md](src/solver/solvers/gurobi/README_ch.md)
+1. Gurobi: [`ospf-rust-core-plugin-gurobi`](../core-plugin/gurobi/README_ch.md)
 2. SCIP: [`ospf-rust-core-plugin-scip`](../core-plugin/scip/README_ch.md)
 
 常见 feature 示例：
@@ -514,7 +516,7 @@ cargo test -p ospf-rust-core --features scip-bundled
 推荐后端导入：
 
 ```rust,ignore
-use ospf_rust_core::solver::backend::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core_plugin_scip::{SCIPSolver, ScipSolver};
 ```
 
@@ -524,7 +526,7 @@ use ospf_rust_core_plugin_scip::{SCIPSolver, ScipSolver};
 
 - `symbol::function` 是新的推荐入口；旧 `symbol::functions` 保留兼容。
 - `symbol::flatten` 是新的推荐入口；旧 `model::flatten` 保留兼容。
-- 已引入 `solver::config`、`solver::output`、`solver::value` 和 `solver::backend` 对齐路径。
+- 已引入 `solver::config`、`solver::output` 和 `solver::value` 对齐路径。
 
 ## 本地验证
 

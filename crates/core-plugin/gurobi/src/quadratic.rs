@@ -3,10 +3,10 @@
 
 use super::config::GurobiStage;
 use super::solver::GurobiSolver;
-use crate::error::{CoreError, Result, SolverError, SolverModelingError};
-use crate::model::intermediate::QuadraticTetradModel;
-use crate::solver::{SolveHandle, SolveOptions, SolverOutput};
-use crate::variable::VariableType;
+use ospf_rust_core::error::{CoreError, Result, SolverError, SolverModelingError};
+use ospf_rust_core::model::intermediate::QuadraticTetradModel;
+use ospf_rust_core::solver::{SolveHandle, SolveOptions, SolverOutput};
+use ospf_rust_core::variable::VariableType;
 #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
 use grb::expr::{LinExpr, QuadExpr};
 use std::time::Instant;
@@ -27,7 +27,7 @@ fn set_model_real_param(model: &mut grb::Model, name: &str, value: f64) -> Resul
         .map_err(GurobiSolver::environment_error)
 }
 
-pub(super) fn solve_quadratic(
+pub(crate) fn solve_quadratic(
     solver: &GurobiSolver,
     model: &QuadraticTetradModel,
 ) -> Result<SolverOutput> {
@@ -35,7 +35,7 @@ pub(super) fn solve_quadratic(
     Ok(output)
 }
 
-pub(super) fn solve_quadratic_with_options(
+pub(crate) fn solve_quadratic_with_options(
     solver: &GurobiSolver,
     model: &QuadraticTetradModel,
     options: &SolveOptions<'_>,
@@ -51,7 +51,7 @@ pub(super) fn solve_quadratic_with_options(
     Ok(output)
 }
 
-pub(super) fn solve_quadratic_with_solution_pool(
+pub(crate) fn solve_quadratic_with_solution_pool(
     solver: &GurobiSolver,
     model: &QuadraticTetradModel,
     solution_amount: usize,
@@ -59,7 +59,7 @@ pub(super) fn solve_quadratic_with_solution_pool(
     solve_quadratic_internal(solver, model, solution_amount.max(1), true, None, None)
 }
 
-pub(super) fn solve_quadratic_with_solution_pool_with_options(
+pub(crate) fn solve_quadratic_with_solution_pool_with_options(
     solver: &GurobiSolver,
     model: &QuadraticTetradModel,
     solution_amount: usize,
@@ -83,7 +83,7 @@ fn solve_quadratic_internal(
     cancellation_handle: Option<&SolveHandle>,
     per_solve_options: Option<&SolveOptions<'_>>,
 ) -> Result<(SolverOutput, Vec<Vec<f64>>)> {
-    crate::solver::audit::validate_quadratic_model_for_backend(model)?;
+    ospf_rust_core::solver::audit::validate_quadratic_model_for_backend(model)?;
     let start_time = Instant::now();
     let mut numeric_coefficients =
         Vec::with_capacity(model.c.len() + model.linear.A.rows.len() * 4 + model.Q.rows.len() * 4);
@@ -290,21 +290,21 @@ fn solve_quadratic_internal(
             .cloned()
             .unwrap_or_else(|| format!("qc{}", i));
         match constraint.relation {
-            crate::model::ConstraintRelation::LessEqual => {
+            ospf_rust_core::model::ConstraintRelation::LessEqual => {
                 grb_model
                     .add_qconstr(&name, c!(expr <= constraint.rhs))
                     .map_err(|e| {
                         CoreError::solver_modeling(format!("Gurobi add_qconstr error: {}", e))
                     })?;
             }
-            crate::model::ConstraintRelation::Equal => {
+            ospf_rust_core::model::ConstraintRelation::Equal => {
                 grb_model
                     .add_qconstr(&name, c!(expr == constraint.rhs))
                     .map_err(|e| {
                         CoreError::solver_modeling(format!("Gurobi add_qconstr error: {}", e))
                     })?;
             }
-            crate::model::ConstraintRelation::GreaterEqual => {
+            ospf_rust_core::model::ConstraintRelation::GreaterEqual => {
                 grb_model
                     .add_qconstr(&name, c!(expr >= constraint.rhs))
                     .map_err(|e| {
@@ -316,8 +316,8 @@ fn solve_quadratic_internal(
 
     // 设置目标方向
     let sense = match model.objective_category {
-        crate::model::object::ObjectiveCategory::Minimum => Minimize,
-        crate::model::object::ObjectiveCategory::Maximum => Maximize,
+        ospf_rust_core::model::object::ObjectiveCategory::Minimum => Minimize,
+        ospf_rust_core::model::object::ObjectiveCategory::Maximum => Maximize,
     };
     grb_model
         .set_objective(obj_expr, sense)

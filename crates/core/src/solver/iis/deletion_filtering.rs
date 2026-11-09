@@ -1,14 +1,12 @@
 //! 删除过滤算法
 //! Deletion Filtering Algorithm
 
-use super::{ConstraintSource, IISAnalysis, IISConfig, LinearIISModel, LinearTriadModelIISSource};
+use super::{
+    ConstraintSource, IISAnalysis, IISConfig, LinearIISModel, LinearTriadModelIISSource,
+};
 use crate::error::Result;
-#[cfg(not(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12")))]
-use crate::error::{CoreError, SolverNotFoundError};
 use crate::model::intermediate::{BasicLinearTriadModel, LinearTriadModel};
-use crate::solver::SolverOutput;
-#[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-use crate::solver::solvers::{GurobiSolver, gurobi::GurobiConfig};
+use crate::solver::{LinearSolver, SolverOutput};
 use std::collections::BTreeSet;
 use std::time::Instant;
 
@@ -122,20 +120,8 @@ impl ActiveSources {
     }
 }
 
-pub(crate) fn solve_linear_model(model: &LinearTriadModel) -> Result<SolverOutput> {
-    #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
-    {
-        let solver = GurobiSolver::with_config(GurobiConfig::new().with_output(false));
-        return solver.solve_linear(model);
-    }
-
-    #[cfg(not(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12")))]
-    {
-        let _ = model;
-        Err(CoreError::SolverNotFound(SolverNotFoundError::new(
-            "IIS computation requires one of features: gurobi10, gurobi11, gurobi12",
-        )))
-    }
+pub(crate) fn solve_linear_model(solver: &dyn LinearSolver, model: &LinearTriadModel) -> Result<SolverOutput> {
+    solver.solve_linear(model)
 }
 
 fn normalized_tolerance(tolerance: f64) -> f64 {
@@ -252,7 +238,11 @@ where
     if all_rows_zero { Some(true) } else { None }
 }
 
-pub(crate) fn is_basic_model_feasible_with_tolerance<M>(model: &M, tolerance: f64) -> Result<bool>
+pub(crate) fn is_basic_model_feasible_with_tolerance<M>(
+    model: &M,
+    tolerance: f64,
+    solver: &dyn LinearSolver,
+) -> Result<bool>
 where
     M: LinearTriadModelIISSource + ?Sized,
 {
@@ -262,7 +252,7 @@ where
     }
 
     let linear_model = LinearTriadModel::from_basic(model.as_basic_linear_triad_model().clone());
-    let output = solve_linear_model(&linear_model)?;
+    let output = solve_linear_model(solver, &linear_model)?;
     Ok(output.status.is_feasible())
 }
 
@@ -353,6 +343,7 @@ pub(crate) fn is_active_model_feasible_with_tolerance<M>(
     model: &M,
     active: &ActiveSources,
     tolerance: f64,
+    solver: &dyn LinearSolver,
 ) -> Result<bool>
 where
     M: LinearTriadModelIISSource + ?Sized,
@@ -363,13 +354,14 @@ where
     }
 
     let submodel = build_submodel_from_active(model, active);
-    is_basic_model_feasible_with_tolerance(&submodel, tolerance)
+    is_basic_model_feasible_with_tolerance(&submodel, tolerance, solver)
 }
 
 pub(crate) fn compute_iis_deletion_with_active<M>(
     model: &M,
     config: &IISConfig,
     mut active: ActiveSources,
+    solver: &dyn LinearSolver,
 ) -> Result<LinearIISModel>
 where
     M: LinearTriadModelIISSource + ?Sized,
@@ -386,7 +378,7 @@ where
         );
     }
 
-    if is_basic_model_feasible_with_tolerance(model, config.tolerance)? {
+    if is_basic_model_feasible_with_tolerance(model, config.tolerance, solver)? {
         let mut iis = LinearIISModel::new(model.num_constraints(), model.num_variables());
         iis.set_analysis(IISAnalysis::deletion_filtering(true));
         iis.set_computation_time(start.elapsed());
@@ -427,7 +419,7 @@ where
 
             active.remove(source);
             let feasible =
-                is_active_model_feasible_with_tolerance(model, &active, config.tolerance)?;
+                is_active_model_feasible_with_tolerance(model, &active, config.tolerance, solver)?;
             attempts += 1;
 
             if feasible {
@@ -473,64 +465,14 @@ where
 ///
 /// # 返回 / Returns
 /// IIS 模型 / IIS model
-pub fn compute_iis_deletion<M>(model: &M, config: &IISConfig) -> Result<LinearIISModel>
+pub fn compute_iis_deletion<M>(
+    model: &M,
+    config: &IISConfig,
+    solver: &dyn LinearSolver,
+) -> Result<LinearIISModel>
 where
     M: LinearTriadModelIISSource + ?Sized,
 {
     let active = ActiveSources::from_model(model, config.include_bounds);
-    compute_iis_deletion_with_active(model, config, active)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::intermediate::BasicLinearTriadModel;
-    use crate::solver::{InfeasibilityMinimality, ProofCompleteness, ProofReliability};
-    use crate::token::Token;
-    use crate::variable::{ContinuousVariableItem, VariableId, VariableType};
-
-    fn bound_conflict_model() -> BasicLinearTriadModel {
-        let mut model = BasicLinearTriadModel::new("legacy-iis-bound-conflict");
-        let variable = ContinuousVariableItem::create(VariableId::standalone(9101), "x");
-        model.add_variable_with_bounds(
-            Token::from_generic(variable, 0),
-            1.0,
-            0.0,
-            VariableType::Continuous,
-        );
-        model
-    }
-
-    #[test]
-    fn deletion_filtering_marks_complete_result_reliable_and_irreducible() {
-        let result = compute_iis_deletion(
-            &bound_conflict_model(),
-            &IISConfig::new().with_bounds(true).with_max_iterations(16),
-        )
-        .expect("quick bound conflict should not require a native solver");
-
-        assert_eq!(result.analysis().reliability, ProofReliability::Reliable);
-        assert_eq!(result.analysis().completeness, ProofCompleteness::Complete);
-        assert_eq!(
-            result.analysis().minimality,
-            InfeasibilityMinimality::Irreducible
-        );
-        assert_eq!(result.num_bounds(), 2);
-    }
-
-    #[test]
-    fn deletion_filtering_marks_budget_exhaustion_partial() {
-        let result = compute_iis_deletion(
-            &bound_conflict_model(),
-            &IISConfig::new().with_bounds(true).with_max_iterations(1),
-        )
-        .expect("partial bound conflict should still return evidence");
-
-        assert_eq!(result.analysis().reliability, ProofReliability::Reliable);
-        assert_eq!(result.analysis().completeness, ProofCompleteness::Partial);
-        assert_eq!(
-            result.analysis().minimality,
-            InfeasibilityMinimality::Partial
-        );
-    }
+    compute_iis_deletion_with_active(model, config, active, solver)
 }

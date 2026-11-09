@@ -323,7 +323,7 @@ fn rebooking_both_legs_checks_the_actual_previous_variant_not_its_original_fligh
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_partial_rebooking_respects_real_class_capacity_and_nonbinary_connection_counts() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     for (capacity, alternative, moved, objective) in [(1, 1, 1, 307.0), (0, 2, 2, 214.0)] {
         let problem = Arc::new(split_problem(capacity, alternative));
         let initial = split_columns(&problem);
@@ -347,7 +347,7 @@ fn demo4_gurobi_partial_rebooking_respects_real_class_capacity_and_nonbinary_con
 #[test]
 #[ignore = "requires native Gurobi runtime and license; run with --include-ignored"]
 fn demo4_gurobi_rebooking_improves_seed_with_real_variant_duals_and_passenger_connection_flow() {
-    use ospf_rust_framework::solver::gurobi_extension::GurobiColumnGenerationSolver;
+    use ospf_rust_core_plugin_gurobi::extension::GurobiColumnGenerationSolver;
     let problem = Arc::new(base(false).with_passenger_recovery(configuration(Some(500.0))).unwrap());
     let initial = vec![candidate(&problem, 0, &[0, 1])];
     let report = RecoveryApplicationService::new(GurobiColumnGenerationSolver::new()).solve(problem.clone(), RecoveryApplicationConfiguration {

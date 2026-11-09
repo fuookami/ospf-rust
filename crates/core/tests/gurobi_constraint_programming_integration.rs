@@ -13,7 +13,7 @@ use ospf_rust_core::model::constraint_programming::{
     IntegerVariable, IntervalDuration, IntervalVariable,
 };
 use ospf_rust_core::solver::constraint_programming::MipBackedConstraintProgrammingSolver;
-use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
 use ospf_rust_core::solver::{
     ConstraintProgrammingSolver, ProblemStatus, SolveReport, SolverInfo, StableVariableId,
 };

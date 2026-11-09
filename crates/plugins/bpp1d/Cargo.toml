@@ -15,6 +15,7 @@ num-traits = "0.2.19"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
+ospf-rust-core-plugin-gurobi = { path = "../../core-plugin/gurobi", version = "1.1.0" }
 ospf-rust-core-plugin-scip = { path = "../../core-plugin/scip", version = "1.1.0" }
 bigdecimal = "0.4"
 num-rational = "0.4"
@@ -26,9 +27,9 @@ async = ["ospf-rust-framework-bpp/async"]
 nightly = ["ospf-rust-framework-bpp/nightly"]
 big-rational = ["ospf-rust-framework-bpp/big-rational"]
 big-decimal = ["ospf-rust-framework-bpp/big-decimal"]
-gurobi10 = ["ospf-rust-framework-bpp/gurobi10"]
-gurobi11 = ["ospf-rust-framework-bpp/gurobi11"]
-gurobi12 = ["ospf-rust-framework-bpp/gurobi12"]
+gurobi10 = ["ospf-rust-core-plugin-gurobi/gurobi10"]
+gurobi11 = ["ospf-rust-core-plugin-gurobi/gurobi11"]
+gurobi12 = ["ospf-rust-core-plugin-gurobi/gurobi12"]
 scip = ["ospf-rust-core-plugin-scip/scip"]
 scip-bundled = ["scip", "ospf-rust-core-plugin-scip/scip-bundled"]
 scip-from-source = ["scip", "ospf-rust-core-plugin-scip/scip-from-source"]

@@ -1,11 +1,11 @@
 //! SQLx 关系查询计划编译器
 //! SQLx relational query plan compiler
 
-use super::{
+use crate::sqlx::{
     SqlxDialect, SqlxSql, SqlxTargetConstantBinder, SqlxTranslationError, SqlxTranslator,
     SqlxTranslatorConfig, SqlxTypedSql, SqlxValueType,
 };
-use crate::persistence::{
+use ospf_rust_framework::persistence::{
     ColumnRef, DiagnosticPersistenceFieldResolver, ExpressionRepository, JoinType,
     PersistenceFieldResolution, PersistenceFieldResolver, QueryAuditSummary,
     QueryExecutionErrorCategory, QueryExecutionResult, QueryExecutionStats, QuerySource,
@@ -594,7 +594,7 @@ impl SqlxRelationalQueryCompiler {
         Self::with_config(
             sources,
             SqlxTranslatorConfig::default().with_unsupported_predicate_policy(
-                crate::persistence::UnsupportedPredicatePolicy::FailFast,
+                ospf_rust_framework::persistence::UnsupportedPredicatePolicy::FailFast,
             ),
         )
     }
@@ -963,28 +963,28 @@ impl SqlxRelationalQueryCompiler {
 
     fn resolve_order(
         &self,
-        order: &crate::persistence::query::OrderSpec,
+        order: &ospf_rust_framework::persistence::query::OrderSpec,
         bound: &[BoundSource],
         index: usize,
     ) -> Result<String, RelationalQueryFailure> {
         let column = self.resolve_column(&order.column, bound, &format!("orderBy[{index}]"))?;
         let direction = match order.direction {
-            crate::persistence::query::SortDirection::Ascending => "ASC",
-            crate::persistence::query::SortDirection::Descending => "DESC",
+            ospf_rust_framework::persistence::query::SortDirection::Ascending => "ASC",
+            ospf_rust_framework::persistence::query::SortDirection::Descending => "DESC",
         };
         let nulls = match order.nulls {
-            crate::persistence::query::NullsOrder::Unspecified => {
+            ospf_rust_framework::persistence::query::NullsOrder::Unspecified => {
                 return Ok(format!("{column} {direction}"));
             }
-            crate::persistence::query::NullsOrder::First => "0 ELSE 1",
-            crate::persistence::query::NullsOrder::Last => "1 ELSE 0",
+            ospf_rust_framework::persistence::query::NullsOrder::First => "0 ELSE 1",
+            ospf_rust_framework::persistence::query::NullsOrder::Last => "1 ELSE 0",
         };
         Ok(format!(
             "CASE WHEN {column} IS NULL THEN {nulls} END ASC, {column} {direction}"
         ))
     }
 
-    fn append_page(&self, statement: &mut SqlFragment, page: Option<crate::persistence::PageSpec>) {
+    fn append_page(&self, statement: &mut SqlFragment, page: Option<ospf_rust_framework::persistence::PageSpec>) {
         if let Some(page) = page {
             let limit = placeholder(self.config.dialect, statement.params.len() + 1);
             statement.params.push(ExpressionValue::from(page.limit));
@@ -1391,7 +1391,8 @@ fn shift_placeholders(sql: &str, dialect: SqlxDialect, offset: usize) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{
         JoinCardinality, JoinSpec, PageSpec, PredicateSchema, ProjectionSpec, QuerySource,
     };
     use ospf_rust_math::symbol::ScalarExpression;
@@ -1452,7 +1453,7 @@ mod tests {
             ))
             .with_projections([ProjectionSpec::new(ColumnRef::new("o", "id"))])
             .with_distinct(true)
-            .with_page(crate::persistence::PageSpec::new(10, 5));
+            .with_page(ospf_rust_framework::persistence::PageSpec::new(10, 5));
         let compiled = compiler.compile(&plan).unwrap();
 
         assert!(compiled.statement.sql.contains("INNER JOIN"));
@@ -1575,8 +1576,8 @@ mod tests {
             )])
             .with_projections([ProjectionSpec::new(ColumnRef::new("o", "id"))])
             .with_order_by([
-                crate::persistence::OrderSpec::new(ColumnRef::new("i", "material"))
-                    .with_nulls(crate::persistence::QueryNullsOrder::Last),
+                ospf_rust_framework::persistence::OrderSpec::new(ColumnRef::new("i", "material"))
+                    .with_nulls(ospf_rust_framework::persistence::QueryNullsOrder::Last),
             ]);
 
         let compiled = compiler.compile(&plan).unwrap();
@@ -1756,7 +1757,7 @@ mod tests {
             ))
             .with_projections([ProjectionSpec::new(ColumnRef::new("o", "id"))])
             .with_distinct(true)
-            .with_page(crate::persistence::PageSpec::new(10, 5));
+            .with_page(ospf_rust_framework::persistence::PageSpec::new(10, 5));
 
         let compiled = compiler.compile(&plan).unwrap();
 
@@ -2012,7 +2013,7 @@ mod tests {
             ScalarExpression::constant(ExpressionValue::from("active")),
         );
         let options = RepositoryQuery::new()
-            .with_sort_by(crate::persistence::SortBy::desc("status"))
+            .with_sort_by(ospf_rust_framework::persistence::SortBy::desc("status"))
             .with_limit(1)
             .with_offset(2);
 

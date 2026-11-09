@@ -46,7 +46,7 @@ fn print_gate_result(solver: &dyn SolverInfo, requested: BinaryzationMethod) {
 
 /// Capability gate 主函数 / Capability gate main function
 pub fn run() -> Result<(), Box<dyn Error>> {
-    let native_solver = ospf_rust_core::solver::solvers::GurobiSolver::new();
+    let native_solver = ospf_rust_core_plugin_gurobi::GurobiSolver::new();
     let fallback_solver = FallbackDemoSolver;
 
     println!("=== Capability Gate Demo ===");

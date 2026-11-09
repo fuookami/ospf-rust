@@ -15,7 +15,7 @@
 //!
 //! # 支持的求解器 / Supported Solvers
 //!
-//! - `solvers::gurobi::GurobiSolver` - Gurobi 求解器（需要 `gurobi` feature）
+//! - `ospf-rust-core-plugin-gurobi` - Gurobi 求解器（独立 plugin crate）
 //! - `ospf-rust-core-plugin-scip` - SCIP 求解器（独立 plugin crate）
 //!
 //! # IIS 计算 / IIS Computation
@@ -32,7 +32,6 @@
 //! - [`heuristic::operator`] - 算子族 / Operator families
 
 pub mod audit;
-pub mod backend;
 pub mod cancellation;
 pub mod checkpoint;
 pub mod config;
@@ -52,7 +51,6 @@ pub mod solver_config;
 pub mod solver_ext;
 #[doc(hidden)]
 pub mod solver_output;
-pub mod solvers;
 pub mod value;
 
 pub use audit::*;

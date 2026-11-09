@@ -170,7 +170,8 @@ For Logic-Based Benders decomposition, use `LogicBasedBendersEngine` from `ospf-
 | `model::mechanism` | Mechanism model and constraint/objective lowering. | migration |
 | `LinearTriadModel`, `QuadraticTetradModel` | Standard-form solver input models. | migration |
 | `Solver`, `SolverExt`, `SolveOptions` | Unified solver trait and solve options. | migration |
-| `solver::backend::{GurobiSolver, ScipSolver}` | Feature-gated backend adapters. | migration |
+| `ospf-rust-core-plugin-gurobi::GurobiSolver` | Independent Gurobi plugin crate adapter. | migration |
+| `ospf-rust-core-plugin-scip::SCIPSolver` | Independent SCIP plugin crate adapter. | migration |
 
 ## Generic Numeric Boundaries
 
@@ -527,11 +528,13 @@ model.set_linear_objective_input(objective);
 
 ## Solver Backends
 
-Rust keeps the core crate free of solver plugins: Gurobi stays behind core features, while SCIP is an independent `ospf-rust-core-plugin-scip` crate. Enable each backend through Cargo features on the crate that you depend on.
+Rust keeps the core crate free of solver plugins: Gurobi and SCIP are independent plugin crates
+(`ospf-rust-core-plugin-gurobi`, `ospf-rust-core-plugin-scip`). Enable each backend through Cargo
+features on the crate that you depend on.
 
 Backend-specific notes:
 
-1. Gurobi: [solver/solvers/gurobi/README.md](src/solver/solvers/gurobi/README.md)
+1. Gurobi: [`ospf-rust-core-plugin-gurobi`](../core-plugin/gurobi/README.md)
 2. SCIP: [`ospf-rust-core-plugin-scip`](../core-plugin/scip/README.md)
 
 Common feature examples:
@@ -553,7 +556,7 @@ cargo test -p ospf-rust-core --features scip-bundled
 Recommended backend imports:
 
 ```rust,ignore
-use ospf_rust_core::solver::backend::GurobiSolver;
+use ospf_rust_core_plugin_gurobi::GurobiSolver;
 use ospf_rust_core_plugin_scip::{SCIPSolver, ScipSolver};
 ```
 
@@ -563,7 +566,7 @@ use ospf_rust_core_plugin_scip::{SCIPSolver, ScipSolver};
 
 - `symbol::function` is the new preferred entry; legacy `symbol::functions` is kept for compatibility.
 - `symbol::flatten` is the new preferred entry; legacy `model::flatten` is kept for compatibility.
-- `solver::config`, `solver::output`, `solver::value`, and `solver::backend` are introduced as aligned paths.
+- `solver::config`, `solver::output`, and `solver::value` are introduced as aligned paths.
 
 ## Local Validation
 

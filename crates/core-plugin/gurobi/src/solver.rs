@@ -1,11 +1,11 @@
 //! Gurobi 求解器主体
 //! Gurobi solver core
 
-use crate::error::{CoreError, Result};
-use crate::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
-use crate::model::object::ObjectiveCategory;
-use crate::solver::solver::{emit_progress_start, emit_progress_terminal, emit_progress_update};
-use crate::solver::{
+use ospf_rust_core::error::{CoreError, Result};
+use ospf_rust_core::model::intermediate::{LinearTriadModel, QuadraticTetradModel};
+use ospf_rust_core::model::object::ObjectiveCategory;
+use ospf_rust_core::solver::solver::{emit_progress_start, emit_progress_terminal, emit_progress_update};
+use ospf_rust_core::solver::{
     CapabilitySupport, LinearSolver, QuadraticSolver, SolveHandle, SolveProgressReporter, SolveReport, SolveWarning,
     SolverCapabilities, SolverCapability, SolverDescriptor, SolverInfo, SolverOutput,
     SolverProvenance, SolverStatus, SolvingStatus, attach_linear_solution_audit,
@@ -13,7 +13,7 @@ use crate::solver::{
     solver_output_to_report_with_cancellation, solver_output_to_report_with_provenance,
     validate_per_solve_limits, verify_native_terminal_proof,
 };
-use crate::solver::{
+use ospf_rust_core::solver::{
     configuration_fingerprint, linear_model_fingerprint, quadratic_model_fingerprint,
     sha256_fingerprint, solver_provenance_fingerprint,
 };
@@ -29,7 +29,7 @@ use super::config::{
 use super::{linear, quadratic};
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct GurobiNumericSettings {
+pub(crate) struct GurobiNumericSettings {
     pub zero_tolerance: f64,
     pub numeric_focus: Option<i32>,
     pub scale_flag: Option<i32>,
@@ -54,7 +54,7 @@ pub(super) struct GurobiNumericSettings {
 /// # 示例 / Examples
 ///
 /// ```rust,ignore
-/// use ospf_rust_core::solver::solvers::GurobiSolver;
+/// use crate::GurobiSolver;
 ///
 /// let solver = GurobiSolver::new();
 /// let result = solver.solve_linear(&model)?;
@@ -192,7 +192,7 @@ impl GurobiSolver {
         }
     }
 
-    pub(super) fn resolve_numeric_settings(
+    pub(crate) fn resolve_numeric_settings(
         &self,
         coefficients: &[f64],
     ) -> Result<GurobiNumericSettings> {
@@ -214,8 +214,8 @@ impl GurobiSolver {
 
         let diagnostics = self.build_numeric_diagnostics(coefficients);
         if diagnostics.non_finite_coefficient_count > 0 {
-            return Err(crate::error::CoreError::Solver(
-                crate::error::SolverError::NonFinite(format!(
+            return Err(ospf_rust_core::error::CoreError::Solver(
+                ospf_rust_core::error::SolverError::NonFinite(format!(
                     "numeric diagnostics found {} non-finite coefficients",
                     diagnostics.non_finite_coefficient_count
                 )),
@@ -253,19 +253,19 @@ impl GurobiSolver {
         &mut self.config
     }
 
-    pub(super) fn environment_error(error: grb::Error) -> crate::error::CoreError {
+    pub(crate) fn environment_error(error: grb::Error) -> ospf_rust_core::error::CoreError {
         Self::environment_error_with_context("param", error)
     }
 
-    fn environment_start_error(context: &str, error: grb::Error) -> crate::error::CoreError {
+    fn environment_start_error(context: &str, error: grb::Error) -> ospf_rust_core::error::CoreError {
         Self::environment_error_with_context(context, error)
     }
 
-    fn environment_error_with_context(context: &str, error: grb::Error) -> crate::error::CoreError {
+    fn environment_error_with_context(context: &str, error: grb::Error) -> ospf_rust_core::error::CoreError {
         let message = error.to_string();
         match error {
             grb::Error::FromAPI(_, code) if code == Self::GRB_ERROR_NO_LICENSE => {
-                crate::error::CoreError::solver_license(format!(
+                ospf_rust_core::error::CoreError::solver_license(format!(
                     "Gurobi {} requires a valid license: {}",
                     context, message
                 ))
@@ -278,20 +278,20 @@ impl GurobiSolver {
                         | Self::GRB_ERROR_VALUE_OUT_OF_RANGE
                 ) =>
             {
-                crate::error::CoreError::Solver(crate::error::SolverError::InvalidInput(format!(
+                ospf_rust_core::error::CoreError::Solver(ospf_rust_core::error::SolverError::InvalidInput(format!(
                     "Gurobi {} configuration error: {}",
                     context, message
                 )))
             }
-            _ => crate::error::CoreError::solver_environment(format!(
+            _ => ospf_rust_core::error::CoreError::solver_environment(format!(
                 "Gurobi {} error: {}",
                 context, message
             )),
         }
     }
 
-    fn backend_error(context: &str, error: impl std::fmt::Display) -> crate::error::CoreError {
-        crate::error::CoreError::solver_backend(format!("Gurobi {} error: {}", context, error))
+    fn backend_error(context: &str, error: impl std::fmt::Display) -> ospf_rust_core::error::CoreError {
+        ospf_rust_core::error::CoreError::solver_backend(format!("Gurobi {} error: {}", context, error))
     }
 
     fn record_callback_error(slot: &Arc<Mutex<Option<CoreError>>>, message: impl Into<String>) {
@@ -301,7 +301,7 @@ impl GurobiSolver {
         }
     }
 
-    pub(super) fn create_env(&self) -> Result<grb::Env> {
+    pub(crate) fn create_env(&self) -> Result<grb::Env> {
         use grb::prelude::*;
 
         let has_compute_server = self.config.compute_server.is_some()
@@ -441,7 +441,7 @@ impl GurobiSolver {
         Ok(())
     }
 
-    pub(super) fn optimize_model(
+    pub(crate) fn optimize_model(
         &self,
         grb_model: &mut grb::Model,
         objective_category: ObjectiveCategory,
@@ -760,7 +760,7 @@ impl GurobiSolver {
     }
 
     /// 将 Gurobi 状态转换为求解器状态 / Convert Gurobi status to solver status
-    pub(super) fn convert_status(status: grb::Status) -> SolverStatus {
+    pub(crate) fn convert_status(status: grb::Status) -> SolverStatus {
         use grb::Status;
         match status {
             Status::Optimal => SolverStatus::Optimal,
@@ -781,7 +781,7 @@ impl GurobiSolver {
     }
 
     /// 结合解数量细化状态 / Refine status with solution availability.
-    pub(super) fn refine_status_with_solution(
+    pub(crate) fn refine_status_with_solution(
         status: SolverStatus,
         has_solution: bool,
     ) -> SolverStatus {
@@ -799,7 +799,7 @@ impl GurobiSolver {
     /// Gurobi reports both cases as `OPTIMAL`.  A positive configured gap is
     /// therefore an exact certificate only when the returned incumbent and
     /// bound agree within the report tolerance.
-    pub(super) fn refine_status_with_mip_gap(
+    pub(crate) fn refine_status_with_mip_gap(
         status: SolverStatus,
         has_solution: bool,
         has_integer_variables: bool,
@@ -818,7 +818,7 @@ impl GurobiSolver {
         }
     }
 
-    pub(super) fn emit_stage_status(
+    pub(crate) fn emit_stage_status(
         &self,
         stage: GurobiStage,
         solver_status: Option<SolverStatus>,
@@ -862,9 +862,9 @@ impl GurobiSolver {
     /// report.
     pub fn solve_linear_with_native_lowering(
         &self,
-        mechanism: crate::MechanismModel<f64>,
-        options: Option<&crate::SolveOptions<'_>>,
-    ) -> Result<(SolverOutput, crate::intermediate::NativeLoweringReport)> {
+        mechanism: ospf_rust_core::MechanismModel<f64>,
+        options: Option<&ospf_rust_core::SolveOptions<'_>>,
+    ) -> Result<(SolverOutput, ospf_rust_core::intermediate::NativeLoweringReport)> {
         linear::solve_linear_with_native_lowering(self, mechanism, options)
     }
 
@@ -881,13 +881,13 @@ impl GurobiSolver {
     #[doc(hidden)]
     pub fn solve_linear_with_native_writers(
         &self,
-        mechanism: crate::MechanismModel<f64>,
-        options: Option<&crate::SolveOptions<'_>>,
-        registry: crate::intermediate::NativeFunctionWriterRegistry<
+        mechanism: ospf_rust_core::MechanismModel<f64>,
+        options: Option<&ospf_rust_core::SolveOptions<'_>>,
+        registry: ospf_rust_core::intermediate::NativeFunctionWriterRegistry<
             super::native::GurobiNativeContainer,
             f64,
         >,
-    ) -> Result<(SolverOutput, crate::intermediate::NativeLoweringReport)> {
+    ) -> Result<(SolverOutput, ospf_rust_core::intermediate::NativeLoweringReport)> {
         linear::solve_linear_with_native_writers(self, mechanism, options, registry)
     }
 
@@ -946,7 +946,7 @@ impl GurobiSolver {
         ]
     }
 
-    pub(super) fn provenance(&self) -> SolverProvenance {
+    pub(crate) fn provenance(&self) -> SolverProvenance {
         let mut configuration = BTreeMap::new();
         configuration.insert(
             "time_limit".to_owned(),
@@ -1039,7 +1039,7 @@ impl GurobiSolver {
         }
     }
 
-    pub(super) fn report_from_output(
+    pub(crate) fn report_from_output(
         &self,
         output: SolverOutput,
         cancellation_handle: Option<&SolveHandle>,
@@ -1141,7 +1141,7 @@ impl LinearSolver for GurobiSolver {
     fn solve_linear_report_with_options(
         &self,
         model: &LinearTriadModel,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<SolveReport<f64>> {
         validate_per_solve_limits(options)?;
         emit_progress_start(options.progress_reporter, self.name())?;
@@ -1210,7 +1210,7 @@ impl LinearSolver for GurobiSolver {
         &self,
         model: &LinearTriadModel,
         solution_amount: usize,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<Option<(SolverOutput, Vec<Vec<f64>>)>> {
         validate_per_solve_limits(options)?;
         if solution_amount <= 1 {
@@ -1237,7 +1237,7 @@ impl QuadraticSolver for GurobiSolver {
     fn solve_quadratic_report_with_options(
         &self,
         model: &QuadraticTetradModel,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<SolveReport<f64>> {
         validate_per_solve_limits(options)?;
         emit_progress_start(options.progress_reporter, self.name())?;
@@ -1306,7 +1306,7 @@ impl QuadraticSolver for GurobiSolver {
         &self,
         model: &QuadraticTetradModel,
         solution_amount: usize,
-        options: &crate::solver::SolveOptions<'_>,
+        options: &ospf_rust_core::solver::SolveOptions<'_>,
     ) -> Result<Option<(SolverOutput, Vec<Vec<f64>>)>> {
         validate_per_solve_limits(options)?;
         if solution_amount <= 1 {
@@ -1326,8 +1326,8 @@ impl QuadraticSolver for GurobiSolver {
 #[cfg(test)]
 mod tests {
     use super::GurobiSolver;
-    use crate::error::{CoreError, SolverErrorClass};
-    use crate::solver::{CapabilitySupport, SolverInfo};
+    use ospf_rust_core::error::{CoreError, SolverErrorClass};
+    use ospf_rust_core::solver::{CapabilitySupport, SolverInfo};
 
     #[test]
     fn provenance_separates_binding_feature_native_and_package_versions() {

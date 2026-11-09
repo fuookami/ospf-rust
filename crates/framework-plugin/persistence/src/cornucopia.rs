@@ -96,6 +96,7 @@ impl CornucopiaRepositoryBindings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ospf_rust_framework::persistence::*;
 
     #[test]
     fn cornucopia_bindings_track_generated_query_functions() {

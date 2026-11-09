@@ -161,7 +161,7 @@ fn scip_runs_original_grouped_flow_from_source_artifact() {
 #[cfg(feature = "gurobi10")]
 #[test]
 fn gurobi_runs_original_grouped_flow_from_source_artifact() {
-    use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+    use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
     let solver = Arc::new(GurobiSolver::with_config(GurobiConfig::default().with_output(false)));
     solve(solver.clone());
     stage_contract(solver.clone());

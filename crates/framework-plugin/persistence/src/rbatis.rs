@@ -1,11 +1,11 @@
 //! Rbatis 持久化后端
 //! Rbatis persistence backend
 
-use super::sqlx::{
+use crate::sqlx::{
     SqlxDialect, SqlxRepositoryStatementBuilder, SqlxSql, SqlxTranslationError,
     SqlxTranslatorConfig,
 };
-use crate::persistence::{PersistenceFieldResolver, RepositoryQuery, UpdateAssignments};
+use ospf_rust_framework::persistence::{PersistenceFieldResolver, RepositoryQuery, UpdateAssignments};
 use ospf_rust_math::symbol::{BooleanExpression, ExpressionValue};
 
 /// Rbatis 后端标记类型。
@@ -122,7 +122,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{RepositoryQuery, runtime_field};
+    use ospf_rust_framework::persistence::*;
+    use ospf_rust_framework::persistence::{RepositoryQuery, runtime_field};
 
     #[test]
     fn rbatis_builder_reuses_parameterized_sql_translator() {

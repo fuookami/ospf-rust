@@ -395,7 +395,7 @@ mod native {
     #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
     #[test]
     fn gurobi_ordinary_partition_phase_one_pricing_completion_and_final() {
-        use ospf_rust_core::solver::solvers::gurobi::{GurobiConfig, GurobiSolver};
+        use ospf_rust_core_plugin_gurobi::{GurobiConfig, GurobiSolver};
         verify(&GurobiSolver::with_config(GurobiConfig::new().with_output(false)));
     }
 }

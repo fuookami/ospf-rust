@@ -189,6 +189,25 @@ pub struct AnalysisCandidateFunnel {
 /// 由活动性报告构建候选漏斗；对偶证据恒为缺失，因此只给出 Tier C 与 Unclassified。
 /// Build the candidate funnel from an activity report; dual evidence is always absent here, so only Tier C and
 /// Unclassified can be assigned.
+fn compute_iis_with_backend(
+    model: &ospf_rust_core::model::intermediate::LinearTriadModel,
+    config: &ospf_rust_core::solver::iis::IISConfig,
+) -> Result<ospf_rust_core::solver::iis::LinearIISModel> {
+    #[cfg(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12"))]
+    {
+        ospf_rust_core_plugin_gurobi::iis::compute_iis(model, config)
+            .map_err(|error| BridgeError::new("ExecutionFailure", error.to_string()))
+    }
+    #[cfg(not(any(feature = "gurobi10", feature = "gurobi11", feature = "gurobi12")))]
+    {
+        let _ = (model, config);
+        Err(BridgeError::new(
+            "ExecutionFailure",
+            "IIS computation requires a Gurobi backend feature",
+        ))
+    }
+}
+
 /// 在 Rust 内对真实线性模型计算 IIS，并把 solver 索引换回稳定身份；
 /// 不暴露墙上时钟耗时，避免同一输入的输出随机器性能漂移。
 /// Compute the IIS inside Rust over a real linear model and map solver indices back to stable identities; wall-clock
@@ -208,7 +227,7 @@ pub fn compute_linear_iis(artifact: &crate::ModelArtifact, options: &LinearIisOp
     // 共享预算直接进原 core 的时间限制；不额外伪造可中断性。
     // The shared budget goes straight into core's time limit without faking interruptibility.
     config.time_limit = time_limit;
-    let iis = ospf_rust_core::solver::iis::compute_iis(&model, &config).map_err(|error| BridgeError::new("ExecutionFailure", error.to_string()))?;
+    let iis = compute_iis_with_backend(&model, &config)?;
     let mapping = ospf_rust_core::solver::linear_model_mapping(&model).map_err(crate::invalid)?;
     let constraints = |indices: &[usize]| indices.iter().map(|index| mapping.constraints_by_row.get(*index).cloned()
         .ok_or_else(|| BridgeError::new("ExecutionFailure", "IIS names a constraint row outside the mapping"))).collect::<Result<Vec<_>>>();
