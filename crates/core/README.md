@@ -13,7 +13,7 @@ This crate covers:
 1. Variable and token systems.
 2. Symbolic expression and function-symbol systems.
 3. `MetaModel`, mechanism model, intermediate standard-form models, and callback model layers.
-4. Solver traits, options, outputs, value conversion, heuristic solvers, IIS diagnostics, and Gurobi/SCIP adapter boundaries.
+4. Solver traits, options, outputs, value conversion, IIS diagnostics, and Gurobi/SCIP adapter boundaries.
 
 Explicit non-goals:
 
@@ -85,8 +85,6 @@ exact sums; callers must not reconstruct full objectives by adding already-round
 | Sub-package | Description |
 |-------------|-------------|
 | `config` | Solver-specific configuration (COPT, Gurobi; SCIP configuration lives in the plugin crate). |
-| `heuristic` | Metaheuristic framework: lifecycle skeletons, 18 operator families, composition factories, and algorithm entries. |
-| [`hyper_heuristic`](src/solver/hyper_heuristic/README.md) | Selection hyper-heuristics: two-level adaptive credit, native constraints, metered local search and domain ruin/recreate, HV rewards, JSON/YAML/TOML configuration, persistent sessions and schedule replay; see module compatibility boundaries. |
 | `iis` | Irreducible Infeasible Subsystem diagnostics. |
 | `output` | Solver output data structures (feasible/infeasible). |
 | `value` | Value type conversion (IntoValue trait). |

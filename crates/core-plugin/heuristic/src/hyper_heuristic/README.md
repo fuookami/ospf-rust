@@ -12,7 +12,7 @@ Create a `SearchRegistry::with_builtins()`, register an independent problem fact
 
 `HyperHeuristicSolver::open` creates an independent run. `advance` executes one serial slice or one parallel batch; `run` continues until termination; `close` is idempotent. Inspect `result` after a failure to retain consumed costs, valid candidates, and diagnostics without reevaluating objectives.
 
-Runnable example: [`hyper_heuristic_demo.rs`](../../../examples/hyper_heuristic_demo.rs).
+Runnable example: [`hyper_heuristic_demo.rs`](../../../../core/examples/hyper_heuristic_demo.rs).
 
 ```text
 cargo run -p ospf-rust-core --example hyper_heuristic_demo

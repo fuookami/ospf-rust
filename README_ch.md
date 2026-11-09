@@ -32,6 +32,7 @@
 | [`ospf-rust-core`](crates/core/README_ch.md) | `ospf-kotlin-core` | 变量、token、symbol、`MetaModel`、flatten、solver trait、solver output、IIS 和 backend adapter。 |
 | [`ospf-rust-framework`](crates/framework/README_ch.md) | `ospf-kotlin-framework` | pipeline 建模、shadow price、列生成、Benders、组合求解器、持久化契约、远程求解客户端和心跳工具。 |
 | [`ospf-rust-core-plugin-gurobi`](crates/core-plugin/gurobi/README_ch.md) | `ospf-kotlin-core-plugin-gurobi` | Gurobi 核心适配器、基于 Gurobi 的 IIS 算法与 framework Gurobi 扩展求解器。 |
+| [`ospf-rust-core-plugin-heuristic`](crates/core-plugin/heuristic/README_ch.md) | `ospf-kotlin-core-plugin-heuristic` | 元启发式框架（生命周期骨架、算子族、组合层）与选择型超启发式。 |
 | [`ospf-rust-core-plugin-scip`](crates/core-plugin/scip/README_ch.md) | `ospf-kotlin-core-plugin-scip` | SCIP 核心适配器、约束规划 facade 与 framework SCIP 扩展求解器。 |
 | [`ospf-rust-framework-geometry2d`](crates/frameworks/geometry2d/README_ch.md) | `ospf-kotlin-framework-geometry2d` | 共享二维量纲几何内核：量值算术、点与形状、放置、包围盒重叠、板材几何与刀缝，供 BPP2D 与 CSP2D 共用。 |
 | [`ospf-rust-framework-bpp`](crates/frameworks/bpp/README_ch.md) | `ospf-kotlin-framework-bpp` | 共享稀疏离散装载、有限容量整体占位、保全边的冲突、显式布局、原数值域复核及几何适配。 |
@@ -62,7 +63,7 @@ workspace 同时把 `ospf-kotlin` 的两类插件与领域框架分开：
 | 目录 | 内容 | Kotlin 对应 |
 | --- | --- | --- |
 | `crates/base` … `crates/framework` | 基础层、core、framework | `ospf-kotlin-utils` … `ospf-kotlin-framework` |
-| `crates/core-plugin/*` | solver 插件（`scip`、`gurobi`） | `ospf-kotlin-core-plugin-*` |
+| `crates/core-plugin/*` | core 插件（`scip`、`gurobi`、`heuristic`） | `ospf-kotlin-core-plugin-*` |
 | `crates/framework-plugin/*` | framework 插件（`persistence`） | `ospf-kotlin-framework-plugin-*` |
 | `crates/frameworks/*` | 领域框架（`bpp`、`bpp1d`、…、`network-scheduling`） | 顶层的 `ospf-kotlin-framework-*` 模块 |
 

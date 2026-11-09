@@ -13,7 +13,7 @@
 3. `HyperHeuristicSolver::open` 创建独立运行；`advance` 推进串行片段、同步批次或一个异步完成事件，`run` 推进至停止，`close` 幂等关闭。
 4. `result` 不触发评估；失败时可读取已经消费的成本、有效档案及诊断。
 
-可执行示例：[`hyper_heuristic_demo.rs`](../../../examples/hyper_heuristic_demo.rs)。
+可执行示例：[`hyper_heuristic_demo.rs`](../../../../core/examples/hyper_heuristic_demo.rs)。
 
 ```text
 cargo run -p ospf-rust-core --example hyper_heuristic_demo

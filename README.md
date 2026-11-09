@@ -34,6 +34,7 @@ Explicit non-goals:
 | [`ospf-rust-core`](crates/core/README.md) | `ospf-kotlin-core` | Variables, tokens, symbols, `MetaModel`, flattening, solver traits, solver output, IIS, and backend adapters. |
 | [`ospf-rust-framework`](crates/framework/README.md) | `ospf-kotlin-framework` | Pipeline modeling, shadow prices, column generation, Benders, combinatorial solvers, persistence contracts, remote solver client, and heartbeat utilities. |
 | [`ospf-rust-core-plugin-gurobi`](crates/core-plugin/gurobi/README.md) | `ospf-kotlin-core-plugin-gurobi` | Gurobi core adapter, Gurobi-backed IIS algorithms, and framework Gurobi extension solvers. |
+| [`ospf-rust-core-plugin-heuristic`](crates/core-plugin/heuristic/README.md) | `ospf-kotlin-core-plugin-heuristic` | Metaheuristic framework (lifecycle skeletons, operator families, composition) and the selection hyper-heuristic. |
 | [`ospf-rust-core-plugin-scip`](crates/core-plugin/scip/README.md) | `ospf-kotlin-core-plugin-scip` | SCIP core adapter, constraint-programming facade, and framework SCIP extension solvers. |
 | [`ospf-rust-framework-geometry2d`](crates/frameworks/geometry2d/README.md) | `ospf-kotlin-framework-geometry2d` | Shared 2D quantity geometry kernel: quantity arithmetic, points and shapes, placements, bounding-box overlap, sheet geometry and kerf, used by both BPP2D and CSP2D. |
 | [`ospf-rust-framework-bpp`](crates/frameworks/bpp/README.md) | `ospf-kotlin-framework-bpp` | Shared sparse discrete loading, finite-capacity occupancy, edge-preserving conflicts, explicit layouts, native-value validation and geometry adapters. |
@@ -62,7 +63,7 @@ The workspace also keeps `ospf-kotlin`'s two plugin families apart from the doma
 | Directory | Contents | Kotlin counterpart |
 | --- | --- | --- |
 | `crates/base` … `crates/framework` | Foundation, core, framework | `ospf-kotlin-utils` … `ospf-kotlin-framework` |
-| `crates/core-plugin/*` | Solver plugins (`scip`, `gurobi`) | `ospf-kotlin-core-plugin-*` |
+| `crates/core-plugin/*` | Core plugins (`scip`, `gurobi`, `heuristic`) | `ospf-kotlin-core-plugin-*` |
 | `crates/framework-plugin/*` | Framework plugins (`persistence`) | `ospf-kotlin-framework-plugin-*` |
 | `crates/frameworks/*` | Domain frameworks (`bpp`, `bpp1d`, …, `network-scheduling`) | top-level `ospf-kotlin-framework-*` modules |
 

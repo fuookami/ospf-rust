@@ -64,7 +64,7 @@ f64 快照的 `compile_flt64()` 在生成标准行时记录实际源行身份和
 | `token` | `core/token` | 变量-token 映射、token list/table、缓存值和 solver result access。 |
 | `symbol` | `core/symbol` | 表达式符号、monomial cell、函数符号、中间符号和 flattening helper。 |
 | `model` | `core/model` | `MetaModel`、mechanism model、intermediate triad/tetrad model、callback model、constraint/objective DSL 和 model state。 |
-| `solver` | `core/solver` | solver trait、options、backend config、output type、value conversion、启发式求解器、IIS diagnostics 和 backend adapter。 |
+| `solver` | `core/solver` | solver trait、options、backend config、output type、value conversion、IIS diagnostics 和 backend adapter。 |
 | `error` | `core/error` | core error 和 result 类型。 |
 
 
@@ -75,8 +75,6 @@ f64 快照的 `compile_flt64()` 在生成标准行时记录实际源行身份和
 | 子包 | 描述 |
 |------|------|
 | config | 求解器特定配置（COPT、Gurobi；SCIP 配置位于独立插件 crate）。 |
-| `heuristic` | 元启发式框架：生命周期骨架、18 个算子族、组合工厂与算法入口。 |
-| [`hyper_heuristic`](src/solver/hyper_heuristic/README_ch.md) | 选择型超启发式：双层自适应信用、原生约束、计费局部搜索与业务破坏修复、HV奖励、JSON/YAML/TOML配置、持久化会话与调度重放；兼容性边界见模块文档。 |
 | `iis` | 不可约不可行子系统诊断。 |
 | `output` | 求解器输出数据结构（可行/不可行）。 |
 | `value` | 值类型转换（IntoValue trait）。 |
