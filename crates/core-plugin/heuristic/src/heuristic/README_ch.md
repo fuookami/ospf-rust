@@ -20,7 +20,7 @@
 
 ```rust
 use ospf_rust_core::model::callback::AbstractCallBackModel;
-use ospf_rust_core::solver::heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::{
     SeededEntropy, Iteration, HeuristicSolver,
     composition::SearchConfig,
     facade::hill_climbing,
@@ -67,7 +67,7 @@ SSA、GSA、FA、CS、BA、MFO、GOA、WarSO、EVO、GCO）。NSGA-II/III 与 me
 
 ```rust
 use std::sync::Arc;
-use ospf_rust_core::solver::heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::{
     RunnerSession, SearchBudget, SearchSlice, SessionCodecs,
     session::{IndividualListCodec, PopulationHooks},
 };
@@ -132,7 +132,8 @@ let mut session = RunnerSession::new(Box::new(hooks), problem, codecs);
 - **无值转换器。** `V: HeuristicValue` 直接提供 `f64` 双向转换。
 - **规范顺序。** 解是 `HashMap<VariableId, V>`，位置语义一律经 `VariableModel::variable_order()`。
 - **串行执行。** 代内个体串行推进，保证结果可复现。
-- **不单独建 crate。** 工作区只有单层，全部代码位于 `crates/core/src/solver/heuristic`。
+- **独立插件 crate。** 框架位于 `ospf-rust-core-plugin-heuristic` 的 `heuristic` 子模块，对应 Kotlin
+  `ospf-kotlin-core-plugin-heuristic`，只依赖 `ospf-rust-core` 的模型类型。
 
 ## 确定性
 

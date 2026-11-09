@@ -20,7 +20,7 @@
 
 ```rust
 use ospf_rust_core::model::callback::AbstractCallBackModel;
-use ospf_rust_core::solver::heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::{
     SeededEntropy, Iteration, HeuristicSolver,
     composition::SearchConfig,
     facade::hill_climbing,
@@ -68,7 +68,7 @@ skeleton — population, trajectory, particle swarm, island, CLPSO, SHADE, and C
 
 ```rust
 use std::sync::Arc;
-use ospf_rust_core::solver::heuristic::{
+use ospf_rust_core_plugin_heuristic::heuristic::{
     RunnerSession, SearchBudget, SearchSlice, SessionCodecs,
     session::{IndividualListCodec, PopulationHooks},
 };
@@ -138,8 +138,8 @@ members as new ones arrive. `RunnerSession::new` defaults to capacity 1 for sing
 - **Canonical order.** Solutions are `HashMap<VariableId, V>`; positional semantics always go through
   `VariableModel::variable_order()`.
 - **Serial execution.** Individuals advance sequentially, keeping results reproducible.
-- **No separate crate.** Everything lives under `crates/core/src/solver/heuristic` because the workspace is
-  single-level.
+- **Plugin crate.** The framework lives in `ospf-rust-core-plugin-heuristic` under `heuristic`, mirroring
+  Kotlin `ospf-kotlin-core-plugin-heuristic`; it depends only on `ospf-rust-core` model types.
 
 ## Determinism
 

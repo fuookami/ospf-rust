@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-迁移基线为 `ospf-kotlin` 的 `2eb7943`。本模块位于 `ospf-rust-core::solver::hyper_heuristic`，依赖已有 `heuristic` 原生骨架，不新增 crate，也不通过反复执行完整 solver 模拟会话。
+迁移基线为 `ospf-kotlin` 的 `2eb7943`。本模块位于 `ospf_rust_core_plugin_heuristic::hyper_heuristic`，依赖同 crate 内已有的 `heuristic` 原生骨架，也不通过反复执行完整 solver 模拟会话。
 
 自适应扩展基线为 `c66cd7f`，保留较新的共享 CMA 与异步重放修复。
 

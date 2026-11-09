@@ -2,7 +2,7 @@
 
 English | [中文](README_ch.md)
 
-Migration baseline: `ospf-kotlin` commit `2eb7943`. This module lives in `ospf-rust-core::solver::hyper_heuristic` and schedules persistent native `heuristic` sessions. It neither adds a crate nor simulates slicing by restarting complete solvers.
+Migration baseline: `ospf-kotlin` commit `2eb7943`. This module lives in `ospf_rust_core_plugin_heuristic::hyper_heuristic` and schedules persistent native `heuristic` sessions. It simulates no slicing by restarting complete solvers.
 
 Adaptive extension baseline: `c66cd7f`, retaining the newer shared CMA and asynchronous replay fixes.
 
