@@ -95,7 +95,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cargo +nightly-2026-08-01 run -p ospf-rust-framework-csp2d --example report_column_generation --features scip-bundled --target x86_64-pc-windows-msvc -- scip
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          cargo +nightly-2026-08-01 test -p ospf-rust-core --features scip-bundled --target x86_64-pc-windows-msvc --lib bounded_dual_rounding
+          cargo +nightly-2026-08-01 test -p ospf-rust-core-plugin-scip --features scip-bundled --target x86_64-pc-windows-msvc --lib bounded_dual_rounding
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cargo +nightly-2026-08-01 test -p ospf-rust-framework-csp1d --features scip-bundled,serde --target x86_64-pc-windows-msvc --lib
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
