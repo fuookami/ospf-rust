@@ -59,7 +59,17 @@ pub use extension::*;
 struct SCIPTelemetryRuntime {
     solver_name: String,
     objective_category: ObjectiveCategory,
-    scip_vars: Vec<Variable>,
+    // 存裸指针而不是 `Variable`：`Variable` 内含 `Rc<ScipPtr>`（强引用），
+    // 而 runtime 会被放进事件处理器、由 SCIP 实例自己持有——
+    // 「实例 → 处理器 → runtime → Variable → Rc<ScipPtr> → 同一实例」构成引用环，
+    // Rc 永不归零、`ScipPtr::drop` 不跑、`SCIPfree` 不被调用，整个实例（约 2.6 MiB）泄漏。
+    // 这就是 RG-029。裸指针不增加引用计数，环被断开。
+    // Store raw pointers instead of `Variable`: `Variable` holds a strong `Rc<ScipPtr>`,
+    // and this runtime lives inside an event handler owned by the SCIP instance itself.
+    // That forms a cycle (instance -> handler -> runtime -> Variable -> Rc<ScipPtr> -> the same
+    // instance), so the Rc never reaches zero, `ScipPtr::drop` never runs, `SCIPfree` is never
+    // called and the whole instance leaks (~2.6 MiB). This is RG-029; raw pointers break the cycle.
+    scip_vars: Vec<*mut russcip::ffi::SCIP_VAR>,
     no_improvement_time_limit: Option<f64>,
     interruptible_time: Option<f64>,
     interruptible_gap: Option<f64>,
@@ -157,12 +167,16 @@ impl SCIPTelemetryEventHandler {
             || !self.runtime.snapshot_observers.is_empty()
             || self.runtime.native_callback.is_some()
             || !self.runtime.native_observers.is_empty();
-        let incumbent_solution = best_solution.as_ref().filter(|_| needs_values).map(|solution| {
+        let incumbent_solution = best_solution.as_ref().filter(|_| needs_values).map(|_| {
+            let scip_ptr = model.scip_ptr();
+            let solution_ptr = unsafe { russcip::ffi::SCIPgetBestSol(scip_ptr) };
             self.runtime
                 .scip_vars
                 .iter()
-                .map(|var| solution.val(var))
-                .collect()
+                .map(|&variable| unsafe {
+                    russcip::ffi::SCIPgetSolVal(scip_ptr, solution_ptr, variable)
+                })
+                .collect::<Vec<f64>>()
         });
         let best_bound = {
             let bound = model.best_bound();
@@ -557,7 +571,7 @@ impl SCIPSolver {
         SCIPTelemetryRuntime {
             solver_name: self.name().to_owned(),
             objective_category,
-            scip_vars: scip_vars.to_vec(),
+            scip_vars: scip_vars.iter().map(Variable::inner).collect(),
             no_improvement_time_limit: self.config.no_improvement_time_limit,
             interruptible_time: self.config.interruptible_time,
             interruptible_gap: self.config.interruptible_gap,
