@@ -18,9 +18,11 @@ point3_system!(
     ThomasCyclicallySymmetricAttractorGenerator,
     [b, h],
     |system, state| {
-        let dx = state.x().sin() - system.b * state.x();
-        let dy = state.y().sin() - system.b * state.y();
-        let dz = state.z().sin() - system.b * state.z();
+        // B311：回到标准 Thomas 循环式；原实现是对角式。
+        // B311: back to the standard cyclic Thomas form; the previous form was diagonal.
+        let dx = state.y().sin() - system.b * state.x();
+        let dy = state.z().sin() - system.b * state.y();
+        let dz = state.x().sin() - system.b * state.z();
         Point3::new(
             state.x() + system.h * dx,
             state.y() + system.h * dy,

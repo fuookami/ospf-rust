@@ -16,8 +16,10 @@ point3_system!(
     [alpha, h],
     |system, state| {
         let dx = state.y() - state.x();
-        let dy = -state.z() * state.x().tan();
-        let dz = -system.alpha + state.x() * state.y() + state.x().abs();
+        // B311：回到标准 Wimol-Banlue 式 —— `tanh(x)`（不是 `tan`）、`|y|`（不是 `|x|`）。
+        // B311: back to the standard Wimol-Banlue form — tanh(x) (not tan), |y| (not |x|).
+        let dy = -state.z() * state.x().tanh();
+        let dz = -system.alpha + state.x() * state.y() + state.y().abs();
         Point3::new(
             state.x() + system.h * dx,
             state.y() + system.h * dy,
@@ -61,13 +63,15 @@ pub fn wimol_banlue_attractor_generator<S: Field + Float>(
 mod tests {
     use super::*;
 
+    /// 标准式校验：`dx=y−x`、`dy=−z·tanh(x)`、`dz=−α+xy+|y|`（B311 统一后）。
+    /// Standard-form check after the B311 unification.
     #[test]
     fn wimol_banlue_step_formula() {
         let system = WimolBanlueAttractor::<f64>::default();
         let next = system.step(Point3::new(1.0, 1.0, 1.0));
         let dx = 1.0 - 1.0;
-        let dy = -1.0_f64.tan();
-        let dz = -2.0 + 1.0 + 1.0;
+        let dy = -1.0_f64.tanh();
+        let dz = -2.0 + 1.0 + 1.0_f64.abs();
         assert!((next.x() - (1.0 + 0.01 * dx)).abs() < 1e-12);
         assert!((next.y() - (1.0 + 0.01 * dy)).abs() < 1e-12);
         assert!((next.z() - (1.0 + 0.01 * dz)).abs() < 1e-12);

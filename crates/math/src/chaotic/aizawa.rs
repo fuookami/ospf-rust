@@ -16,17 +16,20 @@ point3_system!(
     [alpha, beta, gamma, delta, epsilon, zeta, h],
     |system, state| {
         let three = S::one() + S::one() + S::one();
+        // B311：回到标准 Aizawa 式（`dx` 用 `d·y`、`dz` 的线性项用 `a·z`，输出 `(dx, dy, dz)`）。
+        // 原实现 `dx` 减的是完整 `dy`、`dz` 用 `a·x`、并把 `dz`/`dy` 置换到第二/三分量。
+        // B311: back to the standard Aizawa form (dx uses d*y, dz's linear term uses a*z).
+        let dx = (state.z() - system.beta) * state.x() - system.delta * state.y();
         let dy = system.delta * state.x() + (state.z() - system.beta) * state.y();
-        let dx = (state.z() - system.beta) * state.x() - dy;
-        let dz = system.gamma + system.alpha * state.x()
+        let dz = system.gamma + system.alpha * state.z()
             - state.z().powi(3) / three
             - (state.x() * state.x() + state.y() * state.y())
                 * (S::one() + system.epsilon * state.z())
             + system.zeta * state.z() * state.x().powi(3);
         Point3::new(
             state.x() + system.h * dx,
-            state.y() + system.h * dz,
-            state.z() + system.h * dy,
+            state.y() + system.h * dy,
+            state.z() + system.h * dz,
         )
     }
 );
@@ -100,11 +103,14 @@ mod tests {
         assert_close(actual.z(), expected.z());
     }
 
+    /// 标准式校验（B311 统一后）：`dx=(z−b)x−d·y`、`dy=d·x+(z−b)y`、
+    /// `dz=c+az−z³/3−(x²+y²)(1+ez)+fzx³`，输出顺序 `(dx, dy, dz)`。
+    /// Standard-form check after the B311 unification; outputs in (dx, dy, dz) order.
     #[test]
-    fn aizawa_attractor_matches_kotlin_formula() {
+    fn aizawa_attractor_matches_standard_formula() {
         assert_point3_close(
             AizawaAttractor::default().step(Point3::new(1.0, 1.0, 1.0)),
-            Point3::new(0.965, 0.9881666666666666, 1.038),
+            Point3::new(0.968, 1.038, 0.9881666666666666),
         );
     }
 

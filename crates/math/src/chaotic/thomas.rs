@@ -15,9 +15,11 @@ point3_system!(
     ThomasAttractorGenerator,
     [beta, h],
     |system, state| {
-        let dx = state.x().sin() - system.beta * state.x();
-        let dy = state.y().sin() - system.beta * state.y();
-        let dz = state.z().sin() - system.beta * state.z();
+        // B311：回到标准 Thomas 循环式（`sin(y)`、`sin(z)`、`sin(x)`）；原实现是对角式。
+        // B311: back to the standard cyclic Thomas form; the previous form was diagonal.
+        let dx = state.y().sin() - system.beta * state.x();
+        let dy = state.z().sin() - system.beta * state.y();
+        let dz = state.x().sin() - system.beta * state.z();
         Point3::new(
             state.x() + system.h * dx,
             state.y() + system.h * dy,
